@@ -1,6 +1,81 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
+const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
+
+const exerciseLibrary = {
+  Chest: [
+    "Barbell Bench Press",
+    "DB Flat Press",
+    "Incline DB Press",
+    "Machine Chest Press",
+    "Cable Fly",
+    "Pec Deck",
+    "Push Up",
+    "Decline DB Press"
+  ],
+  Back: [
+    "Lat Pulldown",
+    "Seated Row",
+    "One Arm DB Row",
+    "Barbell Row",
+    "Chest Supported Row",
+    "Straight Arm Pulldown",
+    "Assisted Pull Up",
+    "Cable Pullover"
+  ],
+  Legs: [
+    "Back Squat",
+    "Romanian Deadlift",
+    "Leg Press",
+    "Leg Extension",
+    "Seated Leg Curl",
+    "Walking Lunge",
+    "Bulgarian Split Squat",
+    "Hip Thrust"
+  ],
+  Shoulders: [
+    "DB Shoulder Press",
+    "Machine Shoulder Press",
+    "DB Lateral Raise",
+    "Cable Lateral Raise",
+    "Rear Delt Fly",
+    "Arnold Press",
+    "BB Overhead Press",
+    "Face Pull"
+  ],
+  Biceps: [
+    "DB Curl",
+    "EZ Bar Curl",
+    "Cable Curl",
+    "Hammer Curl",
+    "Preacher Curl",
+    "Incline DB Curl",
+    "Machine Curl",
+    "Rope Curl"
+  ],
+  Triceps: [
+    "Rope Pushdown",
+    "Overhead Cable Extension",
+    "Skull Crusher",
+    "Close Grip Bench Press",
+    "Assisted Dip",
+    "Single Arm Pushdown",
+    "Triceps Extension Machine",
+    "Bench Dip"
+  ],
+  Core: [
+    "Plank",
+    "Dead Bug",
+    "Cable Crunch",
+    "Hanging Knee Raise",
+    "Ab Wheel",
+    "Russian Twist",
+    "Pallof Press",
+    "Side Plank"
+  ]
+};
+
 const emptyExercise = {
   exercise_name: "",
   muscle_group: "Chest",
@@ -9,7 +84,9 @@ const emptyExercise = {
   rep_max: 12,
   start_kg: "",
   rest_seconds: 90,
-  tip: ""
+  tip: "",
+  search: "",
+  suggestionOffset: 0
 };
 
 const demoWorkouts = [
@@ -19,22 +96,60 @@ const demoWorkouts = [
     notes: "Foundation example workout.",
     workout_type: "strength",
     workout_template_exercises: [
-      { id: "demo-1", position: 1, exercise_name: "DB Flat Press", sets: 4, rep_min: 8, rep_max: 12 },
-      { id: "demo-2", position: 2, exercise_name: "Cable Fly", sets: 3, rep_min: 10, rep_max: 15 }
+      { id: "demo-1", position: 1, exercise_name: "DB Flat Press", muscle_group: "Chest", sets: 4, rep_min: 8, rep_max: 12, start_kg: 20 },
+      { id: "demo-2", position: 2, exercise_name: "Cable Fly", muscle_group: "Chest", sets: 3, rep_min: 10, rep_max: 15, start_kg: 12.5 }
     ]
   }
 ];
+
+function createMuscleTargets() {
+  return Object.fromEntries(muscleGroups.map((muscle) => [muscle, 0]));
+}
+
+function createExerciseForMuscle(muscle, index) {
+  const options = exerciseLibrary[muscle] || [];
+  return {
+    ...emptyExercise,
+    muscle_group: muscle,
+    exercise_name: options[index % options.length] || "",
+    suggestionOffset: index
+  };
+}
+
+function getSuggestions(exercise) {
+  const options = exerciseLibrary[exercise.muscle_group] || [];
+  if (options.length <= 3) return options;
+
+  return [0, 1, 2].map((step) => options[(exercise.suggestionOffset + step) % options.length]);
+}
+
+function createSessionRows(exercise) {
+  const setCount = Number(exercise.sets) || 1;
+  return Array.from({ length: setCount }, (_, index) => ({
+    setNumber: index + 1,
+    kg: exercise.start_kg ?? "",
+    reps: exercise.rep_min ?? "",
+    done: false
+  }));
+}
 
 export function WorkoutLibraryScreen({ user }) {
   const [workouts, setWorkouts] = useState([]);
   const [mode, setMode] = useState("list");
   const [editingId, setEditingId] = useState(null);
+  const [setup, setSetup] = useState({
+    name: "",
+    notes: "",
+    workout_type: "strength",
+    muscleTargets: { ...createMuscleTargets(), Chest: 2 }
+  });
   const [form, setForm] = useState({
     name: "",
     notes: "",
     workout_type: "strength",
-    exercises: [{ ...emptyExercise }]
+    exercises: []
   });
+  const [activeWorkout, setActiveWorkout] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -42,6 +157,15 @@ export function WorkoutLibraryScreen({ user }) {
   const editingWorkout = useMemo(
     () => workouts.find((workout) => workout.id === editingId),
     [editingId, workouts]
+  );
+
+  const totalTargetExercises = useMemo(
+    () =>
+      Object.values(setup.muscleTargets).reduce(
+        (sum, value) => sum + (Number(value) || 0),
+        0
+      ),
+    [setup.muscleTargets]
   );
 
   useEffect(() => {
@@ -78,11 +202,39 @@ export function WorkoutLibraryScreen({ user }) {
 
   function startNewWorkout() {
     setEditingId(null);
-    setForm({
+    setSetup({
       name: "",
       notes: "",
       workout_type: "strength",
-      exercises: [{ ...emptyExercise }]
+      muscleTargets: { ...createMuscleTargets(), Chest: 2 }
+    });
+    setMessage("");
+    setMode("setup");
+  }
+
+  function buildExercisesFromSetup() {
+    if (!setup.name.trim()) {
+      setMessage("Give this workout a name first.");
+      return;
+    }
+
+    if (totalTargetExercises < 1) {
+      setMessage("Choose at least one exercise.");
+      return;
+    }
+
+    const exercises = [];
+    Object.entries(setup.muscleTargets).forEach(([muscle, count]) => {
+      for (let index = 0; index < Number(count || 0); index += 1) {
+        exercises.push(createExerciseForMuscle(muscle, index));
+      }
+    });
+
+    setForm({
+      name: setup.name,
+      notes: setup.notes,
+      workout_type: setup.workout_type,
+      exercises
     });
     setMessage("");
     setMode("editor");
@@ -103,11 +255,23 @@ export function WorkoutLibraryScreen({ user }) {
         rep_max: exercise.rep_max || 12,
         start_kg: exercise.start_kg ?? "",
         rest_seconds: exercise.rest_seconds || 90,
-        tip: exercise.tip || ""
+        tip: exercise.tip || "",
+        search: "",
+        suggestionOffset: 0
       }))
     });
     setMessage("");
     setMode("editor");
+  }
+
+  function updateMuscleTarget(muscle, change) {
+    setSetup((current) => ({
+      ...current,
+      muscleTargets: {
+        ...current.muscleTargets,
+        [muscle]: Math.max(0, Math.min(12, (Number(current.muscleTargets[muscle]) || 0) + change))
+      }
+    }));
   }
 
   function updateExercise(index, field, value) {
@@ -119,10 +283,35 @@ export function WorkoutLibraryScreen({ user }) {
     }));
   }
 
+  function selectExercise(index, exerciseName) {
+    updateExercise(index, "exercise_name", exerciseName);
+    setMessage("");
+  }
+
+  function refreshSuggestions(index) {
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise, exerciseIndex) =>
+        exerciseIndex === index
+          ? { ...exercise, suggestionOffset: exercise.suggestionOffset + 3 }
+          : exercise
+      )
+    }));
+    setMessage("Exercise options refreshed.");
+  }
+
+  function showDemo(exerciseName) {
+    setMessage(
+      exerciseName
+        ? `Demo videos for ${exerciseName} will open here once video links are added.`
+        : "Choose an exercise first, then Demo will show its video."
+    );
+  }
+
   function addExercise() {
     setForm((current) => ({
       ...current,
-      exercises: [...current.exercises, { ...emptyExercise }]
+      exercises: [...current.exercises, createExerciseForMuscle("Chest", current.exercises.length)]
     }));
   }
 
@@ -267,19 +456,254 @@ export function WorkoutLibraryScreen({ user }) {
     }
   }
 
+  function startSession(workout) {
+    setActiveWorkout({
+      ...workout,
+      workout_template_exercises: (workout.workout_template_exercises || []).map((exercise) => ({
+        ...exercise,
+        sessionRows: createSessionRows(exercise)
+      }))
+    });
+    setMode("session");
+  }
+
+  function updateSessionRow(exerciseIndex, rowIndex, field, value) {
+    setActiveWorkout((current) => ({
+      ...current,
+      workout_template_exercises: current.workout_template_exercises.map((exercise, currentExerciseIndex) =>
+        currentExerciseIndex === exerciseIndex
+          ? {
+              ...exercise,
+              sessionRows: exercise.sessionRows.map((row, currentRowIndex) =>
+                currentRowIndex === rowIndex ? { ...row, [field]: value } : row
+              )
+            }
+          : exercise
+      )
+    }));
+  }
+
+  function addSessionSet(exerciseIndex) {
+    setActiveWorkout((current) => ({
+      ...current,
+      workout_template_exercises: current.workout_template_exercises.map((exercise, currentExerciseIndex) =>
+        currentExerciseIndex === exerciseIndex
+          ? {
+              ...exercise,
+              sessionRows: [
+                ...exercise.sessionRows,
+                {
+                  setNumber: exercise.sessionRows.length + 1,
+                  kg: exercise.start_kg ?? "",
+                  reps: exercise.rep_min ?? "",
+                  done: false
+                }
+              ]
+            }
+          : exercise
+      )
+    }));
+  }
+
+  function removeSessionSet(exerciseIndex, rowIndex) {
+    setActiveWorkout((current) => ({
+      ...current,
+      workout_template_exercises: current.workout_template_exercises.map((exercise, currentExerciseIndex) => {
+        if (currentExerciseIndex !== exerciseIndex || exercise.sessionRows.length === 1) return exercise;
+
+        return {
+          ...exercise,
+          sessionRows: exercise.sessionRows
+            .filter((_, currentRowIndex) => currentRowIndex !== rowIndex)
+            .map((row, index) => ({ ...row, setNumber: index + 1 }))
+        };
+      })
+    }));
+  }
+
+  if (mode === "session" && activeWorkout) {
+    return (
+      <section className="screen-stack workout-library">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">Active session</p>
+            <h1>{activeWorkout.name}</h1>
+            <p>Add or remove sets as the real workout changes.</p>
+          </div>
+          <button className="primary-action" onClick={() => setMode("list")} type="button">
+            End
+          </button>
+        </div>
+
+        <div className="workout-card-list">
+          {activeWorkout.workout_template_exercises.map((exercise, exerciseIndex) => (
+            <article className="workout-card active-exercise-card" key={exercise.id || exerciseIndex}>
+              <div className="workout-card-head">
+                <div>
+                  <p className="eyebrow">{exercise.muscle_group || "Strength"}</p>
+                  <h2>{exercise.exercise_name}</h2>
+                  <p>
+                    Target: {exercise.sets || 0} sets
+                    {exercise.rep_min || exercise.rep_max
+                      ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
+                      : ""}
+                  </p>
+                </div>
+                <button
+                  className="primary-action compact"
+                  onClick={() => showDemo(exercise.exercise_name)}
+                  type="button"
+                >
+                  Demo
+                </button>
+              </div>
+
+              <div className="session-set-table">
+                <div className="session-set-row session-set-head">
+                  <span>Set</span>
+                  <span>Kg</span>
+                  <span>Reps</span>
+                  <span>Done</span>
+                  <span>Remove</span>
+                </div>
+                {exercise.sessionRows.map((row, rowIndex) => (
+                  <div className="session-set-row" key={`${exerciseIndex}-${row.setNumber}`}>
+                    <strong>{row.setNumber}</strong>
+                    <input
+                      min="0"
+                      onChange={(event) =>
+                        updateSessionRow(exerciseIndex, rowIndex, "kg", event.target.value)
+                      }
+                      step="0.25"
+                      type="number"
+                      value={row.kg}
+                    />
+                    <input
+                      min="0"
+                      onChange={(event) =>
+                        updateSessionRow(exerciseIndex, rowIndex, "reps", event.target.value)
+                      }
+                      type="number"
+                      value={row.reps}
+                    />
+                    <button
+                      className={row.done ? "set-toggle done" : "set-toggle"}
+                      onClick={() => updateSessionRow(exerciseIndex, rowIndex, "done", !row.done)}
+                      type="button"
+                    >
+                      Check
+                    </button>
+                    <button
+                      className="danger-link"
+                      onClick={() => removeSessionSet(exerciseIndex, rowIndex)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                className="primary-action compact"
+                onClick={() => addSessionSet(exerciseIndex)}
+                type="button"
+              >
+                Add Set
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (mode === "setup") {
+    return (
+      <section className="screen-stack workout-library">
+        <div className="screen-heading">
+          <p className="eyebrow">Workout library</p>
+          <h1>Build workout</h1>
+          <p>Choose the muscle groups first, then pick exercises from quick options.</p>
+        </div>
+
+        <div className="workout-editor panel">
+          <div className="library-toolbar">
+            <button className="primary-action" onClick={() => setMode("list")} type="button">
+              Close
+            </button>
+            <button className="primary-action filled" onClick={buildExercisesFromSetup} type="button">
+              Continue
+            </button>
+          </div>
+
+          {message ? <p className="form-message error">{message}</p> : null}
+
+          <label>
+            Workout name
+            <input
+              onChange={(event) => setSetup((current) => ({ ...current, name: event.target.value }))}
+              placeholder="e.g. Push Day, Chest + Triceps"
+              value={setup.name}
+            />
+          </label>
+
+          <label>
+            Notes
+            <textarea
+              onChange={(event) => setSetup((current) => ({ ...current, notes: event.target.value }))}
+              placeholder="Workout notes, focus points, rest guidance, or coaching cues..."
+              value={setup.notes}
+            />
+          </label>
+
+          <div className="muscle-picker">
+            <div className="section-row">
+              <h2>Muscle groups</h2>
+              <span className="status-pill">{totalTargetExercises} total</span>
+            </div>
+            <div className="muscle-target-grid">
+              {muscleGroups.map((muscle) => {
+                const count = Number(setup.muscleTargets[muscle]) || 0;
+                return (
+                  <div className={count > 0 ? "muscle-target active" : "muscle-target"} key={muscle}>
+                    <strong>{muscle}</strong>
+                    <div>
+                      <button onClick={() => updateMuscleTarget(muscle, -1)} type="button">
+                        -
+                      </button>
+                      <span>{count}</span>
+                      <button onClick={() => updateMuscleTarget(muscle, 1)} type="button">
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (mode === "editor") {
     return (
       <section className="screen-stack workout-library">
         <div className="screen-heading">
           <p className="eyebrow">Workout library</p>
-          <h1>{editingWorkout ? "Edit workout" : "Build workout"}</h1>
-          <p>Create strength templates first. Home, HIIT and running come after this base is solid.</p>
+          <h1>{editingWorkout ? "Edit workout" : "Choose exercises"}</h1>
+          <p>Use the quick options, refresh them, search, or type a requested exercise name.</p>
         </div>
 
         <form className="workout-editor panel" onSubmit={saveWorkout}>
           <div className="library-toolbar">
-            <button className="primary-action" onClick={() => setMode("list")} type="button">
-              Close
+            <button
+              className="primary-action"
+              onClick={() => (editingId ? setMode("list") : setMode("setup"))}
+              type="button"
+            >
+              Back
             </button>
             <button className="primary-action filled" disabled={saving} type="submit">
               {saving ? "Saving..." : "Save Workout"}
@@ -314,103 +738,174 @@ export function WorkoutLibraryScreen({ user }) {
               </button>
             </div>
 
-            {form.exercises.map((exercise, index) => (
-              <div className="exercise-editor" key={`${index}-${exercise.id || "new"}`}>
-                <div className="exercise-editor-head">
-                  <strong>Exercise {index + 1}</strong>
-                  <button
-                    className="danger-link"
-                    onClick={() => removeExercise(index)}
-                    type="button"
-                  >
-                    Remove
-                  </button>
-                </div>
+            {form.exercises.map((exercise, index) => {
+              const searchResults = exercise.search
+                ? Object.values(exerciseLibrary)
+                    .flat()
+                    .filter((name) => name.toLowerCase().includes(exercise.search.toLowerCase()))
+                    .slice(0, 5)
+                : [];
 
-                <label>
-                  Exercise name
-                  <input
-                    onChange={(event) => updateExercise(index, "exercise_name", event.target.value)}
-                    placeholder="e.g. Barbell Bench Press"
-                    value={exercise.exercise_name}
-                  />
-                </label>
+              return (
+                <div className="exercise-editor" key={`${index}-${exercise.id || "new"}`}>
+                  <div className="exercise-editor-head">
+                    <strong>Exercise {index + 1}</strong>
+                    <div className="mini-actions">
+                      <button
+                        className="primary-action compact"
+                        onClick={() => showDemo(exercise.exercise_name)}
+                        type="button"
+                      >
+                        Demo
+                      </button>
+                      <button
+                        className="primary-action compact"
+                        onClick={() => refreshSuggestions(index)}
+                        type="button"
+                      >
+                        Refresh
+                      </button>
+                      <button
+                        className="danger-link"
+                        onClick={() => removeExercise(index)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
 
-                <div className="form-grid four">
+                  <p className="muscle-label">{exercise.muscle_group}</p>
+                  <div className="suggestion-list">
+                    {getSuggestions(exercise).map((suggestion) => (
+                      <button
+                        className={exercise.exercise_name === suggestion ? "suggestion active" : "suggestion"}
+                        key={suggestion}
+                        onClick={() => selectExercise(index, suggestion)}
+                        type="button"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+
                   <label>
-                    Muscle
-                    <select
-                      onChange={(event) => updateExercise(index, "muscle_group", event.target.value)}
-                      value={exercise.muscle_group}
+                    Search or type exercise
+                    <input
+                      onChange={(event) => updateExercise(index, "search", event.target.value)}
+                      placeholder={`Search ${exercise.muscle_group} exercises...`}
+                      value={exercise.search}
+                    />
+                  </label>
+
+                  {searchResults.length > 0 ? (
+                    <div className="search-results">
+                      {searchResults.map((result) => (
+                        <button
+                          key={result}
+                          onClick={() => {
+                            selectExercise(index, result);
+                            updateExercise(index, "search", "");
+                          }}
+                          type="button"
+                        >
+                          {result}
+                        </button>
+                      ))}
+                    </div>
+                  ) : exercise.search ? (
+                    <button
+                      className="primary-action compact"
+                      onClick={() => selectExercise(index, exercise.search)}
+                      type="button"
                     >
-                      {["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"].map(
-                        (muscle) => (
+                      Use "{exercise.search}"
+                    </button>
+                  ) : null}
+
+                  <label>
+                    Selected exercise
+                    <input
+                      onChange={(event) => updateExercise(index, "exercise_name", event.target.value)}
+                      placeholder="Choose, search, or type an exercise"
+                      value={exercise.exercise_name}
+                    />
+                  </label>
+
+                  <div className="form-grid four">
+                    <label>
+                      Muscle
+                      <select
+                        onChange={(event) => updateExercise(index, "muscle_group", event.target.value)}
+                        value={exercise.muscle_group}
+                      >
+                        {muscleGroups.map((muscle) => (
                           <option key={muscle}>{muscle}</option>
-                        )
-                      )}
-                    </select>
-                  </label>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Sets
+                      <input
+                        min="1"
+                        onChange={(event) => updateExercise(index, "sets", event.target.value)}
+                        type="number"
+                        value={exercise.sets}
+                      />
+                    </label>
+                    <label>
+                      Rep min
+                      <input
+                        min="0"
+                        onChange={(event) => updateExercise(index, "rep_min", event.target.value)}
+                        type="number"
+                        value={exercise.rep_min}
+                      />
+                    </label>
+                    <label>
+                      Rep max
+                      <input
+                        min="0"
+                        onChange={(event) => updateExercise(index, "rep_max", event.target.value)}
+                        type="number"
+                        value={exercise.rep_max}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="form-grid two">
+                    <label>
+                      Starting kg
+                      <input
+                        min="0"
+                        onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
+                        step="0.25"
+                        type="number"
+                        value={exercise.start_kg}
+                      />
+                    </label>
+                    <label>
+                      Rest seconds
+                      <input
+                        min="0"
+                        onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
+                        type="number"
+                        value={exercise.rest_seconds}
+                      />
+                    </label>
+                  </div>
+
                   <label>
-                    Sets
+                    Tip
                     <input
-                      min="1"
-                      onChange={(event) => updateExercise(index, "sets", event.target.value)}
-                      type="number"
-                      value={exercise.sets}
-                    />
-                  </label>
-                  <label>
-                    Rep min
-                    <input
-                      min="0"
-                      onChange={(event) => updateExercise(index, "rep_min", event.target.value)}
-                      type="number"
-                      value={exercise.rep_min}
-                    />
-                  </label>
-                  <label>
-                    Rep max
-                    <input
-                      min="0"
-                      onChange={(event) => updateExercise(index, "rep_max", event.target.value)}
-                      type="number"
-                      value={exercise.rep_max}
+                      onChange={(event) => updateExercise(index, "tip", event.target.value)}
+                      placeholder="Optional cue"
+                      value={exercise.tip}
                     />
                   </label>
                 </div>
-
-                <div className="form-grid two">
-                  <label>
-                    Starting kg
-                    <input
-                      min="0"
-                      onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
-                      step="0.25"
-                      type="number"
-                      value={exercise.start_kg}
-                    />
-                  </label>
-                  <label>
-                    Rest seconds
-                    <input
-                      min="0"
-                      onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
-                      type="number"
-                      value={exercise.rest_seconds}
-                    />
-                  </label>
-                </div>
-
-                <label>
-                  Tip
-                  <input
-                    onChange={(event) => updateExercise(index, "tip", event.target.value)}
-                    placeholder="Optional cue"
-                    value={exercise.tip}
-                  />
-                </label>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </form>
       </section>
@@ -480,7 +975,7 @@ export function WorkoutLibraryScreen({ user }) {
                 </div>
 
                 <div className="library-actions">
-                  <button className="primary-action filled" type="button">
+                  <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
                     Start
                   </button>
                   <button className="primary-action" onClick={() => startEditWorkout(workout)} type="button">
