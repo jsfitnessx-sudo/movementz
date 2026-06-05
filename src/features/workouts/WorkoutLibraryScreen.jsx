@@ -146,6 +146,29 @@ function getPreviousSetChips(exercise) {
   ];
 }
 
+function calculateSessionSummary(workout) {
+  const exercises = workout?.workout_template_exercises || [];
+  const completedSets = exercises.reduce(
+    (sum, exercise) => sum + (exercise.sessionRows || []).filter((row) => row.done).length,
+    0
+  );
+  const totalVolumeKg = exercises.reduce(
+    (sum, exercise) =>
+      sum +
+      (exercise.sessionRows || []).reduce((setSum, row) => {
+        if (!row.done) return setSum;
+        return setSum + (Number(row.kg) || 0) * (Number(row.reps) || 0);
+      }, 0),
+    0
+  );
+
+  return {
+    totalExercises: exercises.length,
+    completedSets,
+    totalVolumeKg
+  };
+}
+
 function createDefaultSetup() {
   return {
     name: "",
@@ -170,6 +193,8 @@ export function WorkoutLibraryScreen({ user }) {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [activeNumberInput, setActiveNumberInput] = useState(null);
   const [openSessionMenu, setOpenSessionMenu] = useState(null);
+  const [completedSession, setCompletedSession] = useState(null);
+  const [sessionFeedback, setSessionFeedback] = useState({ rating: 0, comment: "" });
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
@@ -534,11 +559,15 @@ export function WorkoutLibraryScreen({ user }) {
   function startSession(workout) {
     setActiveWorkout({
       ...workout,
+      startedAt: new Date().toISOString(),
       workout_template_exercises: (workout.workout_template_exercises || []).map((exercise) => ({
         ...exercise,
+        original_exercise_name: exercise.exercise_name,
         sessionRows: createSessionRows(exercise)
       }))
     });
+    setCompletedSession(null);
+    setSessionFeedback({ rating: 0, comment: "" });
     setMode("session");
   }
 
@@ -703,6 +732,142 @@ export function WorkoutLibraryScreen({ user }) {
     setMessage("Exercise skipped for this session.");
   }
 
+  async function finishActiveSession() {
+    if (!activeWorkout) return;
+
+    setSaving(true);
+    setMessage("");
+    setActiveNumberInput(null);
+
+    const completedAt = new Date().toISOString();
+    const startedAt = activeWorkout.startedAt || completedAt;
+    const durationSeconds = Math.max(
+      0,
+      Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+    );
+    const summary = calculateSessionSummary(activeWorkout);
+
+    if (!supabase || user.id === "demo-user") {
+      setCompletedSession({
+        id: `demo-session-${Date.now()}`,
+        name: activeWorkout.name,
+        startedAt,
+        completedAt,
+        durationSeconds,
+        ...summary
+      });
+      setSaving(false);
+      setMode("complete");
+      return;
+    }
+
+    const { data: sessionLog, error: sessionError } = await supabase
+      .from("session_logs")
+      .insert({
+        owner_id: user.id,
+        workout_template_id: activeWorkout.id || null,
+        name: activeWorkout.name,
+        notes: activeWorkout.notes || null,
+        workout_type: activeWorkout.workout_type || "strength",
+        status: "completed",
+        started_at: startedAt,
+        completed_at: completedAt,
+        duration_seconds: durationSeconds,
+        total_exercises: summary.totalExercises,
+        completed_sets: summary.completedSets,
+        total_volume_kg: summary.totalVolumeKg
+      })
+      .select("id")
+      .single();
+
+    if (sessionError) {
+      setMessage(`${sessionError.message}. Run supabase/phase-3-session-logging.sql in Supabase first.`);
+      setSaving(false);
+      return;
+    }
+
+    for (const [exerciseIndex, exercise] of activeWorkout.workout_template_exercises.entries()) {
+      const { data: sessionExercise, error: exerciseError } = await supabase
+        .from("session_log_exercises")
+        .insert({
+          session_id: sessionLog.id,
+          workout_template_exercise_id: exercise.id || null,
+          position: exerciseIndex + 1,
+          exercise_name: exercise.exercise_name,
+          original_exercise_name: exercise.original_exercise_name || exercise.exercise_name,
+          muscle_group: exercise.muscle_group || null,
+          target_sets: exercise.sets || null,
+          target_rep_min: exercise.rep_min || null,
+          target_rep_max: exercise.rep_max || null,
+          skipped: Boolean(exercise.skipped),
+          substituted: Boolean(exercise.original_exercise_name && exercise.original_exercise_name !== exercise.exercise_name)
+        })
+        .select("id")
+        .single();
+
+      if (exerciseError) {
+        setMessage(exerciseError.message);
+        setSaving(false);
+        return;
+      }
+
+      const sessionSets = (exercise.sessionRows || []).map((row) => ({
+        session_exercise_id: sessionExercise.id,
+        set_number: row.setNumber,
+        kg: row.kg === "" ? null : Number(row.kg),
+        reps: row.reps === "" ? null : Number(row.reps),
+        completed: Boolean(row.done)
+      }));
+
+      if (sessionSets.length) {
+        const { error: setError } = await supabase.from("session_log_sets").insert(sessionSets);
+        if (setError) {
+          setMessage(setError.message);
+          setSaving(false);
+          return;
+        }
+      }
+    }
+
+    setCompletedSession({
+      id: sessionLog.id,
+      name: activeWorkout.name,
+      startedAt,
+      completedAt,
+      durationSeconds,
+      ...summary
+    });
+    setSaving(false);
+    setMode("complete");
+  }
+
+  async function saveSessionFeedback() {
+    if (!completedSession) return;
+
+    if (supabase && user.id !== "demo-user") {
+      setSaving(true);
+      const { error } = await supabase
+        .from("session_logs")
+        .update({
+          rating: sessionFeedback.rating || null,
+          comment: sessionFeedback.comment.trim() || null
+        })
+        .eq("id", completedSession.id);
+
+      if (error) {
+        setMessage(error.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    setSaving(false);
+    setCompletedSession(null);
+    setActiveWorkout(null);
+    setSessionFeedback({ rating: 0, comment: "" });
+    setMode("list");
+  }
+
   if (mode === "session" && activeWorkout) {
     return (
       <section className="screen-stack workout-library">
@@ -860,8 +1025,8 @@ export function WorkoutLibraryScreen({ user }) {
         </div>
 
         <div className="session-end-actions">
-          <button className="primary-action" onClick={() => setMode("list")} type="button">
-            End Workout
+          <button className="primary-action" disabled={saving} onClick={finishActiveSession} type="button">
+            {saving ? "Saving..." : "Finish Workout"}
           </button>
         </div>
 
@@ -885,6 +1050,75 @@ export function WorkoutLibraryScreen({ user }) {
             </button>
           </div>
         ) : null}
+      </section>
+    );
+  }
+
+  if (mode === "complete" && completedSession) {
+    const minutes = Math.floor(completedSession.durationSeconds / 60);
+    const seconds = completedSession.durationSeconds % 60;
+
+    return (
+      <section className="screen-stack workout-library">
+        <div className="screen-heading">
+          <p className="eyebrow">Workout complete</p>
+          <h1>{completedSession.name}</h1>
+          <p>Review the session, rate it, and save your notes.</p>
+        </div>
+
+        {message ? <p className="form-message error">{message}</p> : null}
+
+        <div className="workout-card completion-card">
+          <div className="completion-summary">
+            <div>
+              <span>Duration</span>
+              <strong>{minutes ? `${minutes}m ${seconds}s` : `${seconds}s`}</strong>
+            </div>
+            <div>
+              <span>Exercises</span>
+              <strong>{completedSession.totalExercises}</strong>
+            </div>
+            <div>
+              <span>Sets done</span>
+              <strong>{completedSession.completedSets}</strong>
+            </div>
+            <div>
+              <span>Volume</span>
+              <strong>{Math.round(completedSession.totalVolumeKg).toLocaleString()}kg</strong>
+            </div>
+          </div>
+
+          <div className="session-rating">
+            <h2>Rate this session</h2>
+            <div>
+              {[1, 2, 3, 4, 5].map((rating) => (
+                <button
+                  className={sessionFeedback.rating >= rating ? "star-button active" : "star-button"}
+                  key={rating}
+                  onClick={() => setSessionFeedback((current) => ({ ...current, rating }))}
+                  type="button"
+                >
+                  *
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="completion-notes">
+            Notes
+            <textarea
+              onChange={(event) =>
+                setSessionFeedback((current) => ({ ...current, comment: event.target.value }))
+              }
+              placeholder="Any notes? (optional)"
+              value={sessionFeedback.comment}
+            />
+          </label>
+        </div>
+
+        <button className="primary-action filled" disabled={saving} onClick={saveSessionFeedback} type="button">
+          {saving ? "Saving..." : "Save & Finish"}
+        </button>
       </section>
     );
   }

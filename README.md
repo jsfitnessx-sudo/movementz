@@ -9,7 +9,9 @@ The current prototype remains in `work/metz-app` and should be treated as a refe
 1. Copy `.env.example` to `.env`.
 2. Add the new Supabase project URL and publishable anon key.
 3. In Supabase SQL Editor, run `supabase/phase-1-auth-profiles.sql`.
-4. Run:
+4. Run `supabase/phase-2-workout-library.sql`.
+5. Run `supabase/phase-3-session-logging.sql`.
+6. Run:
 
 ```powershell
 npm install
