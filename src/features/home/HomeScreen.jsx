@@ -1,6 +1,6 @@
 import { StatCard } from "../../components/ui/StatCard.jsx";
 
-export function HomeScreen({ role, user }) {
+export function HomeScreen({ onNavigate, role, user }) {
   const isCoach = role === "coach";
 
   if (isCoach) {
@@ -13,10 +13,10 @@ export function HomeScreen({ role, user }) {
         </div>
 
         <div className="action-row">
-          <button className="primary-action" type="button">
+          <button className="primary-action" onClick={() => onNavigate("clients")} type="button">
             Add Client
           </button>
-          <button className="primary-action filled" type="button">
+          <button className="primary-action filled" onClick={() => onNavigate("plans")} type="button">
             Build Plan
           </button>
         </div>
@@ -47,10 +47,10 @@ export function HomeScreen({ role, user }) {
       </div>
 
       <div className="action-row">
-        <button className="primary-action" type="button">
+        <button className="primary-action" onClick={() => onNavigate("workouts")} type="button">
           Build Workout
         </button>
-        <button className="primary-action filled" type="button">
+        <button className="primary-action filled" onClick={() => onNavigate("plans")} type="button">
           Build Plan
         </button>
       </div>

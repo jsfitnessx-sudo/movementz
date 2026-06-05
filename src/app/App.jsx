@@ -4,6 +4,7 @@ import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
 import { PlaceholderScreen } from "../features/shared/PlaceholderScreen.jsx";
+import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.jsx";
 import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
@@ -204,7 +205,7 @@ export function App() {
       user={user}
     >
       {activeTab === "home" ? (
-        <HomeScreen role={role} user={user} />
+        <HomeScreen onNavigate={setActiveTab} role={role} user={user} />
       ) : activeTab === "profile" ? (
         <ProfileScreen
           onProfileSaved={handleProfileSaved}
@@ -212,6 +213,8 @@ export function App() {
           profile={profile}
           user={user}
         />
+      ) : activeTab === "workouts" ? (
+        <WorkoutLibraryScreen user={user} />
       ) : (
         <PlaceholderScreen role={role} tab={activeTab} />
       )}
