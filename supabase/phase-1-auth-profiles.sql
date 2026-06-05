@@ -58,12 +58,12 @@ create table if not exists public.invites (
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
-as $$
+as $movementz_set_updated_at$
 begin
   new.updated_at = now();
   return new;
 end;
-$$;
+$movementz_set_updated_at$;
 
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at
@@ -81,9 +81,9 @@ language sql
 security definer
 set search_path = public
 stable
-as $$
+as $movementz_current_user_role$
   select role from public.profiles where id = auth.uid()
-$$;
+$movementz_current_user_role$;
 
 grant execute on function public.current_user_role() to authenticated;
 
@@ -92,7 +92,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $movementz_handle_new_user$
 declare
   requested_role text := coalesce(new.raw_user_meta_data->>'role', 'normal_user');
   selected_role text;
@@ -123,7 +123,7 @@ begin
     location = coalesce(excluded.location, public.profiles.location);
 
   if jsonb_typeof(new.raw_user_meta_data->'experience_areas') = 'array' then
-    select coalesce(array_agg(value), '{}')
+    select coalesce(array_agg(value), '{}'::text[])
     into experience_values
     from jsonb_array_elements_text(new.raw_user_meta_data->'experience_areas') as value;
   end if;
@@ -145,7 +145,7 @@ begin
 
   return new;
 end;
-$$;
+$movementz_handle_new_user$;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
