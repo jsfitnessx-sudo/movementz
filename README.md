@@ -39,3 +39,5 @@ The app is split by product area:
 - `components`: reusable UI
 
 The rebuild order follows `outputs/movementz-phase-0-product-blueprint.md`.
+
+Workout-specific logging and completion flow notes live in `docs/workout-roadmap.md`.
