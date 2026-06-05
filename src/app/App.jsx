@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
+import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
 import { PlaceholderScreen } from "../features/shared/PlaceholderScreen.jsx";
 import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
@@ -12,7 +13,7 @@ async function loadProfile(authUser) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,email,full_name,first_name,last_name,role,avatar_url")
+    .select("id,email,full_name,first_name,last_name,role,avatar_url,gender,age,location")
     .eq("id", authUser.id)
     .maybeSingle();
 
@@ -37,7 +38,7 @@ async function loadProfile(authUser) {
   const { data: insertedProfile, error: insertError } = await supabase
     .from("profiles")
     .insert(fallbackProfile)
-    .select("id,email,full_name,first_name,last_name,role,avatar_url")
+    .select("id,email,full_name,first_name,last_name,role,avatar_url,gender,age,location")
     .single();
 
   if (insertError) {
@@ -167,6 +168,11 @@ export function App() {
     setActiveTab("home");
   }
 
+  function handleProfileSaved(nextProfile) {
+    setProfile(nextProfile);
+    setRole(nextProfile?.role || "normal_user");
+  }
+
   if (booting) {
     return (
       <main className="auth-screen">
@@ -189,6 +195,7 @@ export function App() {
       canPreviewRole={session.user.id === "demo-user"}
       onTabChange={setActiveTab}
       onRoleChange={setRole}
+      onProfileClick={() => setActiveTab("profile")}
       onSignOut={handleSignOut}
       role={role}
       tabs={tabs}
@@ -196,6 +203,13 @@ export function App() {
     >
       {activeTab === "home" ? (
         <HomeScreen role={role} user={user} />
+      ) : activeTab === "profile" ? (
+        <ProfileScreen
+          onProfileSaved={handleProfileSaved}
+          onSignOut={handleSignOut}
+          profile={profile}
+          user={user}
+        />
       ) : (
         <PlaceholderScreen role={role} tab={activeTab} />
       )}

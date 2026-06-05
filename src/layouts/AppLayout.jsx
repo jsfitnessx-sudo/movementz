@@ -7,6 +7,7 @@ export function AppLayout({
   canPreviewRole = false,
   children,
   onRoleChange,
+  onProfileClick,
   onSignOut,
   onTabChange,
   role,
@@ -23,7 +24,12 @@ export function AppLayout({
           {canPreviewRole ? (
             <RoleSwitcher currentRole={role} onRoleChange={onRoleChange} />
           ) : null}
-          <button className="avatar-button" type="button" onClick={onSignOut}>
+          <button
+            aria-label="Open profile"
+            className="avatar-button"
+            type="button"
+            onClick={onProfileClick}
+          >
             {(user.name || user.email || "M").slice(0, 1)}
           </button>
         </div>
