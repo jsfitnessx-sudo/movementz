@@ -78,6 +78,116 @@ button {
   gap: 10px;
 }
 
+.auth-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0c1721;
+}
+
+.auth-mode-tabs button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.auth-mode-tabs button.active {
+  background: var(--teal);
+  color: #061017;
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-form label,
+.field-group {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.auth-form input,
+.auth-form select,
+.auth-form textarea {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #122232;
+  color: var(--text);
+  padding: 0 14px;
+  text-transform: none;
+}
+
+.auth-form textarea {
+  min-height: 96px;
+  padding: 14px;
+  resize: vertical;
+}
+
+.auth-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #122232;
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.chip.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 18%, transparent);
+  color: var(--teal);
+}
+
+.form-message {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.form-message.error {
+  border: 1px solid color-mix(in srgb, var(--red) 60%, transparent);
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  color: #ffdce2;
+}
+
+.form-message.success {
+  border: 1px solid color-mix(in srgb, var(--teal) 60%, transparent);
+  background: color-mix(in srgb, var(--teal) 14%, transparent);
+  color: var(--teal);
+}
+
 .auth-actions button,
 .primary-action {
   min-height: 48px;
@@ -352,7 +462,8 @@ button {
   }
 
   .stats-grid,
-  .action-row {
+  .action-row,
+  .auth-form-grid {
     grid-template-columns: 1fr;
   }
 }

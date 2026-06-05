@@ -4,6 +4,7 @@ import { BottomNav } from "../components/navigation/BottomNav.jsx";
 
 export function AppLayout({
   activeTab,
+  canPreviewRole = false,
   children,
   onRoleChange,
   onSignOut,
@@ -19,9 +20,11 @@ export function AppLayout({
       <header className="topbar">
         <BrandMark />
         <div className="topbar-actions">
-          <RoleSwitcher currentRole={role} onRoleChange={onRoleChange} />
+          {canPreviewRole ? (
+            <RoleSwitcher currentRole={role} onRoleChange={onRoleChange} />
+          ) : null}
           <button className="avatar-button" type="button" onClick={onSignOut}>
-            {user.name.slice(0, 1)}
+            {(user.name || user.email || "M").slice(0, 1)}
           </button>
         </div>
       </header>

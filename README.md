@@ -8,12 +8,25 @@ The current prototype remains in `work/metz-app` and should be treated as a refe
 
 1. Copy `.env.example` to `.env`.
 2. Add the new Supabase project URL and publishable anon key.
-3. Run:
+3. In Supabase SQL Editor, run `supabase/phase-1-auth-profiles.sql`.
+4. Run:
 
 ```powershell
 npm install
 npm run dev
 ```
+
+## Phase 1
+
+The first live foundation includes:
+
+- normal user login/signup
+- coach signup
+- profile records created from Supabase Auth
+- coach profile records
+- coach/client link table
+- invite table foundation
+- row-level security policies for profile access
 
 ## Architecture
 

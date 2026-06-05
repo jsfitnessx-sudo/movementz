@@ -1,27 +1,311 @@
-export function AuthScreen({ onDemoLogin }) {
+import { useMemo, useState } from "react";
+import { hasSupabaseConfig, supabase } from "../../lib/supabase/client.js";
+
+const coachExperienceOptions = [
+  "Strength Training",
+  "Weightloss",
+  "Sports training",
+  "Bodybuilding",
+  "Powerlifting",
+  "Crossfit",
+  "Hyrox",
+  "Endurance",
+  "Other"
+];
+
+const blankForm = {
+  email: "",
+  password: "",
+  fullName: "",
+  age: "",
+  gender: "",
+  location: "",
+  qualification: "",
+  aboutMe: ""
+};
+
+export function AuthScreen({ onAuthComplete, onDemoLogin }) {
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState(blankForm);
+  const [experienceAreas, setExperienceAreas] = useState([]);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const isCoachSignup = mode === "coach";
+  const heading = useMemo(() => {
+    if (!hasSupabaseConfig) return "Preview Movementz";
+    if (mode === "login") return "Welcome back";
+    if (mode === "coach") return "Coach signup";
+    return "Create account";
+  }, [mode]);
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleExperience(area) {
+    setExperienceAreas((current) =>
+      current.includes(area)
+        ? current.filter((item) => item !== area)
+        : [...current, area]
+    );
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    if (!supabase) return;
+
+    setSubmitting(true);
+    setError("");
+    setStatus("");
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: form.email.trim(),
+      password: form.password
+    });
+
+    setSubmitting(false);
+
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+
+    if (data.session) {
+      onAuthComplete(data.session);
+    }
+  }
+
+  async function handleSignup(event) {
+    event.preventDefault();
+    if (!supabase) return;
+
+    setSubmitting(true);
+    setError("");
+    setStatus("");
+
+    const role = isCoachSignup ? "coach" : "normal_user";
+    const metadata = {
+      role,
+      full_name: form.fullName.trim(),
+      age: form.age,
+      gender: form.gender,
+      location: form.location.trim(),
+      qualification: form.qualification.trim(),
+      experience_areas: experienceAreas,
+      about_me: form.aboutMe.trim()
+    };
+
+    if (!metadata.full_name) {
+      setSubmitting(false);
+      setError("Full name is required.");
+      return;
+    }
+
+    if (isCoachSignup && !metadata.qualification) {
+      setSubmitting(false);
+      setError("Qualification is required for coach signup.");
+      return;
+    }
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: form.email.trim(),
+      password: form.password,
+      options: { data: metadata }
+    });
+
+    setSubmitting(false);
+
+    if (signUpError) {
+      setError(signUpError.message);
+      return;
+    }
+
+    if (data.session) {
+      onAuthComplete(data.session);
+      return;
+    }
+
+    setStatus("Account created. Check your email if Supabase asks you to confirm it, then log in.");
+    setMode("login");
+  }
+
+  if (!hasSupabaseConfig) {
+    return (
+      <main className="auth-screen">
+        <section className="auth-card">
+          <div className="auth-brand">
+            <div className="brand-icon large">M</div>
+            <h1>Movementz</h1>
+            <p>Clean rebuild foundation</p>
+          </div>
+
+          <div className="auth-actions">
+            <button type="button" onClick={() => onDemoLogin("normal_user")}>
+              Preview User
+            </button>
+            <button type="button" onClick={() => onDemoLogin("client")}>
+              Preview Client
+            </button>
+            <button type="button" onClick={() => onDemoLogin("coach")}>
+              Preview Coach
+            </button>
+            <button type="button" onClick={() => onDemoLogin("admin")}>
+              Preview Admin
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="auth-screen">
       <section className="auth-card">
         <div className="auth-brand">
           <div className="brand-icon large">M</div>
-          <h1>Movementz</h1>
-          <p>Clean rebuild foundation</p>
+          <h1>{heading}</h1>
+          <p>{isCoachSignup ? "Build your coaching workspace." : "Move, train and grow."}</p>
         </div>
 
-        <div className="auth-actions">
-          <button type="button" onClick={() => onDemoLogin("normal_user")}>
-            Preview User
+        <div className="auth-mode-tabs" aria-label="Account mode">
+          <button
+            className={mode === "login" ? "active" : ""}
+            type="button"
+            onClick={() => setMode("login")}
+          >
+            Log in
           </button>
-          <button type="button" onClick={() => onDemoLogin("client")}>
-            Preview Client
+          <button
+            className={mode === "user" ? "active" : ""}
+            type="button"
+            onClick={() => setMode("user")}
+          >
+            User
           </button>
-          <button type="button" onClick={() => onDemoLogin("coach")}>
-            Preview Coach
-          </button>
-          <button type="button" onClick={() => onDemoLogin("admin")}>
-            Preview Admin
+          <button
+            className={mode === "coach" ? "active" : ""}
+            type="button"
+            onClick={() => setMode("coach")}
+          >
+            Coach
           </button>
         </div>
+
+        <form className="auth-form" onSubmit={mode === "login" ? handleLogin : handleSignup}>
+          {mode !== "login" ? (
+            <label>
+              Full name *
+              <input
+                autoComplete="name"
+                value={form.fullName}
+                onChange={(event) => updateField("fullName", event.target.value)}
+                placeholder="e.g. Joseph Salaivao"
+              />
+            </label>
+          ) : null}
+
+          <label>
+            Email *
+            <input
+              autoComplete="email"
+              type="email"
+              value={form.email}
+              onChange={(event) => updateField("email", event.target.value)}
+              placeholder="you@email.com"
+            />
+          </label>
+
+          <label>
+            Password *
+            <input
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              minLength={6}
+              type="password"
+              value={form.password}
+              onChange={(event) => updateField("password", event.target.value)}
+              placeholder="Minimum 6 characters"
+            />
+          </label>
+
+          {mode !== "login" ? (
+            <div className="auth-form-grid">
+              <label>
+                Age
+                <input
+                  inputMode="numeric"
+                  value={form.age}
+                  onChange={(event) => updateField("age", event.target.value)}
+                  placeholder="Optional"
+                />
+              </label>
+              <label>
+                Gender
+                <select
+                  value={form.gender}
+                  onChange={(event) => updateField("gender", event.target.value)}
+                >
+                  <option value="">Optional</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="rather_not_say">Rather not say</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {isCoachSignup ? (
+            <>
+              <label>
+                Location
+                <input
+                  value={form.location}
+                  onChange={(event) => updateField("location", event.target.value)}
+                  placeholder="City or area"
+                />
+              </label>
+              <label>
+                Qualification *
+                <input
+                  value={form.qualification}
+                  onChange={(event) => updateField("qualification", event.target.value)}
+                  placeholder="e.g. Cert III/IV Fitness"
+                />
+              </label>
+              <div className="field-group">
+                <span>Experience in</span>
+                <div className="chip-grid">
+                  {coachExperienceOptions.map((area) => (
+                    <button
+                      className={experienceAreas.includes(area) ? "chip active" : "chip"}
+                      key={area}
+                      type="button"
+                      onClick={() => toggleExperience(area)}
+                    >
+                      {area}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label>
+                About me
+                <textarea
+                  value={form.aboutMe}
+                  onChange={(event) => updateField("aboutMe", event.target.value)}
+                  placeholder="Tell clients what you help with."
+                />
+              </label>
+            </>
+          ) : null}
+
+          {error ? <p className="form-message error">{error}</p> : null}
+          {status ? <p className="form-message success">{status}</p> : null}
+
+          <button className="primary-action filled" disabled={submitting} type="submit">
+            {submitting ? "Working..." : mode === "login" ? "Log in" : "Create account"}
+          </button>
+        </form>
       </section>
     </main>
   );
