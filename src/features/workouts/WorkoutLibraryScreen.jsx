@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
@@ -170,6 +170,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [activeNumberInput, setActiveNumberInput] = useState(null);
   const [openSessionMenu, setOpenSessionMenu] = useState(null);
+  const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -196,6 +197,25 @@ export function WorkoutLibraryScreen({ user }) {
   useEffect(() => {
     loadWorkouts();
   }, [user.id]);
+
+  useEffect(() => {
+    if (!activeNumberInput) return;
+
+    const key = `${activeNumberInput.exerciseIndex}-${activeNumberInput.rowIndex}-${activeNumberInput.field}`;
+    const input = sessionInputRefs.current[key];
+    if (!input) return;
+
+    window.requestAnimationFrame(() => {
+      const keypadHeight = window.matchMedia("(max-width: 720px)").matches ? 340 : 0;
+      const rect = input.getBoundingClientRect();
+      const visibleBottom = window.innerHeight - keypadHeight;
+
+      if (rect.bottom <= visibleBottom && rect.top >= 96) return;
+
+      const nextTop = window.scrollY + rect.top - 140;
+      window.scrollTo({ top: Math.max(nextTop, 0), behavior: "smooth" });
+    });
+  }, [activeNumberInput]);
 
   async function loadWorkouts() {
     setMessage("");
@@ -780,6 +800,9 @@ export function WorkoutLibraryScreen({ user }) {
                           updateSessionRow(exerciseIndex, rowIndex, "kg", event.target.value)
                         }
                         onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "kg" })}
+                        ref={(element) => {
+                          sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-kg`] = element;
+                        }}
                         type="text"
                         value={row.kg}
                       />
@@ -796,6 +819,9 @@ export function WorkoutLibraryScreen({ user }) {
                           updateSessionRow(exerciseIndex, rowIndex, "reps", event.target.value)
                         }
                         onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps" })}
+                        ref={(element) => {
+                          sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-reps`] = element;
+                        }}
                         type="text"
                         value={row.reps}
                       />
