@@ -41,6 +41,7 @@ function toProfileForm(profile, user) {
 export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
   const [profileForm, setProfileForm] = useState(() => toProfileForm(profile, user));
   const [coachForm, setCoachForm] = useState(blankCoachProfile);
+  const [coachProfileExists, setCoachProfileExists] = useState(false);
   const [loadingCoach, setLoadingCoach] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -62,6 +63,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
     async function loadCoachProfile() {
       if (!supabase || !user?.id || !isCoach) {
         setCoachForm(blankCoachProfile);
+        setCoachProfileExists(false);
         return;
       }
 
@@ -86,6 +88,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
         about_me: data?.about_me || "",
         years_experience: data?.years_experience ?? ""
       });
+      setCoachProfileExists(Boolean(data));
     }
 
     loadCoachProfile();
@@ -157,7 +160,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
     }
 
     if (isCoach) {
-      const { error: coachError } = await supabase.from("coach_profiles").upsert({
+      const coachPayload = {
         user_id: user.id,
         qualification: coachForm.qualification.trim(),
         experience_areas: coachForm.experience_areas,
@@ -165,13 +168,24 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
         years_experience:
           coachForm.years_experience === "" ? null : Number(coachForm.years_experience),
         updated_at: new Date().toISOString()
-      });
+      };
+
+      const coachSave = coachProfileExists
+        ? await supabase
+            .from("coach_profiles")
+            .update(coachPayload)
+            .eq("user_id", user.id)
+        : await supabase.from("coach_profiles").insert(coachPayload);
+
+      const { error: coachError } = coachSave;
 
       if (coachError) {
         setSaving(false);
         setError(coachError.message);
         return;
       }
+
+      setCoachProfileExists(true);
     }
 
     setSaving(false);
