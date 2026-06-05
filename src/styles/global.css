@@ -591,6 +591,95 @@ button {
   gap: 12px;
 }
 
+.setup-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #203747;
+  border-radius: 16px;
+  background: #0d1822;
+}
+
+.setup-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.compact-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.muscle-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.muscle-count-list {
+  display: grid;
+  gap: 10px;
+}
+
+.muscle-count-row,
+.setup-summary-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #122232;
+}
+
+.muscle-count-row strong,
+.setup-summary-row strong {
+  color: var(--text);
+}
+
+.setup-summary-row {
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+  background: color-mix(in srgb, var(--gold) 12%, #0d1822);
+}
+
+.setup-summary-row span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.setup-summary-row strong {
+  color: var(--gold);
+  font-size: 24px;
+}
+
+.stepper-control {
+  display: grid;
+  grid-template-columns: 42px 56px 42px;
+  gap: 8px;
+  align-items: center;
+}
+
+.stepper-control button,
+.stepper-control strong {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #122232;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.stepper-control button {
+  color: var(--teal);
+}
+
 .muscle-target-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
@@ -912,6 +1001,29 @@ button {
     min-height: 68px;
   }
 
+  .main-panel {
+    padding: 14px 12px 96px;
+  }
+
+  .screen-stack {
+    gap: 14px;
+  }
+
+  .screen-heading h1 {
+    font-size: 32px;
+  }
+
+  .screen-heading p {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .panel,
+  .profile-panel {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
   .brand-subtitle {
     display: none;
   }
@@ -950,6 +1062,74 @@ button {
 
   .mini-actions button {
     flex: 1 1 auto;
+  }
+
+  .workout-editor {
+    gap: 12px;
+  }
+
+  .workout-editor input,
+  .workout-editor select,
+  .workout-editor textarea,
+  .exercise-editor input,
+  .exercise-editor select {
+    min-height: 44px;
+    border-radius: 11px;
+  }
+
+  .workout-editor textarea {
+    min-height: 82px;
+  }
+
+  .setup-card {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .setup-card h2 {
+    font-size: 16px;
+  }
+
+  .chip {
+    min-height: 38px;
+    padding: 0 13px;
+  }
+
+  .muscle-count-row,
+  .setup-summary-row {
+    min-height: 48px;
+    padding: 8px 10px;
+  }
+
+  .stepper-control {
+    grid-template-columns: 38px 48px 38px;
+    gap: 6px;
+  }
+
+  .stepper-control button,
+  .stepper-control strong {
+    min-height: 38px;
+    border-radius: 10px;
+  }
+
+  .exercise-list,
+  .workout-card-list {
+    gap: 10px;
+  }
+
+  .exercise-editor {
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .suggestion {
+    min-height: 40px;
+  }
+
+  .exercise-editor .form-grid.four,
+  .exercise-editor .form-grid.two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .session-set-row {

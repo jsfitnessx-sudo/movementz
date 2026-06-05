@@ -106,11 +106,12 @@ function createMuscleTargets() {
   return Object.fromEntries(muscleGroups.map((muscle) => [muscle, 0]));
 }
 
-function createExerciseForMuscle(muscle, index) {
+function createExerciseForMuscle(muscle, index, defaultSets = 4) {
   const options = exerciseLibrary[muscle] || [];
   return {
     ...emptyExercise,
     muscle_group: muscle,
+    sets: defaultSets,
     exercise_name: options[index % options.length] || "",
     suggestionOffset: index
   };
@@ -133,16 +134,21 @@ function createSessionRows(exercise) {
   }));
 }
 
+function createDefaultSetup() {
+  return {
+    name: "",
+    notes: "",
+    workout_type: "strength",
+    defaultSets: 4,
+    muscleTargets: { ...createMuscleTargets(), Chest: 4 }
+  };
+}
+
 export function WorkoutLibraryScreen({ user }) {
   const [workouts, setWorkouts] = useState([]);
   const [mode, setMode] = useState("list");
   const [editingId, setEditingId] = useState(null);
-  const [setup, setSetup] = useState({
-    name: "",
-    notes: "",
-    workout_type: "strength",
-    muscleTargets: { ...createMuscleTargets(), Chest: 2 }
-  });
+  const [setup, setSetup] = useState(createDefaultSetup);
   const [form, setForm] = useState({
     name: "",
     notes: "",
@@ -165,6 +171,11 @@ export function WorkoutLibraryScreen({ user }) {
         (sum, value) => sum + (Number(value) || 0),
         0
       ),
+    [setup.muscleTargets]
+  );
+
+  const selectedMuscleTargets = useMemo(
+    () => Object.entries(setup.muscleTargets).filter(([, count]) => Number(count) > 0),
     [setup.muscleTargets]
   );
 
@@ -202,12 +213,7 @@ export function WorkoutLibraryScreen({ user }) {
 
   function startNewWorkout() {
     setEditingId(null);
-    setSetup({
-      name: "",
-      notes: "",
-      workout_type: "strength",
-      muscleTargets: { ...createMuscleTargets(), Chest: 2 }
-    });
+    setSetup(createDefaultSetup());
     setMessage("");
     setMode("setup");
   }
@@ -224,9 +230,10 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     const exercises = [];
+    const defaultSets = Number(setup.defaultSets) || 4;
     Object.entries(setup.muscleTargets).forEach(([muscle, count]) => {
       for (let index = 0; index < Number(count || 0); index += 1) {
-        exercises.push(createExerciseForMuscle(muscle, index));
+        exercises.push(createExerciseForMuscle(muscle, index, defaultSets));
       }
     });
 
@@ -274,6 +281,29 @@ export function WorkoutLibraryScreen({ user }) {
     }));
   }
 
+  function toggleMuscleTarget(muscle) {
+    setSetup((current) => {
+      const currentCount = Number(current.muscleTargets[muscle]) || 0;
+      const hasAnySelected = Object.values(current.muscleTargets).some((count) => Number(count) > 0);
+      const defaultCount = hasAnySelected ? 1 : 4;
+
+      return {
+        ...current,
+        muscleTargets: {
+          ...current.muscleTargets,
+          [muscle]: currentCount > 0 ? 0 : defaultCount
+        }
+      };
+    });
+  }
+
+  function updateDefaultSets(change) {
+    setSetup((current) => ({
+      ...current,
+      defaultSets: Math.max(1, Math.min(8, (Number(current.defaultSets) || 4) + change))
+    }));
+  }
+
   function updateExercise(index, field, value) {
     setForm((current) => ({
       ...current,
@@ -311,7 +341,7 @@ export function WorkoutLibraryScreen({ user }) {
   function addExercise() {
     setForm((current) => ({
       ...current,
-      exercises: [...current.exercises, createExerciseForMuscle("Chest", current.exercises.length)]
+      exercises: [...current.exercises, createExerciseForMuscle("Chest", current.exercises.length, 4)]
     }));
   }
 
@@ -632,9 +662,6 @@ export function WorkoutLibraryScreen({ user }) {
             <button className="primary-action" onClick={() => setMode("list")} type="button">
               Close
             </button>
-            <button className="primary-action filled" onClick={buildExercisesFromSetup} type="button">
-              Continue
-            </button>
           </div>
 
           {message ? <p className="form-message error">{message}</p> : null}
@@ -657,31 +684,78 @@ export function WorkoutLibraryScreen({ user }) {
             />
           </label>
 
-          <div className="muscle-picker">
+          <div className="setup-card">
             <div className="section-row">
-              <h2>Muscle groups</h2>
-              <span className="status-pill">{totalTargetExercises} total</span>
+              <div>
+                <p className="eyebrow">Sets</p>
+                <h2>Sets per exercise</h2>
+              </div>
+              <div className="stepper-control">
+                <button onClick={() => updateDefaultSets(-1)} type="button">
+                  -
+                </button>
+                <strong>{setup.defaultSets}</strong>
+                <button onClick={() => updateDefaultSets(1)} type="button">
+                  +
+                </button>
+              </div>
             </div>
-            <div className="muscle-target-grid">
+            <p className="compact-help">You can still adjust individual exercises on the next screen.</p>
+          </div>
+
+          <div className="muscle-picker setup-card">
+            <div>
+              <p className="eyebrow">Muscle groups</p>
+              <h2>Pick muscles, then choose how many exercises</h2>
+            </div>
+
+            <div className="muscle-chip-list">
               {muscleGroups.map((muscle) => {
                 const count = Number(setup.muscleTargets[muscle]) || 0;
                 return (
-                  <div className={count > 0 ? "muscle-target active" : "muscle-target"} key={muscle}>
+                  <button
+                    className={count > 0 ? "chip active" : "chip"}
+                    key={muscle}
+                    onClick={() => toggleMuscleTarget(muscle)}
+                    type="button"
+                  >
+                    {count > 0 ? "✓ " : ""}
+                    {muscle}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="muscle-count-list">
+              {selectedMuscleTargets.length === 0 ? (
+                <p className="compact-help">Choose at least one muscle group.</p>
+              ) : (
+                selectedMuscleTargets.map(([muscle, count]) => (
+                  <div className="muscle-count-row" key={muscle}>
                     <strong>{muscle}</strong>
-                    <div>
+                    <div className="stepper-control">
                       <button onClick={() => updateMuscleTarget(muscle, -1)} type="button">
                         -
                       </button>
-                      <span>{count}</span>
+                      <strong>{count}</strong>
                       <button onClick={() => updateMuscleTarget(muscle, 1)} type="button">
                         +
                       </button>
                     </div>
                   </div>
-                );
-              })}
+                ))
+              )}
+
+              <div className="setup-summary-row">
+                <span>Total exercises</span>
+                <strong>{totalTargetExercises}</strong>
+              </div>
             </div>
           </div>
+
+          <button className="primary-action filled" onClick={buildExercisesFromSetup} type="button">
+            Continue
+          </button>
         </div>
       </section>
     );
@@ -822,15 +896,6 @@ export function WorkoutLibraryScreen({ user }) {
                       Use "{exercise.search}"
                     </button>
                   ) : null}
-
-                  <label>
-                    Selected exercise
-                    <input
-                      onChange={(event) => updateExercise(index, "exercise_name", event.target.value)}
-                      placeholder="Choose, search, or type an exercise"
-                      value={exercise.exercise_name}
-                    />
-                  </label>
 
                   <div className="form-grid four">
                     <label>
