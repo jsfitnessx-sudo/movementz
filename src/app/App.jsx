@@ -7,13 +7,13 @@ import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
 
-async function loadProfile(userId) {
-  if (!supabase || !userId) return null;
+async function loadProfile(authUser) {
+  if (!supabase || !authUser?.id) return null;
 
   const { data, error } = await supabase
     .from("profiles")
     .select("id,email,full_name,first_name,last_name,role,avatar_url")
-    .eq("id", userId)
+    .eq("id", authUser.id)
     .maybeSingle();
 
   if (error) {
@@ -21,7 +21,42 @@ async function loadProfile(userId) {
     return null;
   }
 
-  return data;
+  if (data) return data;
+
+  const metadata = authUser.user_metadata ?? {};
+  const fallbackProfile = {
+    id: authUser.id,
+    email: authUser.email,
+    full_name: metadata.full_name || "",
+    role: metadata.role || "normal_user",
+    gender: metadata.gender || null,
+    age: metadata.age ? Number(metadata.age) : null,
+    location: metadata.location || null
+  };
+
+  const { data: insertedProfile, error: insertError } = await supabase
+    .from("profiles")
+    .insert(fallbackProfile)
+    .select("id,email,full_name,first_name,last_name,role,avatar_url")
+    .single();
+
+  if (insertError) {
+    console.warn("Profile create failed", insertError);
+    return fallbackProfile;
+  }
+
+  if (fallbackProfile.role === "coach") {
+    await supabase.from("coach_profiles").upsert({
+      user_id: authUser.id,
+      qualification: metadata.qualification || null,
+      experience_areas: Array.isArray(metadata.experience_areas)
+        ? metadata.experience_areas
+        : [],
+      about_me: metadata.about_me || null
+    });
+  }
+
+  return insertedProfile;
 }
 
 function buildUser(session, profile) {
@@ -63,7 +98,7 @@ export function App() {
       setSession(nextSession);
 
       if (nextSession?.user) {
-        const nextProfile = await loadProfile(nextSession.user.id);
+        const nextProfile = await loadProfile(nextSession.user);
         if (!alive) return;
         setProfile(nextProfile);
         setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
@@ -80,7 +115,7 @@ export function App() {
       setSession(nextSession);
 
       if (nextSession?.user) {
-        const nextProfile = await loadProfile(nextSession.user.id);
+        const nextProfile = await loadProfile(nextSession.user);
         setProfile(nextProfile);
         setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
       } else {
@@ -115,7 +150,7 @@ export function App() {
 
   async function handleAuthComplete(nextSession) {
     if (!nextSession?.user) return;
-    const nextProfile = await loadProfile(nextSession.user.id);
+    const nextProfile = await loadProfile(nextSession.user);
     setProfile(nextProfile);
     setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
     setSession(nextSession);
