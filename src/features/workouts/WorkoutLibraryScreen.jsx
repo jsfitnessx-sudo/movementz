@@ -796,26 +796,8 @@ export function WorkoutLibraryScreen({ user }) {
 
           {message ? <p className="form-message error">{message}</p> : null}
 
-          <label>
-            Workout name
-            <input
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              placeholder="e.g. Chest + Triceps"
-              value={form.name}
-            />
-          </label>
-
-          <label>
-            Notes
-            <textarea
-              onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-              placeholder="Focus points, rest guidance, tempo, or coaching cues..."
-              value={form.notes}
-            />
-          </label>
-
           <div className="exercise-list">
-            <div className="section-row">
+            <div className="section-row exercise-list-head">
               <h2>Exercises</h2>
               <button className="primary-action compact" onClick={addExercise} type="button">
                 Add Exercise
@@ -833,46 +815,59 @@ export function WorkoutLibraryScreen({ user }) {
               return (
                 <div className="exercise-editor" key={`${index}-${exercise.id || "new"}`}>
                   <div className="exercise-editor-head">
-                    <strong>Exercise {index + 1}</strong>
-                    <div className="mini-actions">
-                      {exercise.exercise_name ? (
-                        <button
-                          className="primary-action compact"
-                          onClick={() => showDemo(exercise.exercise_name)}
-                          type="button"
-                        >
-                          Demo
-                        </button>
-                      ) : null}
+                    <div>
+                      <strong>Exercise {index + 1}</strong>
+                      <p className="muscle-label">{exercise.muscle_group}</p>
+                    </div>
+                    {exercise.exercise_name ? (
                       <button
-                        className="primary-action compact"
-                        onClick={() => refreshSuggestions(index)}
+                        className="primary-action compact demo-action"
+                        onClick={() => showDemo(exercise.exercise_name)}
                         type="button"
                       >
-                        Refresh
+                        Demo
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {exercise.exercise_name ? (
+                    <div className="selected-exercise">
+                      <span>Selected:</span>
+                      <strong>{exercise.exercise_name}</strong>
+                    </div>
+                  ) : null}
+
+                  <div className="suggestion-picker">
+                    <div className="suggestion-list">
+                      {getSuggestions(exercise).map((suggestion) => (
+                        <button
+                          className={exercise.exercise_name === suggestion ? "suggestion active" : "suggestion"}
+                          key={suggestion}
+                          onClick={() => chooseExercise(index, suggestion, true)}
+                          type="button"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mini-actions">
+                      <button
+                        aria-label={`Refresh ${exercise.muscle_group} suggestions`}
+                        className="primary-action compact refresh-action"
+                        onClick={() => refreshSuggestions(index)}
+                        title="Refresh suggestions"
+                        type="button"
+                      >
+                        ↻
                       </button>
                       <button
-                        className="danger-link"
+                        className="danger-link remove-action"
                         onClick={() => removeExercise(index)}
                         type="button"
                       >
                         Remove
                       </button>
                     </div>
-                  </div>
-
-                  <p className="muscle-label">{exercise.muscle_group}</p>
-                  <div className="suggestion-list">
-                    {getSuggestions(exercise).map((suggestion) => (
-                      <button
-                        className={exercise.exercise_name === suggestion ? "suggestion active" : "suggestion"}
-                        key={suggestion}
-                        onClick={() => chooseExercise(index, suggestion)}
-                        type="button"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
                   </div>
 
                   <label>
@@ -908,17 +903,6 @@ export function WorkoutLibraryScreen({ user }) {
 
                   <div className="form-grid four">
                     <label>
-                      Muscle
-                      <select
-                        onChange={(event) => updateExercise(index, "muscle_group", event.target.value)}
-                        value={exercise.muscle_group}
-                      >
-                        {muscleGroups.map((muscle) => (
-                          <option key={muscle}>{muscle}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
                       Sets
                       <input
                         min="1"
@@ -945,11 +929,8 @@ export function WorkoutLibraryScreen({ user }) {
                         value={exercise.rep_max}
                       />
                     </label>
-                  </div>
-
-                  <div className="form-grid two">
                     <label>
-                      Starting kg
+                      Start kg
                       <input
                         min="0"
                         onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
@@ -958,8 +939,11 @@ export function WorkoutLibraryScreen({ user }) {
                         value={exercise.start_kg}
                       />
                     </label>
+                  </div>
+
+                  <div className="form-grid two">
                     <label>
-                      Rest seconds
+                      Rest sec
                       <input
                         min="0"
                         onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
@@ -967,16 +951,15 @@ export function WorkoutLibraryScreen({ user }) {
                         value={exercise.rest_seconds}
                       />
                     </label>
+                    <label>
+                      Tip
+                      <input
+                        onChange={(event) => updateExercise(index, "tip", event.target.value)}
+                        placeholder="Optional cue"
+                        value={exercise.tip}
+                      />
+                    </label>
                   </div>
-
-                  <label>
-                    Tip
-                    <input
-                      onChange={(event) => updateExercise(index, "tip", event.target.value)}
-                      placeholder="Optional cue"
-                      value={exercise.tip}
-                    />
-                  </label>
                 </div>
               );
             })}

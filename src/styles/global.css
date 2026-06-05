@@ -731,8 +731,8 @@ button {
 
 .exercise-editor {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid #203747;
   border-radius: 14px;
   background: #0d1822;
@@ -745,11 +745,45 @@ button {
   gap: 10px;
 }
 
+.exercise-editor-head strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
 .mini-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.selected-exercise {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 42px;
+  border: 1px solid color-mix(in srgb, var(--teal) 70%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--teal) 12%, #0d1822);
+  padding: 0 12px;
+  text-align: center;
+}
+
+.selected-exercise span {
+  color: var(--teal);
+  font-weight: 900;
+}
+
+.selected-exercise strong {
+  color: var(--text);
+}
+
+.suggestion-picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 8px;
+  align-items: stretch;
 }
 
 .muscle-label {
@@ -763,11 +797,11 @@ button {
 
 .suggestion-list {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .suggestion {
-  min-height: 44px;
+  min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #122232;
@@ -818,6 +852,19 @@ button {
 .primary-action.compact {
   min-height: 40px;
   padding: 0 14px;
+}
+
+.demo-action {
+  min-width: 112px;
+}
+
+.refresh-action {
+  min-height: 100%;
+}
+
+.remove-action {
+  min-height: 36px;
+  width: 100%;
 }
 
 .primary-action.danger,
@@ -1155,19 +1202,88 @@ button {
     gap: 10px;
   }
 
+  .exercise-list-head {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .exercise-list-head h2 {
+    font-size: 24px;
+  }
+
+  .exercise-list-head .primary-action {
+    min-height: 38px;
+    width: auto;
+  }
+
   .exercise-editor {
-    gap: 10px;
+    gap: 9px;
     padding: 12px;
     border-radius: 12px;
   }
 
-  .suggestion {
-    min-height: 40px;
+  .exercise-editor-head {
+    align-items: start;
   }
 
-  .exercise-editor .form-grid.four,
+  .demo-action {
+    min-width: 98px;
+  }
+
+  .selected-exercise {
+    min-height: 38px;
+    font-size: 13px;
+  }
+
+  .suggestion-picker {
+    grid-template-columns: minmax(0, 1fr) 72px;
+    gap: 8px;
+  }
+
+  .suggestion {
+    min-height: 38px;
+    border-radius: 11px;
+    font-size: 13px;
+  }
+
+  .suggestion-picker .mini-actions {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 8px;
+  }
+
+  .refresh-action {
+    min-height: 100%;
+    padding: 0 8px;
+    font-size: 22px;
+  }
+
+  .remove-action {
+    min-height: 34px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .exercise-editor .form-grid.four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
   .exercise-editor .form-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .exercise-editor label {
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 0.7px;
+  }
+
+  .exercise-editor input,
+  .exercise-editor select {
+    min-height: 42px;
+    padding: 0 10px;
   }
 
   .active-exercise-card {
