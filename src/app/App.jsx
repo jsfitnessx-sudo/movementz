@@ -132,6 +132,8 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (activeTab === "profile") return;
+
     const nextTabs = roleTabs[role] ?? roleTabs.normal_user;
     if (!nextTabs.some((tab) => tab.id === activeTab)) {
       setActiveTab(nextTabs[0].id);

@@ -32,6 +32,9 @@ export function AppLayout({
           >
             {(user.name || user.email || "M").slice(0, 1)}
           </button>
+          <button className="signout-shortcut" type="button" onClick={onSignOut}>
+            Sign out
+          </button>
         </div>
       </header>
 

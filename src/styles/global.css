@@ -265,7 +265,8 @@ button {
 }
 
 .role-switcher,
-.avatar-button {
+.avatar-button,
+.signout-shortcut {
   height: 40px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -281,6 +282,18 @@ button {
 .avatar-button {
   width: 40px;
   font-weight: 900;
+}
+
+.signout-shortcut {
+  padding: 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.signout-shortcut:hover {
+  border-color: var(--red);
+  color: #ffdce2;
 }
 
 .main-panel {
@@ -568,6 +581,10 @@ button {
   }
 
   .role-switcher {
+    display: none;
+  }
+
+  .signout-shortcut {
     display: none;
   }
 
