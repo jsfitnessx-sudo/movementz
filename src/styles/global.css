@@ -929,6 +929,8 @@ button {
 }
 
 .session-set-row input {
+  width: 100%;
+  min-width: 0;
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -951,6 +953,12 @@ button {
   border-color: var(--teal);
   background: color-mix(in srgb, var(--teal) 18%, #122232);
   color: var(--teal);
+}
+
+.form-footer-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .bottom-nav {
@@ -1036,8 +1044,6 @@ button {
     display: none;
   }
 
-  .stats-grid,
-  .action-row,
   .auth-form-grid,
   .profile-actions,
   .library-heading,
@@ -1062,6 +1068,38 @@ button {
 
   .mini-actions button {
     flex: 1 1 auto;
+  }
+
+  .action-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .action-row .primary-action {
+    min-height: 48px;
+    border-radius: 12px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat-card {
+    min-height: 76px;
+    padding: 10px 6px;
+    border-radius: 12px;
+    gap: 5px;
+  }
+
+  .stat-card strong {
+    font-size: 24px;
+  }
+
+  .stat-card span {
+    font-size: 9px;
+    line-height: 1.2;
+    letter-spacing: 0.7px;
   }
 
   .workout-editor {
@@ -1132,18 +1170,47 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .active-exercise-card {
+    min-width: 0;
+  }
+
+  .session-set-table {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .session-set-head,
   .session-set-row {
-    grid-template-columns: 42px 1fr 1fr;
+    grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr) 50px;
+    gap: 6px;
+    padding: 8px;
   }
 
-  .session-set-row span:nth-child(4),
-  .session-set-row span:nth-child(5),
-  .session-set-row .set-toggle,
+  .session-set-row input {
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 6px;
+  }
+
+  .session-set-row .set-toggle {
+    grid-column: auto;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+
   .session-set-row .danger-link {
-    grid-column: span 1;
+    grid-column: 2 / -1;
+    min-height: 32px;
   }
 
-  .session-set-head span:nth-child(4),
+  .session-set-head span:nth-child(4) {
+    display: inline;
+  }
+
   .session-set-head span:nth-child(5) {
     display: none;
   }

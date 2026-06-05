@@ -313,8 +313,19 @@ export function WorkoutLibraryScreen({ user }) {
     }));
   }
 
-  function selectExercise(index, exerciseName) {
-    updateExercise(index, "exercise_name", exerciseName);
+  function chooseExercise(index, exerciseName, clearSearch = false) {
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise, exerciseIndex) =>
+        exerciseIndex === index
+          ? {
+              ...exercise,
+              exercise_name: exerciseName,
+              search: clearSearch ? "" : exercise.search
+            }
+          : exercise
+      )
+    }));
     setMessage("");
   }
 
@@ -579,13 +590,15 @@ export function WorkoutLibraryScreen({ user }) {
                       : ""}
                   </p>
                 </div>
-                <button
-                  className="primary-action compact"
-                  onClick={() => showDemo(exercise.exercise_name)}
-                  type="button"
-                >
-                  Demo
-                </button>
+                {exercise.exercise_name ? (
+                  <button
+                    className="primary-action compact"
+                    onClick={() => showDemo(exercise.exercise_name)}
+                    type="button"
+                  >
+                    Demo
+                  </button>
+                ) : null}
               </div>
 
               <div className="session-set-table">
@@ -621,7 +634,7 @@ export function WorkoutLibraryScreen({ user }) {
                       onClick={() => updateSessionRow(exerciseIndex, rowIndex, "done", !row.done)}
                       type="button"
                     >
-                      Check
+                      Done
                     </button>
                     <button
                       className="danger-link"
@@ -779,9 +792,6 @@ export function WorkoutLibraryScreen({ user }) {
             >
               Back
             </button>
-            <button className="primary-action filled" disabled={saving} type="submit">
-              {saving ? "Saving..." : "Save Workout"}
-            </button>
           </div>
 
           {message ? <p className="form-message error">{message}</p> : null}
@@ -825,13 +835,15 @@ export function WorkoutLibraryScreen({ user }) {
                   <div className="exercise-editor-head">
                     <strong>Exercise {index + 1}</strong>
                     <div className="mini-actions">
-                      <button
-                        className="primary-action compact"
-                        onClick={() => showDemo(exercise.exercise_name)}
-                        type="button"
-                      >
-                        Demo
-                      </button>
+                      {exercise.exercise_name ? (
+                        <button
+                          className="primary-action compact"
+                          onClick={() => showDemo(exercise.exercise_name)}
+                          type="button"
+                        >
+                          Demo
+                        </button>
+                      ) : null}
                       <button
                         className="primary-action compact"
                         onClick={() => refreshSuggestions(index)}
@@ -855,7 +867,7 @@ export function WorkoutLibraryScreen({ user }) {
                       <button
                         className={exercise.exercise_name === suggestion ? "suggestion active" : "suggestion"}
                         key={suggestion}
-                        onClick={() => selectExercise(index, suggestion)}
+                        onClick={() => chooseExercise(index, suggestion)}
                         type="button"
                       >
                         {suggestion}
@@ -877,10 +889,7 @@ export function WorkoutLibraryScreen({ user }) {
                       {searchResults.map((result) => (
                         <button
                           key={result}
-                          onClick={() => {
-                            selectExercise(index, result);
-                            updateExercise(index, "search", "");
-                          }}
+                          onClick={() => chooseExercise(index, result, true)}
                           type="button"
                         >
                           {result}
@@ -890,7 +899,7 @@ export function WorkoutLibraryScreen({ user }) {
                   ) : exercise.search ? (
                     <button
                       className="primary-action compact"
-                      onClick={() => selectExercise(index, exercise.search)}
+                      onClick={() => chooseExercise(index, exercise.search, true)}
                       type="button"
                     >
                       Use "{exercise.search}"
@@ -971,6 +980,11 @@ export function WorkoutLibraryScreen({ user }) {
                 </div>
               );
             })}
+          </div>
+          <div className="form-footer-actions">
+            <button className="primary-action filled" disabled={saving} type="submit">
+              {saving ? "Saving..." : "Save Workout"}
+            </button>
           </div>
         </form>
       </section>
