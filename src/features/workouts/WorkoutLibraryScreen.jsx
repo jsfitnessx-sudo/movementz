@@ -195,6 +195,8 @@ export function WorkoutLibraryScreen({ user }) {
   const [openSessionMenu, setOpenSessionMenu] = useState(null);
   const [completedSession, setCompletedSession] = useState(null);
   const [sessionFeedback, setSessionFeedback] = useState({ rating: 0, comment: "" });
+  const [shareMode, setShareMode] = useState("transparent");
+  const [sharePhoto, setSharePhoto] = useState("");
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
@@ -862,10 +864,115 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     setSaving(false);
+    setShareMode("transparent");
+    setSharePhoto("");
+    setMode("share");
+  }
+
+  function finishShareFlow() {
     setCompletedSession(null);
     setActiveWorkout(null);
     setSessionFeedback({ rating: 0, comment: "" });
+    setShareMode("transparent");
+    setSharePhoto("");
     setMode("list");
+  }
+
+  function handleSharePhoto(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => setSharePhoto(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
+
+  function drawShareImage(ctx, canvas, image = null) {
+    const width = canvas.width;
+    const height = canvas.height;
+    const isBranded = shareMode === "branded";
+    const duration = completedSession
+      ? `${Math.floor(completedSession.durationSeconds / 60)}m ${completedSession.durationSeconds % 60}s`
+      : "0s";
+    const date = completedSession
+      ? new Date(completedSession.completedAt).toLocaleDateString(undefined, {
+          weekday: "short",
+          day: "numeric",
+          month: "short"
+        })
+      : "";
+
+    ctx.fillStyle = "#101b25";
+    ctx.fillRect(0, 0, width, height);
+
+    if (image) {
+      const scale = Math.max(width / image.width, height / image.height);
+      const drawWidth = image.width * scale;
+      const drawHeight = image.height * scale;
+      ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+    }
+
+    if (isBranded || image) {
+      ctx.fillStyle = isBranded ? "rgba(7, 16, 24, 0.72)" : "rgba(7, 16, 24, 0.24)";
+      ctx.fillRect(0, 0, width, height);
+    }
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#50d0c7";
+    ctx.font = "700 56px Arial";
+    ctx.fillText("MOVEMENTZ", width / 2, 190);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 54px Arial";
+    ctx.fillText("WORKOUT COMPLETE", width / 2, 410);
+    ctx.font = "900 86px Arial";
+    ctx.fillText(completedSession?.name || "Workout", width / 2, 520);
+    ctx.font = "700 38px Arial";
+    ctx.fillText(completedSession?.name || "Workout", width / 2, 720);
+    ctx.fillText(date, width / 2, 778);
+    ctx.font = "900 54px Arial";
+    ctx.fillText(duration, width / 2, 990);
+    ctx.font = "900 46px Arial";
+    ctx.fillText(`${completedSession?.totalExercises || 0} EXERCISES`, width / 2, 1120);
+    ctx.fillStyle = "#50d0c7";
+    ctx.font = "900 76px Arial";
+    ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width / 2, 1255);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 44px Arial";
+    ctx.fillText("METZ", width / 2, 1650);
+    ctx.font = "700 30px Arial";
+    ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1705);
+    ctx.font = "600 24px Arial";
+    ctx.fillText("Built with METZ", width / 2, 1815);
+  }
+
+  function saveShareImage() {
+    if (!completedSession) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const download = () => {
+      const link = document.createElement("a");
+      link.download = `${completedSession.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-workout.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+
+    if (sharePhoto) {
+      const image = new Image();
+      image.onload = () => {
+        drawShareImage(context, canvas, image);
+        download();
+      };
+      image.src = sharePhoto;
+      return;
+    }
+
+    drawShareImage(context, canvas);
+    download();
   }
 
   if (mode === "session" && activeWorkout) {
@@ -1118,6 +1225,86 @@ export function WorkoutLibraryScreen({ user }) {
 
         <button className="primary-action filled" disabled={saving} onClick={saveSessionFeedback} type="button">
           {saving ? "Saving..." : "Save & Finish"}
+        </button>
+      </section>
+    );
+  }
+
+  if (mode === "share" && completedSession) {
+    const duration = `${Math.floor(completedSession.durationSeconds / 60)}m ${completedSession.durationSeconds % 60}s`;
+    const sessionDate = new Date(completedSession.completedAt).toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short"
+    });
+
+    return (
+      <section className="screen-stack workout-library share-workout-screen">
+        <div className="screen-heading library-heading">
+          <div>
+            <h1>
+              Share your <span>workout</span>
+            </h1>
+            <p>Choose clear photo or METZ branded overlay.</p>
+          </div>
+          <button className="primary-action" onClick={finishShareFlow} type="button">
+            Done
+          </button>
+        </div>
+
+        <div className="share-mode-toggle">
+          <button
+            className={shareMode === "transparent" ? "active" : ""}
+            onClick={() => setShareMode("transparent")}
+            type="button"
+          >
+            <strong>Transparent</strong>
+            <span>Clear photo</span>
+          </button>
+          <button
+            className={shareMode === "branded" ? "active" : ""}
+            onClick={() => setShareMode("branded")}
+            type="button"
+          >
+            <strong>METZ Branded</strong>
+            <span>Dark overlay</span>
+          </button>
+        </div>
+
+        <div className="share-preview-shell">
+          <div
+            className={shareMode === "branded" ? "share-preview branded" : "share-preview transparent"}
+            style={sharePhoto ? { backgroundImage: `url(${sharePhoto})` } : undefined}
+          >
+            <div className="share-preview-overlay">
+              <p className="share-logo">MOVEMENTZ</p>
+              <p className="share-complete">Workout Complete</p>
+              <h2>{completedSession.name}</h2>
+              <div className="share-details">
+                <strong>{completedSession.name}</strong>
+                <span>{sessionDate}</span>
+              </div>
+              <strong className="share-duration">{duration}</strong>
+              <p className="share-count">{completedSession.totalExercises} exercises</p>
+              <strong className="share-volume">
+                {Math.round(completedSession.totalVolumeKg).toLocaleString()}kg
+              </strong>
+              <div className="share-footer">
+                <strong>METZ</strong>
+                <span>Move - Train - Grow</span>
+                <small>Built with METZ</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <label className="photo-upload-action">
+          <input accept="image/*" onChange={handleSharePhoto} type="file" />
+          Add photo background
+        </label>
+
+        <button className="primary-action filled" onClick={saveShareImage} type="button">
+          Share / Save Image
         </button>
       </section>
     );

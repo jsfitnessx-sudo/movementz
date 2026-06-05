@@ -1220,6 +1220,170 @@ button {
   text-transform: none;
 }
 
+.share-workout-screen .screen-heading h1 span {
+  color: var(--teal);
+}
+
+.share-mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.share-mode-toggle button {
+  display: grid;
+  gap: 6px;
+  min-height: 86px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #0d1822;
+  color: var(--muted);
+}
+
+.share-mode-toggle button.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 13%, #0d1822);
+  color: var(--teal);
+}
+
+.share-mode-toggle strong {
+  font-size: 18px;
+}
+
+.share-mode-toggle span {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.share-preview-shell {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #122232;
+}
+
+.share-preview {
+  position: relative;
+  display: grid;
+  min-height: 680px;
+  overflow: hidden;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top, rgba(80, 208, 199, 0.12), transparent 30%),
+    #0d1822;
+  background-position: center;
+  background-size: cover;
+  color: #fff;
+}
+
+.share-preview.transparent .share-preview-overlay {
+  background: rgba(7, 16, 24, 0.2);
+}
+
+.share-preview.branded .share-preview-overlay,
+.share-preview:not([style]) .share-preview-overlay {
+  background: rgba(7, 16, 24, 0.72);
+}
+
+.share-preview-overlay {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  min-height: 100%;
+  padding: 70px 24px 36px;
+  text-align: center;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.58);
+}
+
+.share-logo {
+  margin: 0 0 80px;
+  color: var(--teal);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 8px;
+}
+
+.share-complete {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.share-preview h2 {
+  margin: 0 0 58px;
+  font-size: 44px;
+  line-height: 1.05;
+}
+
+.share-details {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 68px;
+  font-size: 18px;
+}
+
+.share-duration {
+  margin-bottom: 38px;
+  font-size: 34px;
+}
+
+.share-count {
+  margin: 0 0 14px;
+  font-size: 24px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.share-volume {
+  color: var(--teal);
+  font-size: 48px;
+}
+
+.share-footer {
+  display: grid;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.share-footer strong {
+  font-size: 34px;
+}
+
+.share-footer span {
+  font-size: 16px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.share-footer small {
+  margin-top: 22px;
+  color: rgba(255, 255, 255, 0.72);
+  font-weight: 800;
+}
+
+.photo-upload-action {
+  display: grid;
+  min-height: 64px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #122232;
+  color: var(--teal);
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.photo-upload-action input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .mobile-number-pad {
   display: none;
 }
@@ -1597,6 +1761,70 @@ button {
 
   .session-end-actions {
     padding-bottom: 340px;
+  }
+
+  .share-mode-toggle {
+    gap: 8px;
+  }
+
+  .share-mode-toggle button {
+    min-height: 74px;
+    border-radius: 14px;
+  }
+
+  .share-mode-toggle strong {
+    font-size: 15px;
+  }
+
+  .share-mode-toggle span {
+    font-size: 12px;
+  }
+
+  .share-preview-shell {
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .share-preview {
+    min-height: 560px;
+    border-radius: 14px;
+  }
+
+  .share-preview-overlay {
+    padding: 52px 18px 28px;
+  }
+
+  .share-logo {
+    margin-bottom: 62px;
+    font-size: 16px;
+    letter-spacing: 5px;
+  }
+
+  .share-preview h2 {
+    margin-bottom: 46px;
+    font-size: 34px;
+  }
+
+  .share-details {
+    margin-bottom: 54px;
+  }
+
+  .share-duration {
+    margin-bottom: 28px;
+    font-size: 28px;
+  }
+
+  .share-count {
+    font-size: 20px;
+  }
+
+  .share-volume {
+    font-size: 38px;
+  }
+
+  .photo-upload-action {
+    min-height: 56px;
+    font-size: 17px;
   }
 
   .mobile-number-pad {
