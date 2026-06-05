@@ -134,6 +134,18 @@ function createSessionRows(exercise) {
   }));
 }
 
+function getPreviousSetChips(exercise) {
+  const startKg = Number(exercise.start_kg);
+  const repMin = Number(exercise.rep_min) || 8;
+  if (!startKg) return [];
+
+  return [
+    `${startKg}kg x ${repMin}`,
+    `${startKg}kg x ${Math.max(repMin - 1, 1)}`,
+    `${startKg}kg x ${repMin + 2}`
+  ];
+}
+
 function createDefaultSetup() {
   return {
     name: "",
@@ -156,6 +168,8 @@ export function WorkoutLibraryScreen({ user }) {
     exercises: []
   });
   const [activeWorkout, setActiveWorkout] = useState(null);
+  const [activeNumberInput, setActiveNumberInput] = useState(null);
+  const [openSessionMenu, setOpenSessionMenu] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -562,6 +576,113 @@ export function WorkoutLibraryScreen({ user }) {
     }));
   }
 
+  function playTone(type = "tap") {
+    if (typeof window === "undefined") return;
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const context = new AudioContext();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = type === "done" ? 880 : 420;
+    gain.gain.setValueAtTime(type === "done" ? 0.12 : 0.055, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + (type === "done" ? 0.18 : 0.06));
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + (type === "done" ? 0.18 : 0.06));
+  }
+
+  function markSessionSetDone(exerciseIndex, rowIndex) {
+    updateSessionRow(exerciseIndex, rowIndex, "done", true);
+    setActiveNumberInput(null);
+    playTone("done");
+  }
+
+  function moveToNextNumberInput() {
+    if (!activeNumberInput || !activeWorkout) return;
+
+    const { exerciseIndex, rowIndex, field } = activeNumberInput;
+    const exercise = activeWorkout.workout_template_exercises[exerciseIndex];
+    if (!exercise) return;
+
+    if (field === "kg") {
+      setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps" });
+      return;
+    }
+
+    updateSessionRow(exerciseIndex, rowIndex, "done", true);
+    playTone("done");
+
+    if (rowIndex + 1 < exercise.sessionRows.length) {
+      setActiveNumberInput({ exerciseIndex, rowIndex: rowIndex + 1, field: "kg" });
+      return;
+    }
+
+    setActiveNumberInput(null);
+  }
+
+  function updateActiveNumber(value) {
+    if (!activeNumberInput) return;
+    updateSessionRow(activeNumberInput.exerciseIndex, activeNumberInput.rowIndex, activeNumberInput.field, value);
+  }
+
+  function pressKeypad(key) {
+    if (!activeNumberInput || !activeWorkout) return;
+
+    const exercise = activeWorkout.workout_template_exercises[activeNumberInput.exerciseIndex];
+    const row = exercise?.sessionRows?.[activeNumberInput.rowIndex];
+    const currentValue = String(row?.[activeNumberInput.field] ?? "");
+
+    if (key === "hide") {
+      setActiveNumberInput(null);
+      return;
+    }
+
+    if (key === "next") {
+      moveToNextNumberInput();
+      return;
+    }
+
+    playTone("tap");
+
+    if (key === "delete") {
+      updateActiveNumber(currentValue.slice(0, -1));
+      return;
+    }
+
+    if (key === "." && currentValue.includes(".")) return;
+    updateActiveNumber(`${currentValue}${key}`);
+  }
+
+  function swapSessionExercise(exerciseIndex) {
+    setActiveWorkout((current) => ({
+      ...current,
+      workout_template_exercises: current.workout_template_exercises.map((exercise, currentExerciseIndex) => {
+        if (currentExerciseIndex !== exerciseIndex) return exercise;
+        const options = exerciseLibrary[exercise.muscle_group] || [];
+        const currentOptionIndex = options.indexOf(exercise.exercise_name);
+        const nextName = options[(currentOptionIndex + 1 + options.length) % options.length] || exercise.exercise_name;
+        return { ...exercise, exercise_name: nextName, skipped: false };
+      })
+    }));
+    setOpenSessionMenu(null);
+    setMessage("Exercise swapped. Full substitution logging comes next in the workout logging phase.");
+  }
+
+  function skipSessionExercise(exerciseIndex) {
+    setActiveWorkout((current) => ({
+      ...current,
+      workout_template_exercises: current.workout_template_exercises.map((exercise, currentExerciseIndex) =>
+        currentExerciseIndex === exerciseIndex ? { ...exercise, skipped: true } : exercise
+      )
+    }));
+    setOpenSessionMenu(null);
+    setMessage("Exercise skipped for this session.");
+  }
+
   if (mode === "session" && activeWorkout) {
     return (
       <section className="screen-stack workout-library">
@@ -571,92 +692,173 @@ export function WorkoutLibraryScreen({ user }) {
             <h1>{activeWorkout.name}</h1>
             <p>Add or remove sets as the real workout changes.</p>
           </div>
+        </div>
+
+        {message ? <p className="form-message error">{message}</p> : null}
+
+        <div className="workout-card-list">
+          {activeWorkout.workout_template_exercises.map((exercise, exerciseIndex) => {
+            const previousSets = getPreviousSetChips(exercise);
+            const isMenuOpen = openSessionMenu === exerciseIndex;
+
+            return (
+              <article
+                className={exercise.skipped ? "workout-card active-exercise-card skipped" : "workout-card active-exercise-card"}
+                key={exercise.id || exerciseIndex}
+              >
+                <div className="active-exercise-head">
+                  <div>
+                    <p className="eyebrow">{exercise.muscle_group || "Strength"}</p>
+                    <h2>{exercise.exercise_name}</h2>
+                    <p>
+                      Target: {exercise.sets || 0} sets
+                      {exercise.rep_min || exercise.rep_max
+                        ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="session-menu-wrap">
+                    <button
+                      aria-expanded={isMenuOpen}
+                      aria-label={`More options for ${exercise.exercise_name}`}
+                      className="icon-action session-menu-button"
+                      onClick={() => setOpenSessionMenu(isMenuOpen ? null : exerciseIndex)}
+                      type="button"
+                    >
+                      ...
+                    </button>
+                    {isMenuOpen ? (
+                      <div className="session-menu" role="menu">
+                        <button onClick={() => showDemo(exercise.exercise_name)} type="button">
+                          Demo
+                        </button>
+                        <button onClick={() => swapSessionExercise(exerciseIndex)} type="button">
+                          Swap exercise
+                        </button>
+                        <button className="danger-text" onClick={() => skipSessionExercise(exerciseIndex)} type="button">
+                          Skip exercise
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {previousSets.length ? (
+                  <div className="previous-sets">
+                    <span>Last</span>
+                    <div>
+                      {previousSets.map((set) => (
+                        <strong key={set}>{set}</strong>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {exercise.skipped ? <p className="form-message error">Skipped for this session.</p> : null}
+
+                <div className="session-set-table">
+                  <div className="session-set-row session-set-head">
+                    <span>Set</span>
+                    <span>Kg</span>
+                    <span>Reps</span>
+                    <span>Done</span>
+                    <span>Remove</span>
+                  </div>
+                  {exercise.sessionRows.map((row, rowIndex) => (
+                    <div className="session-set-row" key={`${exerciseIndex}-${row.setNumber}`}>
+                      <strong>{row.setNumber}</strong>
+                      <input
+                        className={
+                          activeNumberInput?.exerciseIndex === exerciseIndex &&
+                          activeNumberInput?.rowIndex === rowIndex &&
+                          activeNumberInput?.field === "kg"
+                            ? "active-number-input"
+                            : ""
+                        }
+                        inputMode="none"
+                        onChange={(event) =>
+                          updateSessionRow(exerciseIndex, rowIndex, "kg", event.target.value)
+                        }
+                        onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "kg" })}
+                        type="text"
+                        value={row.kg}
+                      />
+                      <input
+                        className={
+                          activeNumberInput?.exerciseIndex === exerciseIndex &&
+                          activeNumberInput?.rowIndex === rowIndex &&
+                          activeNumberInput?.field === "reps"
+                            ? "active-number-input"
+                            : ""
+                        }
+                        inputMode="none"
+                        onChange={(event) =>
+                          updateSessionRow(exerciseIndex, rowIndex, "reps", event.target.value)
+                        }
+                        onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps" })}
+                        type="text"
+                        value={row.reps}
+                      />
+                      <button
+                        className={row.done ? "set-toggle done" : "set-toggle"}
+                        onClick={() =>
+                          row.done
+                            ? updateSessionRow(exerciseIndex, rowIndex, "done", false)
+                            : markSessionSetDone(exerciseIndex, rowIndex)
+                        }
+                        type="button"
+                      >
+                        {row.done ? "✓" : "Done"}
+                      </button>
+                      <button
+                        className="danger-link"
+                        onClick={() => removeSessionSet(exerciseIndex, rowIndex)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  className="primary-action compact"
+                  onClick={() => addSessionSet(exerciseIndex)}
+                  type="button"
+                >
+                  Add Set
+                </button>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="session-end-actions">
           <button className="primary-action" onClick={() => setMode("list")} type="button">
-            End
+            End Workout
           </button>
         </div>
 
-        <div className="workout-card-list">
-          {activeWorkout.workout_template_exercises.map((exercise, exerciseIndex) => (
-            <article className="workout-card active-exercise-card" key={exercise.id || exerciseIndex}>
-              <div className="workout-card-head">
-                <div>
-                  <p className="eyebrow">{exercise.muscle_group || "Strength"}</p>
-                  <h2>{exercise.exercise_name}</h2>
-                  <p>
-                    Target: {exercise.sets || 0} sets
-                    {exercise.rep_min || exercise.rep_max
-                      ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
-                      : ""}
-                  </p>
-                </div>
-                {exercise.exercise_name ? (
-                  <button
-                    className="primary-action compact"
-                    onClick={() => showDemo(exercise.exercise_name)}
-                    type="button"
-                  >
-                    Demo
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="session-set-table">
-                <div className="session-set-row session-set-head">
-                  <span>Set</span>
-                  <span>Kg</span>
-                  <span>Reps</span>
-                  <span>Done</span>
-                  <span>Remove</span>
-                </div>
-                {exercise.sessionRows.map((row, rowIndex) => (
-                  <div className="session-set-row" key={`${exerciseIndex}-${row.setNumber}`}>
-                    <strong>{row.setNumber}</strong>
-                    <input
-                      min="0"
-                      onChange={(event) =>
-                        updateSessionRow(exerciseIndex, rowIndex, "kg", event.target.value)
-                      }
-                      step="0.25"
-                      type="number"
-                      value={row.kg}
-                    />
-                    <input
-                      min="0"
-                      onChange={(event) =>
-                        updateSessionRow(exerciseIndex, rowIndex, "reps", event.target.value)
-                      }
-                      type="number"
-                      value={row.reps}
-                    />
-                    <button
-                      className={row.done ? "set-toggle done" : "set-toggle"}
-                      onClick={() => updateSessionRow(exerciseIndex, rowIndex, "done", !row.done)}
-                      type="button"
-                    >
-                      Done
-                    </button>
-                    <button
-                      className="danger-link"
-                      onClick={() => removeSessionSet(exerciseIndex, rowIndex)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-
+        {activeNumberInput ? (
+          <div className="mobile-number-pad" aria-label="Workout number keypad">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "delete"].map((key) => (
               <button
-                className="primary-action compact"
-                onClick={() => addSessionSet(exerciseIndex)}
+                className={key === "delete" ? "keypad-delete" : `keypad-key key-${key === "." ? "decimal" : key}`}
+                key={key}
+                onClick={() => pressKeypad(key)}
                 type="button"
               >
-                Add Set
+                {key === "delete" ? "⌫" : key}
               </button>
-            </article>
-          ))}
-        </div>
+            ))}
+            <button className="keypad-hide" onClick={() => pressKeypad("hide")} type="button">
+              ˅
+            </button>
+            <button className="keypad-next" onClick={() => pressKeypad("next")} type="button">
+              Next
+            </button>
+          </div>
+        ) : null}
       </section>
     );
   }
