@@ -331,6 +331,13 @@ function formatClock(totalSeconds = 0) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function formatShortDuration(totalSeconds = 0) {
+  const cleanSeconds = Math.max(0, Number(totalSeconds) || 0);
+  const minutes = Math.floor(cleanSeconds / 60);
+  const seconds = cleanSeconds % 60;
+  return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 function secondsFromParts(minutes, seconds) {
   return (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
 }
@@ -995,6 +1002,24 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     return previousSetsByExercise;
+  }
+
+  async function loadBestPreviousDuration(workoutTemplateId) {
+    if (!supabase || user.id === "demo-user" || !workoutTemplateId) return null;
+
+    const { data, error } = await supabase
+      .from("session_logs")
+      .select("duration_seconds")
+      .eq("owner_id", user.id)
+      .eq("workout_template_id", workoutTemplateId)
+      .eq("status", "completed")
+      .eq("workout_type", "hiit")
+      .order("duration_seconds", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return null;
+    return data?.duration_seconds ?? null;
   }
 
   function startNewWorkout() {
@@ -1795,7 +1820,7 @@ export function WorkoutLibraryScreen({ user }) {
     });
   }
 
-  function completeForTimeStation() {
+  async function completeForTimeStation() {
     if (!activeWorkout || !hiitForTime) return;
 
     const exercises = activeWorkout.workout_template_exercises || [];
@@ -1810,6 +1835,12 @@ export function WorkoutLibraryScreen({ user }) {
     };
     const nextExerciseIndex = hiitForTime.exerciseIndex + 1;
     playTone(nextExerciseIndex >= exercises.length ? "done" : "start");
+    const completedStations = [...hiitForTime.completedStations, completedStation];
+
+    if (nextExerciseIndex >= exercises.length) {
+      await finishForTimeSession(completedStations);
+      return;
+    }
 
     setHiitForTime((current) =>
       current
@@ -1819,16 +1850,85 @@ export function WorkoutLibraryScreen({ user }) {
             phase: nextExerciseIndex < exercises.length ? "active" : current.phase,
             exerciseIndex: Math.min(nextExerciseIndex, Math.max(exercises.length - 1, 0)),
             stationElapsedSeconds: 0,
-            completedStations: [...current.completedStations, completedStation],
+            completedStations,
             complete: nextExerciseIndex >= exercises.length
           }
         : current
     );
   }
 
-  function finishForTimeSession() {
+  async function finishForTimeSession(forcedSplits = null) {
+    if (!activeWorkout || !hiitForTime) return;
+
+    setSaving(true);
+    setMessage("");
+
+    const completedAt = new Date().toISOString();
+    const startedAt = activeWorkout.startedAt || completedAt;
+    const splits = forcedSplits || hiitForTime.completedStations || [];
+    const durationSeconds = Math.max(
+      hiitForTime.elapsedSeconds,
+      splits.reduce((sum, split) => sum + (Number(split.durationSeconds) || 0), 0)
+    );
+    const previousBestDurationSeconds = await loadBestPreviousDuration(activeWorkout.id);
+    const isPbTime = previousBestDurationSeconds === null || durationSeconds < previousBestDurationSeconds;
+    const pbLabel =
+      previousBestDurationSeconds === null
+        ? "First logged time"
+        : isPbTime
+          ? "PB time"
+          : `Best ${formatClock(previousBestDurationSeconds)}`;
+
+    let sessionId = `demo-hiit-${Date.now()}`;
+    if (supabase && user.id !== "demo-user") {
+      const { data: sessionLog, error: sessionError } = await supabase
+        .from("session_logs")
+        .insert({
+          owner_id: user.id,
+          workout_template_id: activeWorkout.id || null,
+          name: activeWorkout.name,
+          notes: activeWorkout.notes || null,
+          workout_type: "hiit",
+          status: "completed",
+          started_at: startedAt,
+          completed_at: completedAt,
+          duration_seconds: durationSeconds,
+          total_exercises: activeWorkout.workout_template_exercises?.length || 0,
+          completed_sets: splits.length,
+          total_volume_kg: 0
+        })
+        .select("id")
+        .single();
+
+      if (sessionError) {
+        setMessage(`${sessionError.message}. Run supabase/phase-3-session-logging.sql in Supabase first.`);
+        setSaving(false);
+        return;
+      }
+
+      sessionId = sessionLog.id;
+    }
+
+    setCompletedSession({
+      id: sessionId,
+      name: activeWorkout.name,
+      startedAt,
+      completedAt,
+      durationSeconds,
+      totalExercises: activeWorkout.workout_template_exercises?.length || 0,
+      completedSets: splits.length,
+      totalVolumeKg: 0,
+      sessionType: "for_time",
+      splits,
+      previousBestDurationSeconds,
+      isPbTime,
+      pbLabel
+    });
+
     setHiitForTime((current) => (current ? { ...current, running: false, phase: "complete", complete: true } : current));
     playTone("done");
+    setSaving(false);
+    setMode("complete");
   }
 
   function updateSessionRow(exerciseIndex, rowIndex, field, value) {
@@ -2172,7 +2272,7 @@ export function WorkoutLibraryScreen({ user }) {
     const height = canvas.height;
     const isBranded = shareMode === "branded";
     const duration = completedSession
-      ? `${Math.floor(completedSession.durationSeconds / 60)}m ${completedSession.durationSeconds % 60}s`
+      ? formatShortDuration(completedSession.durationSeconds)
       : "0s";
     const date = completedSession
       ? new Date(completedSession.completedAt).toLocaleDateString(undefined, {
@@ -2213,9 +2313,29 @@ export function WorkoutLibraryScreen({ user }) {
     ctx.fillText(duration, width / 2, 990);
     ctx.font = "900 46px Arial";
     ctx.fillText(`${completedSession?.totalExercises || 0} EXERCISES`, width / 2, 1120);
-    ctx.fillStyle = "#50d0c7";
-    ctx.font = "900 76px Arial";
-    ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width / 2, 1255);
+    if (completedSession?.sessionType === "for_time") {
+      ctx.fillStyle = "#50d0c7";
+      ctx.font = "900 46px Arial";
+      ctx.fillText(completedSession.pbLabel || "For Time", width / 2, 1225);
+
+      ctx.textAlign = "left";
+      ctx.font = "700 28px Arial";
+      const splits = (completedSession.splits || []).slice(0, 7);
+      splits.forEach((split, index) => {
+        const y = 1325 + index * 48;
+        ctx.fillStyle = "rgba(255,255,255,0.78)";
+        ctx.fillText(`${index + 1}. ${split.exerciseName}`, 190, y);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(formatClock(split.durationSeconds), width - 190, y);
+        ctx.textAlign = "left";
+      });
+      ctx.textAlign = "center";
+    } else {
+      ctx.fillStyle = "#50d0c7";
+      ctx.font = "900 76px Arial";
+      ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width / 2, 1255);
+    }
     ctx.fillStyle = "#ffffff";
     ctx.font = "900 44px Arial";
     ctx.fillText("METZ", width / 2, 1650);
@@ -2573,7 +2693,7 @@ export function WorkoutLibraryScreen({ user }) {
                       ? "Start"
                       : "Resume"}
                 </button>
-                <button className="primary-action" onClick={finishForTimeSession} type="button">
+                <button className="primary-action" onClick={() => finishForTimeSession()} type="button">
                   Finish
                 </button>
               </>
@@ -2820,6 +2940,7 @@ export function WorkoutLibraryScreen({ user }) {
   if (mode === "complete" && completedSession) {
     const minutes = Math.floor(completedSession.durationSeconds / 60);
     const seconds = completedSession.durationSeconds % 60;
+    const isForTimeSession = completedSession.sessionType === "for_time";
 
     return (
       <section className="screen-stack workout-library">
@@ -2842,14 +2963,30 @@ export function WorkoutLibraryScreen({ user }) {
               <strong>{completedSession.totalExercises}</strong>
             </div>
             <div>
-              <span>Sets done</span>
+              <span>{isForTimeSession ? "Splits" : "Sets done"}</span>
               <strong>{completedSession.completedSets}</strong>
             </div>
             <div>
-              <span>Volume</span>
-              <strong>{Math.round(completedSession.totalVolumeKg).toLocaleString()}kg</strong>
+              <span>{isForTimeSession ? "PB status" : "Volume"}</span>
+              <strong>
+                {isForTimeSession
+                  ? completedSession.pbLabel
+                  : `${Math.round(completedSession.totalVolumeKg).toLocaleString()}kg`}
+              </strong>
             </div>
           </div>
+
+          {isForTimeSession && completedSession.splits?.length ? (
+            <div className="completion-split-list">
+              {completedSession.splits.map((split, index) => (
+                <div key={`${split.exerciseIndex}-${split.completedAtSeconds}`}>
+                  <span>{index + 1}</span>
+                  <strong>{split.exerciseName}</strong>
+                  <em>{formatClock(split.durationSeconds)}</em>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className="session-rating">
             <h2>Rate this session</h2>
@@ -2887,12 +3024,13 @@ export function WorkoutLibraryScreen({ user }) {
   }
 
   if (mode === "share" && completedSession) {
-    const duration = `${Math.floor(completedSession.durationSeconds / 60)}m ${completedSession.durationSeconds % 60}s`;
+    const duration = formatShortDuration(completedSession.durationSeconds);
     const sessionDate = new Date(completedSession.completedAt).toLocaleDateString(undefined, {
       weekday: "short",
       day: "numeric",
       month: "short"
     });
+    const isForTimeSession = completedSession.sessionType === "for_time";
 
     return (
       <section className="screen-stack workout-library share-workout-screen">
@@ -2939,9 +3077,22 @@ export function WorkoutLibraryScreen({ user }) {
               </div>
               <strong className="share-duration">{duration}</strong>
               <p className="share-count">{completedSession.totalExercises} exercises</p>
-              <strong className="share-volume">
-                {Math.round(completedSession.totalVolumeKg).toLocaleString()}kg
-              </strong>
+              {isForTimeSession ? (
+                <>
+                  <strong className="share-volume">{completedSession.pbLabel}</strong>
+                  <div className="share-split-list">
+                    {(completedSession.splits || []).slice(0, 5).map((split, index) => (
+                      <span key={`${split.exerciseIndex}-${split.completedAtSeconds}`}>
+                        {index + 1}. {split.exerciseName} - {formatClock(split.durationSeconds)}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <strong className="share-volume">
+                  {Math.round(completedSession.totalVolumeKg).toLocaleString()}kg
+                </strong>
+              )}
               <div className="share-footer">
                 <strong>METZ</strong>
                 <span>Move - Train - Grow</span>
