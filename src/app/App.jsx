@@ -137,7 +137,7 @@ export function App() {
 
     const nextTabs = roleTabs[role] ?? roleTabs.normal_user;
     if (!nextTabs.some((tab) => tab.id === activeTab)) {
-      setActiveTab(nextTabs[0].id);
+      Promise.resolve().then(() => setActiveTab(nextTabs[0].id));
     }
   }, [activeTab, role]);
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
@@ -221,9 +221,38 @@ export function WorkoutLibraryScreen({ user }) {
     [setup.muscleTargets]
   );
 
-  useEffect(() => {
-    loadWorkouts();
+  const loadWorkouts = useCallback(async () => {
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      setWorkouts(demoWorkouts);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("workout_templates")
+      .select("id,name,notes,workout_type,created_at")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(25);
+
+    if (error) {
+      setMessage("Could not load workouts yet. Run the Phase 2 SQL in Supabase first.");
+      setWorkouts([]);
+    } else {
+      setWorkouts(data || []);
+    }
+    setLoading(false);
   }, [user.id]);
+
+  useEffect(() => {
+    const load = Promise.resolve().then(loadWorkouts);
+    return () => {
+      void load;
+    };
+  }, [loadWorkouts]);
 
   useEffect(() => {
     if (!activeNumberInput) return;
@@ -244,32 +273,30 @@ export function WorkoutLibraryScreen({ user }) {
     });
   }, [activeNumberInput]);
 
-  async function loadWorkouts() {
-    setMessage("");
-
-    if (!supabase || user.id === "demo-user") {
-      setWorkouts(demoWorkouts);
-      setLoading(false);
-      return;
-    }
+  async function loadWorkoutDetails(workout) {
+    if (!supabase || user.id === "demo-user") return workout;
 
     setLoading(true);
+    setMessage("");
+
     const { data, error } = await supabase
       .from("workout_templates")
       .select(
         "id,name,notes,workout_type,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,start_kg,rest_seconds,tip,superset_group)"
       )
       .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-      .order("position", { referencedTable: "workout_template_exercises", ascending: true });
+      .eq("id", workout.id)
+      .order("position", { referencedTable: "workout_template_exercises", ascending: true })
+      .single();
+
+    setLoading(false);
 
     if (error) {
-      setMessage("Could not load workouts yet. Run the Phase 2 SQL in Supabase first.");
-      setWorkouts([]);
-    } else {
-      setWorkouts(data || []);
+      setMessage(error.message);
+      return null;
     }
-    setLoading(false);
+
+    return data;
   }
 
   function startNewWorkout() {
@@ -308,13 +335,16 @@ export function WorkoutLibraryScreen({ user }) {
     setMode("editor");
   }
 
-  function startEditWorkout(workout) {
-    setEditingId(workout.id);
+  async function startEditWorkout(workout) {
+    const detailedWorkout = await loadWorkoutDetails(workout);
+    if (!detailedWorkout) return;
+
+    setEditingId(detailedWorkout.id);
     setForm({
-      name: workout.name || "",
-      notes: workout.notes || "",
-      workout_type: workout.workout_type || "strength",
-      exercises: (workout.workout_template_exercises || []).map((exercise) => ({
+      name: detailedWorkout.name || "",
+      notes: detailedWorkout.notes || "",
+      workout_type: detailedWorkout.workout_type || "strength",
+      exercises: (detailedWorkout.workout_template_exercises || []).map((exercise) => ({
         id: exercise.id,
         exercise_name: exercise.exercise_name || "",
         muscle_group: exercise.muscle_group || "Chest",
@@ -558,11 +588,14 @@ export function WorkoutLibraryScreen({ user }) {
     }
   }
 
-  function startSession(workout) {
+  async function startSession(workout) {
+    const detailedWorkout = await loadWorkoutDetails(workout);
+    if (!detailedWorkout) return;
+
     setActiveWorkout({
-      ...workout,
+      ...detailedWorkout,
       startedAt: new Date().toISOString(),
-      workout_template_exercises: (workout.workout_template_exercises || []).map((exercise) => ({
+      workout_template_exercises: (detailedWorkout.workout_template_exercises || []).map((exercise) => ({
         ...exercise,
         original_exercise_name: exercise.exercise_name,
         sessionRows: createSessionRows(exercise)
@@ -1245,7 +1278,7 @@ export function WorkoutLibraryScreen({ user }) {
             <h1>
               Share your <span>workout</span>
             </h1>
-            <p>Choose clear photo or METZ branded overlay.</p>
+            <p>Download a clear or branded template. Photos stay on this device.</p>
           </div>
           <button className="primary-action" onClick={finishShareFlow} type="button">
             Done
@@ -1300,11 +1333,11 @@ export function WorkoutLibraryScreen({ user }) {
 
         <label className="photo-upload-action">
           <input accept="image/*" onChange={handleSharePhoto} type="file" />
-          Add photo background
+          Add local photo background
         </label>
 
         <button className="primary-action filled" onClick={saveShareImage} type="button">
-          Share / Save Image
+          Download Image
         </button>
       </section>
     );
@@ -1655,6 +1688,7 @@ export function WorkoutLibraryScreen({ user }) {
           {workouts.map((workout) => {
             const exercises = workout.workout_template_exercises || [];
             const totalSets = exercises.reduce((sum, exercise) => sum + (Number(exercise.sets) || 0), 0);
+            const hasExerciseDetails = exercises.length > 0;
 
             return (
               <article className="workout-card" key={workout.id}>
@@ -1663,7 +1697,9 @@ export function WorkoutLibraryScreen({ user }) {
                     <p className="eyebrow">{workout.workout_type}</p>
                     <h2>{workout.name}</h2>
                     <p>
-                      {exercises.length} exercises - {totalSets} total sets
+                      {hasExerciseDetails
+                        ? `${exercises.length} exercises - ${totalSets} total sets`
+                        : "Exercise details load when you start or edit."}
                     </p>
                   </div>
                   <span className="status-pill">Template</span>
@@ -1671,19 +1707,21 @@ export function WorkoutLibraryScreen({ user }) {
 
                 {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
 
-                <div className="workout-exercise-summary">
-                  {exercises.map((exercise) => (
-                    <div key={exercise.id || `${workout.id}-${exercise.position}`}>
-                      <strong>{exercise.exercise_name}</strong>
-                      <span>
-                        {exercise.sets || 0} sets
-                        {exercise.rep_min || exercise.rep_max
-                          ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
-                          : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {hasExerciseDetails ? (
+                  <div className="workout-exercise-summary">
+                    {exercises.map((exercise) => (
+                      <div key={exercise.id || `${workout.id}-${exercise.position}`}>
+                        <strong>{exercise.exercise_name}</strong>
+                        <span>
+                          {exercise.sets || 0} sets
+                          {exercise.rep_min || exercise.rep_max
+                            ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
+                            : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
 
                 <div className="library-actions">
                   <button className="primary-action filled" onClick={() => startSession(workout)} type="button">

@@ -54,7 +54,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
   );
 
   useEffect(() => {
-    setProfileForm(toProfileForm(profile, user));
+    Promise.resolve().then(() => setProfileForm(toProfileForm(profile, user)));
   }, [profile, user]);
 
   useEffect(() => {
