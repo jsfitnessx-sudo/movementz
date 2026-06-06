@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
+function toExerciseKey(exerciseName) {
+  return exerciseName.trim().toLowerCase();
+}
+
 export function AdminRequestsScreen({ user }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -74,6 +78,38 @@ export function AdminRequestsScreen({ user }) {
 
     setSavingId(request.id);
     setMessage("");
+
+    if (status === "approved") {
+      const { error: demoError } = await supabase.from("exercise_demo_links").upsert(
+        {
+          exercise_key: toExerciseKey(request.exercise_name),
+          exercise_name: request.exercise_name,
+          muscle_group: request.muscle_group || null,
+          youtube_url: draft.youtube_url.trim(),
+          source_request_id: request.id,
+          created_by: user.id,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "exercise_key" }
+      );
+
+      if (demoError) {
+        setSavingId("");
+        setMessage(`${demoError.message}. Run the updated supabase/phase-4-exercise-library.sql first.`);
+        return;
+      }
+    } else {
+      const { error: deleteDemoError } = await supabase
+        .from("exercise_demo_links")
+        .delete()
+        .eq("exercise_key", toExerciseKey(request.exercise_name));
+
+      if (deleteDemoError) {
+        setSavingId("");
+        setMessage(deleteDemoError.message);
+        return;
+      }
+    }
 
     const { error } = await supabase
       .from("exercise_review_requests")

@@ -25,8 +25,21 @@ create table if not exists public.exercise_review_requests (
   unique(requester_id, exercise_name)
 );
 
+create table if not exists public.exercise_demo_links (
+  id uuid primary key default gen_random_uuid(),
+  exercise_key text not null unique,
+  exercise_name text not null,
+  muscle_group text,
+  youtube_url text not null,
+  source_request_id uuid references public.exercise_review_requests(id) on delete set null,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.user_exercise_options enable row level security;
 alter table public.exercise_review_requests enable row level security;
+alter table public.exercise_demo_links enable row level security;
 
 create or replace function public.is_admin()
 returns boolean
@@ -52,6 +65,21 @@ for all
 to authenticated
 using (owner_id = auth.uid())
 with check (owner_id = auth.uid());
+
+drop policy if exists "Authenticated users view exercise demos" on public.exercise_demo_links;
+drop policy if exists "Admins manage exercise demos" on public.exercise_demo_links;
+create policy "Authenticated users view exercise demos"
+on public.exercise_demo_links
+for select
+to authenticated
+using (true);
+
+create policy "Admins manage exercise demos"
+on public.exercise_demo_links
+for all
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
 
 drop policy if exists "Users create own exercise review requests" on public.exercise_review_requests;
 drop policy if exists "Users view own exercise review requests" on public.exercise_review_requests;
@@ -87,3 +115,6 @@ create index if not exists user_exercise_options_owner_name_idx
 
 create index if not exists exercise_review_requests_status_created_idx
   on public.exercise_review_requests(status, created_at desc);
+
+create index if not exists exercise_demo_links_key_idx
+  on public.exercise_demo_links(exercise_key);

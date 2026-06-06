@@ -133,6 +133,10 @@ function isKnownExercise(exerciseName) {
     .some((name) => name.toLowerCase() === normalizedName);
 }
 
+function toExerciseKey(exerciseName) {
+  return exerciseName.trim().toLowerCase();
+}
+
 function createSessionRows(exercise, previousRows = []) {
   const setCount = Math.max(Number(exercise.sets) || 1, previousRows.length);
   return Array.from({ length: setCount }, (_, index) => ({
@@ -599,12 +603,36 @@ export function WorkoutLibraryScreen({ user }) {
     setMessage("Exercise options refreshed.");
   }
 
-  function showDemo(exerciseName) {
-    setMessage(
-      exerciseName
-        ? `Demo videos for ${exerciseName} will open here once video links are added.`
-        : "Choose an exercise first, then Demo will show its video."
-    );
+  async function showDemo(exerciseName) {
+    if (!exerciseName) {
+      setMessage("Choose an exercise first, then Demo will show its video.");
+      return;
+    }
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage(`Demo links for ${exerciseName} will open here once approved.`);
+      return;
+    }
+
+    setMessage("");
+
+    const { data, error } = await supabase
+      .from("exercise_demo_links")
+      .select("youtube_url")
+      .eq("exercise_key", toExerciseKey(exerciseName))
+      .maybeSingle();
+
+    if (error) {
+      setMessage(`${error.message}. Run the updated supabase/phase-4-exercise-library.sql first.`);
+      return;
+    }
+
+    if (!data?.youtube_url) {
+      setMessage(`No approved demo link yet for ${exerciseName}.`);
+      return;
+    }
+
+    window.open(data.youtube_url, "_blank", "noopener,noreferrer");
   }
 
   function addExercise() {
