@@ -1159,6 +1159,81 @@ button {
   color: #ffb9c1;
 }
 
+.demo-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  align-items: center;
+  padding: 22px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.demo-modal {
+  display: grid;
+  gap: 14px;
+  width: min(1120px, 100%);
+  max-height: min(760px, calc(100dvh - 44px));
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #142434;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.52);
+}
+
+.demo-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.demo-modal-head h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.demo-modal-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.demo-frame-shell {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #050b10;
+}
+
+.demo-frame-shell iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.demo-search-fallback {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 26px;
+}
+
+.demo-search-fallback h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.demo-search-fallback p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--muted);
+}
+
 .swap-panel {
   display: grid;
   gap: 12px;

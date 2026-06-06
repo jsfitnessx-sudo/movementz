@@ -145,6 +145,31 @@ function getYouTubeExerciseSearchUrl(exerciseName) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exerciseName} exercise demo`)}`;
 }
 
+function getYouTubeEmbedUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    const host = parsedUrl.hostname.replace(/^www\./, "");
+    let videoId = "";
+
+    if (host === "youtu.be") {
+      videoId = parsedUrl.pathname.split("/").filter(Boolean)[0] || "";
+    } else if (host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com") {
+      if (parsedUrl.pathname.startsWith("/embed/")) {
+        videoId = parsedUrl.pathname.split("/").filter(Boolean)[1] || "";
+      } else if (parsedUrl.pathname.startsWith("/shorts/")) {
+        videoId = parsedUrl.pathname.split("/").filter(Boolean)[1] || "";
+      } else {
+        videoId = parsedUrl.searchParams.get("v") || "";
+      }
+    }
+
+    if (!videoId) return "";
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+  } catch {
+    return "";
+  }
+}
+
 function createSessionRows(exercise, previousRows = []) {
   const setCount = Math.max(Number(exercise.sets) || 1, previousRows.length);
   return Array.from({ length: setCount }, (_, index) => ({
@@ -224,6 +249,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [catalogExerciseNames, setCatalogExerciseNames] = useState(new Set());
   const [catalogSearchResults, setCatalogSearchResults] = useState({});
   const [swapCatalogResults, setSwapCatalogResults] = useState([]);
+  const [demoVideo, setDemoVideo] = useState(null);
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
@@ -693,9 +719,10 @@ export function WorkoutLibraryScreen({ user }) {
       return;
     }
 
-    const demoWindow = window.open(getYouTubeExerciseSearchUrl(exerciseName), "_blank", "noopener,noreferrer");
+    const searchUrl = getYouTubeExerciseSearchUrl(exerciseName);
 
     if (!supabase || user.id === "demo-user") {
+      setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl });
       setMessage("");
       return;
     }
@@ -709,7 +736,6 @@ export function WorkoutLibraryScreen({ user }) {
       .maybeSingle();
 
     if (error) {
-      demoWindow?.close();
       setMessage(
         isMissingSupabaseTable(error)
           ? "Demo links are not installed in Supabase yet. Run the updated Phase 4 exercise library SQL first."
@@ -719,15 +745,18 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     if (!data?.youtube_url) {
+      setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl });
       setMessage("");
       return;
     }
 
-    if (demoWindow) {
-      demoWindow.location.href = data.youtube_url;
-    } else {
-      window.open(data.youtube_url, "_blank", "noopener,noreferrer");
+    const embedUrl = getYouTubeEmbedUrl(data.youtube_url);
+    if (!embedUrl) {
+      setDemoVideo({ exerciseName, embedUrl: "", externalUrl: data.youtube_url });
+      return;
     }
+
+    setDemoVideo({ exerciseName, embedUrl, externalUrl: data.youtube_url });
   }
 
   function addExercise() {
@@ -1414,6 +1443,50 @@ export function WorkoutLibraryScreen({ user }) {
     download();
   }
 
+  function renderDemoModal() {
+    if (!demoVideo) return null;
+
+    return (
+      <div className="demo-modal-backdrop" role="presentation">
+        <div className="demo-modal" role="dialog" aria-modal="true" aria-label={`${demoVideo.exerciseName} demo`}>
+          <div className="demo-modal-head">
+            <div>
+              <h2>{demoVideo.exerciseName}</h2>
+              <p>Exercise tutorial</p>
+            </div>
+            <button
+              className="icon-action"
+              onClick={() => setDemoVideo(null)}
+              type="button"
+              aria-label="Close demo"
+            >
+              x
+            </button>
+          </div>
+
+          {demoVideo.embedUrl ? (
+            <div className="demo-frame-shell">
+              <iframe
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                src={demoVideo.embedUrl}
+                title={`${demoVideo.exerciseName} exercise demo`}
+              />
+            </div>
+          ) : (
+            <div className="demo-search-fallback">
+              <h3>No approved in-app demo yet</h3>
+              <p>Open YouTube search for this exercise, or add an approved link from the admin requests screen.</p>
+              <a className="primary-action filled" href={demoVideo.externalUrl} rel="noreferrer" target="_blank">
+                Open YouTube search
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   function renderSwapPanel(exercise) {
     const muscleOptions = exerciseLibrary[exercise?.muscle_group] || [];
     const hasSearch = swapSearch.trim().length >= 2;
@@ -1467,14 +1540,15 @@ export function WorkoutLibraryScreen({ user }) {
 
   if (mode === "session" && activeWorkout) {
     return (
-      <section className="screen-stack workout-library">
-        <div className="screen-heading library-heading">
-          <div>
-            <p className="eyebrow">Active session</p>
-            <h1>{activeWorkout.name}</h1>
-            <p>Add or remove sets as the real workout changes.</p>
+      <>
+        <section className="screen-stack workout-library">
+          <div className="screen-heading library-heading">
+            <div>
+              <p className="eyebrow">Active session</p>
+              <h1>{activeWorkout.name}</h1>
+              <p>Add or remove sets as the real workout changes.</p>
+            </div>
           </div>
-        </div>
 
         {message ? <p className="form-message error">{message}</p> : null}
 
@@ -1655,7 +1729,9 @@ export function WorkoutLibraryScreen({ user }) {
             </button>
           </div>
         ) : null}
-      </section>
+        </section>
+        {renderDemoModal()}
+      </>
     );
   }
 
@@ -2035,7 +2111,8 @@ export function WorkoutLibraryScreen({ user }) {
 
   if (mode === "editor") {
     return (
-      <section className="screen-stack workout-library">
+      <>
+        <section className="screen-stack workout-library">
         <div className="screen-heading">
           <p className="eyebrow">Workout library</p>
           <h1>{editingWorkout ? "Edit workout" : "Choose exercises"}</h1>
@@ -2235,7 +2312,9 @@ export function WorkoutLibraryScreen({ user }) {
             </button>
           </div>
         </form>
-      </section>
+        </section>
+        {renderDemoModal()}
+      </>
     );
   }
 
