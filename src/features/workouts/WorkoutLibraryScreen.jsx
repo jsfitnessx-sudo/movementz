@@ -124,12 +124,12 @@ function getSuggestions(exercise) {
   return [0, 1, 2].map((step) => options[(exercise.suggestionOffset + step) % options.length]);
 }
 
-function createSessionRows(exercise) {
-  const setCount = Number(exercise.sets) || 1;
+function createSessionRows(exercise, previousRows = []) {
+  const setCount = Math.max(Number(exercise.sets) || 1, previousRows.length);
   return Array.from({ length: setCount }, (_, index) => ({
     setNumber: index + 1,
-    kg: exercise.start_kg ?? "",
-    reps: exercise.rep_min ?? "",
+    kg: previousRows[index]?.kg ?? exercise.start_kg ?? "",
+    reps: previousRows[index]?.reps ?? exercise.rep_min ?? "",
     done: false
   }));
 }
@@ -372,13 +372,13 @@ export function WorkoutLibraryScreen({ user }) {
     return data;
   }
 
-  async function loadPreviousSetsForWorkout(exercises) {
+  async function loadPreviousSetsForWorkout(exercises, workoutTemplateId) {
     if (!supabase || user.id === "demo-user" || exercises.length === 0) return {};
 
     const exerciseNames = new Set(exercises.map((exercise) => exercise.exercise_name).filter(Boolean));
     if (exerciseNames.size === 0) return {};
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("session_logs")
       .select(
         "completed_at,session_log_exercises(exercise_name,session_log_sets(set_number,kg,reps,completed))"
@@ -387,6 +387,12 @@ export function WorkoutLibraryScreen({ user }) {
       .eq("status", "completed")
       .order("completed_at", { ascending: false })
       .limit(8);
+
+    if (workoutTemplateId) {
+      query = query.eq("workout_template_id", workoutTemplateId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       setMessage(error.message);
@@ -401,14 +407,18 @@ export function WorkoutLibraryScreen({ user }) {
           continue;
         }
 
-        const chips = (exercise.session_log_sets || [])
+        const rows = (exercise.session_log_sets || [])
           .filter((set) => set.completed && set.kg !== null && set.reps !== null)
           .sort((a, b) => a.set_number - b.set_number)
-          .slice(0, 4)
-          .map((set) => `${set.kg}kg x ${set.reps}`);
+          .map((set) => ({
+            kg: set.kg,
+            reps: set.reps
+          }));
 
-        if (chips.length) {
-          previousSetsByExercise[exercise.exercise_name] = chips;
+        const chips = rows.slice(0, 4).map((set) => `${set.kg}kg x ${set.reps}`);
+
+        if (rows.length) {
+          previousSetsByExercise[exercise.exercise_name] = { chips, rows };
         }
       }
     }
@@ -710,7 +720,7 @@ export function WorkoutLibraryScreen({ user }) {
     if (!detailedWorkout) return;
 
     const workoutExercises = detailedWorkout.workout_template_exercises || [];
-    const previousSetsByExercise = await loadPreviousSetsForWorkout(workoutExercises);
+    const previousSetsByExercise = await loadPreviousSetsForWorkout(workoutExercises, detailedWorkout.id);
 
     setActiveWorkout({
       ...detailedWorkout,
@@ -718,8 +728,8 @@ export function WorkoutLibraryScreen({ user }) {
       workout_template_exercises: workoutExercises.map((exercise) => ({
         ...exercise,
         original_exercise_name: exercise.exercise_name,
-        previousSets: previousSetsByExercise[exercise.exercise_name] || [],
-        sessionRows: createSessionRows(exercise)
+        previousSets: previousSetsByExercise[exercise.exercise_name]?.chips || [],
+        sessionRows: createSessionRows(exercise, previousSetsByExercise[exercise.exercise_name]?.rows || [])
       }))
     });
     setCompletedSession(null);
