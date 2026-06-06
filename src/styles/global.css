@@ -1659,6 +1659,80 @@ button {
   width: min(560px, 100%);
 }
 
+.for-time-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: min(680px, 100%);
+}
+
+.for-time-stat {
+  display: grid;
+  gap: 6px;
+  min-height: 94px;
+  align-content: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #121d27;
+  padding: 12px;
+  text-align: center;
+}
+
+.for-time-stat.primary {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 9%, #121d27);
+}
+
+.for-time-stat.danger {
+  border-color: color-mix(in srgb, var(--red) 55%, var(--line));
+  background: color-mix(in srgb, var(--red) 9%, #121d27);
+}
+
+.for-time-stat span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.for-time-stat strong {
+  color: var(--text);
+  font-size: 26px;
+}
+
+.for-time-current-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: min(680px, 100%);
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--gold) 48%, var(--line));
+  border-radius: 14px;
+  background: #171118;
+}
+
+.for-time-current-card h2 {
+  margin: 0 0 5px;
+  font-size: 24px;
+}
+
+.for-time-current-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.hiit-station.complete {
+  border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
+  background: color-mix(in srgb, var(--teal) 8%, #121d27);
+}
+
+.station-complete-action {
+  grid-column: 1 / -1;
+  min-height: 54px;
+}
+
 .previous-sets {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2436,6 +2510,30 @@ button {
 
   .hiit-session-actions {
     grid-template-columns: 1fr;
+  }
+
+  .for-time-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .for-time-stat {
+    min-height: 82px;
+    padding: 10px 8px;
+  }
+
+  .for-time-stat strong {
+    font-size: 22px;
+  }
+
+  .for-time-current-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .for-time-current-card .demo-action {
+    width: 100%;
   }
 
   .session-menu-button {

@@ -408,6 +408,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [form, setForm] = useState(createEmptyForm);
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [hiitInterval, setHiitInterval] = useState(null);
+  const [hiitForTime, setHiitForTime] = useState(null);
   const [activeNumberInput, setActiveNumberInput] = useState(null);
   const [openSessionMenu, setOpenSessionMenu] = useState(null);
   const [swapTargetIndex, setSwapTargetIndex] = useState(null);
@@ -879,6 +880,24 @@ export function WorkoutLibraryScreen({ user }) {
 
     return () => window.clearInterval(timer);
   }, [activeWorkout, getNextHiitIntervalState, hiitInterval?.running, mode, playTone]);
+
+  useEffect(() => {
+    if (mode !== "hiit-for-time" || !hiitForTime?.running) return undefined;
+
+    const timer = window.setInterval(() => {
+      setHiitForTime((current) =>
+        current?.running
+          ? {
+              ...current,
+              elapsedSeconds: current.elapsedSeconds + 1,
+              stationElapsedSeconds: current.stationElapsedSeconds + 1
+            }
+          : current
+      );
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [hiitForTime?.running, mode]);
 
   async function loadWorkoutDetails(workout) {
     if (!supabase || user.id === "demo-user") return workout;
@@ -1667,14 +1686,29 @@ export function WorkoutLibraryScreen({ user }) {
     if (!detailedWorkout) return;
 
     if (detailedWorkout.workout_type === "hiit") {
-      if (!["interval", "tabata"].includes(detailedWorkout.hiit_timer_type)) {
-        setMessage("For Time HIIT is next. Interval and Tabata HIIT are available now.");
-        return;
-      }
-
       const workoutExercises = detailedWorkout.workout_template_exercises || [];
       if (workoutExercises.length === 0) {
         setMessage("Add at least one exercise before starting this HIIT workout.");
+        return;
+      }
+
+      if (detailedWorkout.hiit_timer_type === "for_time") {
+        setActiveWorkout({
+          ...detailedWorkout,
+          startedAt: new Date().toISOString(),
+          workout_template_exercises: workoutExercises
+        });
+        setHiitForTime({
+          running: true,
+          elapsedSeconds: 0,
+          stationElapsedSeconds: 0,
+          exerciseIndex: 0,
+          completedStations: []
+        });
+        setCompletedSession(null);
+        setMessage("");
+        playTone("start");
+        setMode("hiit-for-time");
         return;
       }
 
@@ -1728,6 +1762,45 @@ export function WorkoutLibraryScreen({ user }) {
 
   function finishHiitIntervalSession() {
     setHiitInterval((current) => (current ? { ...current, phase: "complete", remaining: 0, running: false } : current));
+  }
+
+  function toggleForTimeTimer() {
+    setHiitForTime((current) => (current ? { ...current, running: !current.running } : current));
+  }
+
+  function completeForTimeStation() {
+    if (!activeWorkout || !hiitForTime) return;
+
+    const exercises = activeWorkout.workout_template_exercises || [];
+    const currentExercise = exercises[hiitForTime.exerciseIndex];
+    if (!currentExercise) return;
+
+    const completedStation = {
+      exerciseIndex: hiitForTime.exerciseIndex,
+      exerciseName: currentExercise.exercise_name,
+      durationSeconds: hiitForTime.stationElapsedSeconds,
+      completedAtSeconds: hiitForTime.elapsedSeconds
+    };
+    const nextExerciseIndex = hiitForTime.exerciseIndex + 1;
+    playTone(nextExerciseIndex >= exercises.length ? "done" : "start");
+
+    setHiitForTime((current) =>
+      current
+        ? {
+            ...current,
+            running: nextExerciseIndex < exercises.length,
+            exerciseIndex: Math.min(nextExerciseIndex, Math.max(exercises.length - 1, 0)),
+            stationElapsedSeconds: 0,
+            completedStations: [...current.completedStations, completedStation],
+            complete: nextExerciseIndex >= exercises.length
+          }
+        : current
+    );
+  }
+
+  function finishForTimeSession() {
+    setHiitForTime((current) => (current ? { ...current, running: false, complete: true } : current));
+    playTone("done");
   }
 
   function updateSessionRow(exerciseIndex, rowIndex, field, value) {
@@ -2034,6 +2107,7 @@ export function WorkoutLibraryScreen({ user }) {
     setCompletedSession(null);
     setActiveWorkout(null);
     setHiitInterval(null);
+    setHiitForTime(null);
     setSessionFeedback({ rating: 0, comment: "" });
     setShareMode("transparent");
     setSharePhoto("");
@@ -2047,6 +2121,7 @@ export function WorkoutLibraryScreen({ user }) {
 
     setActiveWorkout(null);
     setHiitInterval(null);
+    setHiitForTime(null);
     setActiveNumberInput(null);
     setOpenSessionMenu(null);
     setSwapTargetIndex(null);
@@ -2376,6 +2451,127 @@ export function WorkoutLibraryScreen({ user }) {
                   Next
                 </button>
                 <button className="primary-action" onClick={finishHiitIntervalSession} type="button">
+                  Finish
+                </button>
+                <button className="primary-action danger" onClick={cancelActiveSession} type="button">
+                  End without saving
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+        {renderDemoModal()}
+      </>
+    );
+  }
+
+  if (mode === "hiit-for-time" && activeWorkout && hiitForTime) {
+    const exercises = activeWorkout.workout_template_exercises || [];
+    const currentExercise = exercises[hiitForTime.exerciseIndex] || exercises[0];
+    const totalExercises = exercises.length || 1;
+    const completedCount = hiitForTime.completedStations.length;
+    const remainingStations = Math.max(totalExercises - completedCount, 0);
+    const goalSeconds = Math.max(1, Number(activeWorkout.hiit_goal_seconds) || 1);
+    const timeLeft = goalSeconds - hiitForTime.elapsedSeconds;
+    const averageNeeded = remainingStations > 0 ? Math.max(0, Math.ceil(timeLeft / remainingStations)) : 0;
+    const isPastGoal = timeLeft < 0;
+    const isComplete = Boolean(hiitForTime.complete);
+
+    return (
+      <>
+        <section className="screen-stack workout-library hiit-session-screen for-time-session-screen">
+          <div className="screen-heading library-heading">
+            <div>
+              <p className="eyebrow">HIIT for time</p>
+              <h1>{activeWorkout.name}</h1>
+              <p>
+                Exercise {Math.min(hiitForTime.exerciseIndex + 1, totalExercises)}/{totalExercises} - Goal{" "}
+                {formatClock(goalSeconds)}
+              </p>
+            </div>
+          </div>
+
+          {message ? <p className="form-message error">{message}</p> : null}
+
+          <div className="for-time-stat-grid">
+            <div className="for-time-stat primary">
+              <span>Elapsed</span>
+              <strong>{formatClock(hiitForTime.elapsedSeconds)}</strong>
+            </div>
+            <div className="for-time-stat">
+              <span>Current</span>
+              <strong>{formatClock(hiitForTime.stationElapsedSeconds)}</strong>
+            </div>
+            <div className={isPastGoal ? "for-time-stat danger" : "for-time-stat"}>
+              <span>{isPastGoal ? "Over goal" : "Goal left"}</span>
+              <strong>{formatClock(Math.abs(timeLeft))}</strong>
+            </div>
+            <div className="for-time-stat">
+              <span>Avg needed</span>
+              <strong>{remainingStations ? formatClock(averageNeeded) : "0:00"}</strong>
+            </div>
+          </div>
+
+          {currentExercise ? (
+            <div className="for-time-current-card">
+              <div>
+                <p className="eyebrow">Current station</p>
+                <h2>{currentExercise.exercise_name}</h2>
+                <p>Target: {formatExerciseTarget(currentExercise, "hiit")}</p>
+              </div>
+              <button className="primary-action compact demo-action" onClick={() => showDemo(currentExercise.exercise_name)} type="button">
+                Demo
+              </button>
+            </div>
+          ) : null}
+
+          <div className="hiit-station-list">
+            {exercises.map((exercise, index) => {
+              const completedStation = hiitForTime.completedStations.find((station) => station.exerciseIndex === index);
+              const isActive = index === hiitForTime.exerciseIndex && !isComplete;
+              return (
+                <article
+                  className={completedStation ? "hiit-station complete" : isActive ? "hiit-station active" : "hiit-station"}
+                  key={exercise.id || index}
+                >
+                  <div>
+                    <strong>{exercise.exercise_name}</strong>
+                    <span>
+                      {completedStation
+                        ? `Done in ${formatClock(completedStation.durationSeconds)}`
+                        : `Target: ${formatExerciseTarget(exercise, "hiit")}`}
+                    </span>
+                  </div>
+                  <button className="primary-action compact demo-action" onClick={() => showDemo(exercise.exercise_name)} type="button">
+                    Demo
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="hiit-session-actions">
+            {isComplete ? (
+              <button
+                className="primary-action filled"
+                onClick={() => {
+                  setActiveWorkout(null);
+                  setHiitForTime(null);
+                  setMode("list");
+                }}
+                type="button"
+              >
+                Done
+              </button>
+            ) : (
+              <>
+                <button className="primary-action filled station-complete-action" onClick={completeForTimeStation} type="button">
+                  Complete station
+                </button>
+                <button className="primary-action" onClick={toggleForTimeTimer} type="button">
+                  {hiitForTime.running ? "Pause" : "Resume"}
+                </button>
+                <button className="primary-action" onClick={finishForTimeSession} type="button">
                   Finish
                 </button>
                 <button className="primary-action danger" onClick={cancelActiveSession} type="button">
@@ -3566,7 +3762,7 @@ export function WorkoutLibraryScreen({ user }) {
 
                     <div className="library-actions">
                       <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
-                        {isHiitWorkout && workout.hiit_timer_type === "for_time" ? "Timer soon" : "Start"}
+                        Start
                       </button>
                       <button className="primary-action" onClick={() => startEditWorkout(workout)} type="button">
                         Edit
