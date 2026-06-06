@@ -603,6 +603,38 @@ button {
   gap: 14px;
 }
 
+.library-control-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 220px);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.library-control-panel label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.library-control-panel input,
+.library-control-panel select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 14px;
+  text-transform: none;
+}
+
 .muscle-picker {
   display: grid;
   gap: 12px;
@@ -1095,6 +1127,23 @@ button {
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: #0d1720;
+}
+
+.workout-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workout-card-meta span {
+  min-height: 30px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: #0d1720;
+  color: var(--muted);
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .workout-exercise-summary {

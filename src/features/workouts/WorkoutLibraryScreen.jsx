@@ -309,6 +309,9 @@ export function WorkoutLibraryScreen({ user }) {
   const [swapCatalogResults, setSwapCatalogResults] = useState([]);
   const [swapExerciseDbResults, setSwapExerciseDbResults] = useState([]);
   const [demoVideo, setDemoVideo] = useState(null);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryMuscleFilter, setLibraryMuscleFilter] = useState("All");
+  const [expandedWorkoutIds, setExpandedWorkoutIds] = useState(new Set());
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
@@ -350,6 +353,25 @@ export function WorkoutLibraryScreen({ user }) {
     return new Set(names.map(toExerciseKey));
   }, [catalogExerciseNames, customExerciseNames, exerciseDbSearchResults, swapExerciseDbResults]);
 
+  const lastSessionByName = useMemo(() => {
+    return Object.fromEntries((recentSessions || []).map((session) => [session.name, session]));
+  }, [recentSessions]);
+
+  const filteredWorkouts = useMemo(() => {
+    const cleanSearch = librarySearch.trim().toLowerCase();
+    return workouts.filter((workout) => {
+      const exercises = workout.workout_template_exercises || [];
+      const muscleGroupsForWorkout = new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean));
+      const matchesSearch =
+        !cleanSearch ||
+        workout.name.toLowerCase().includes(cleanSearch) ||
+        exercises.some((exercise) => exercise.exercise_name?.toLowerCase().includes(cleanSearch));
+      const matchesMuscle = libraryMuscleFilter === "All" || muscleGroupsForWorkout.has(libraryMuscleFilter);
+
+      return matchesSearch && matchesMuscle;
+    });
+  }, [libraryMuscleFilter, librarySearch, workouts]);
+
   const loadWorkouts = useCallback(async () => {
     setMessage("");
 
@@ -362,9 +384,10 @@ export function WorkoutLibraryScreen({ user }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("workout_templates")
-      .select("id,name,notes,workout_type,created_at")
+      .select("id,name,notes,workout_type,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max)")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false })
+      .order("position", { referencedTable: "workout_template_exercises", ascending: true })
       .limit(25);
 
     if (error) {
@@ -1132,6 +1155,107 @@ export function WorkoutLibraryScreen({ user }) {
     } else {
       await loadWorkouts();
     }
+  }
+
+  async function toggleWorkoutDetails(workout) {
+    const isExpanded = expandedWorkoutIds.has(workout.id);
+    if (isExpanded) {
+      setExpandedWorkoutIds((current) => {
+        const next = new Set(current);
+        next.delete(workout.id);
+        return next;
+      });
+      return;
+    }
+
+    if (!workout.workout_template_exercises?.length) {
+      const detailedWorkout = await loadWorkoutDetails(workout);
+      if (!detailedWorkout) return;
+      setWorkouts((current) =>
+        current.map((item) => (item.id === workout.id ? { ...item, ...detailedWorkout } : item))
+      );
+    }
+
+    setExpandedWorkoutIds((current) => new Set([...current, workout.id]));
+  }
+
+  async function duplicateWorkout(workout) {
+    setMessage("");
+
+    const detailedWorkout = await loadWorkoutDetails(workout);
+    if (!detailedWorkout) return;
+
+    const exercises = detailedWorkout.workout_template_exercises || [];
+    const duplicateName = `${detailedWorkout.name} Copy`;
+
+    if (!supabase || user.id === "demo-user") {
+      const duplicate = {
+        ...detailedWorkout,
+        id: `demo-${Date.now()}`,
+        name: duplicateName,
+        created_at: new Date().toISOString(),
+        workout_template_exercises: exercises.map((exercise, index) => ({
+          ...exercise,
+          id: `demo-${Date.now()}-${index}`,
+          position: index + 1
+        }))
+      };
+      setWorkouts((current) => [duplicate, ...current]);
+      setMessage("Workout duplicated.");
+      return;
+    }
+
+    setSaving(true);
+
+    const { data: template, error: templateError } = await supabase
+      .from("workout_templates")
+      .insert({
+        owner_id: user.id,
+        created_by: user.id,
+        name: duplicateName,
+        notes: detailedWorkout.notes || null,
+        workout_type: detailedWorkout.workout_type || "strength",
+        source_type: "personal",
+        visibility: "private",
+        is_template: true,
+        updated_at: new Date().toISOString()
+      })
+      .select("id")
+      .single();
+
+    if (templateError) {
+      setMessage(templateError.message);
+      setSaving(false);
+      return;
+    }
+
+    if (exercises.length > 0) {
+      const { error: exerciseError } = await supabase.from("workout_template_exercises").insert(
+        exercises.map((exercise, index) => ({
+          template_id: template.id,
+          position: index + 1,
+          exercise_name: exercise.exercise_name,
+          muscle_group: exercise.muscle_group || null,
+          sets: exercise.sets || 1,
+          rep_min: exercise.rep_min || null,
+          rep_max: exercise.rep_max || null,
+          start_kg: exercise.start_kg || null,
+          rest_seconds: exercise.rest_seconds || null,
+          tip: exercise.tip || null,
+          superset_group: exercise.superset_group || null
+        }))
+      );
+
+      if (exerciseError) {
+        setMessage(exerciseError.message);
+        setSaving(false);
+        return;
+      }
+    }
+
+    await loadWorkouts();
+    setSaving(false);
+    setMessage("Workout duplicated.");
   }
 
   async function startSession(workout) {
@@ -2535,60 +2659,117 @@ export function WorkoutLibraryScreen({ user }) {
           </button>
         </div>
       ) : (
-        <div className="workout-card-list">
-          {workouts.map((workout) => {
-            const exercises = workout.workout_template_exercises || [];
-            const totalSets = exercises.reduce((sum, exercise) => sum + (Number(exercise.sets) || 0), 0);
-            const hasExerciseDetails = exercises.length > 0;
+        <>
+          <div className="library-control-panel">
+            <label>
+              Search workouts
+              <input
+                onChange={(event) => setLibrarySearch(event.target.value)}
+                placeholder="Workout or exercise name..."
+                value={librarySearch}
+              />
+            </label>
+            <label>
+              Muscle
+              <select
+                onChange={(event) => setLibraryMuscleFilter(event.target.value)}
+                value={libraryMuscleFilter}
+              >
+                <option value="All">All</option>
+                {muscleGroups.map((muscle) => (
+                  <option key={muscle} value={muscle}>
+                    {muscle}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-            return (
-              <article className="workout-card" key={workout.id}>
-                <div className="workout-card-head">
-                  <div>
-                    <p className="eyebrow">{workout.workout_type}</p>
-                    <h2>{workout.name}</h2>
-                    <p>
-                      {hasExerciseDetails
-                        ? `${exercises.length} exercises - ${totalSets} total sets`
-                        : "Exercise details load when you start or edit."}
-                    </p>
-                  </div>
-                  <span className="status-pill">Template</span>
-                </div>
+          {filteredWorkouts.length === 0 ? (
+            <div className="panel empty-state">
+              <p>No workouts match that filter.</p>
+            </div>
+          ) : (
+            <div className="workout-card-list">
+              {filteredWorkouts.map((workout) => {
+                const exercises = workout.workout_template_exercises || [];
+                const totalSets = exercises.reduce((sum, exercise) => sum + (Number(exercise.sets) || 0), 0);
+                const hasExerciseDetails = exercises.length > 0;
+                const muscleSummary = [...new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean))];
+                const lastSession = lastSessionByName[workout.name];
+                const lastCompleted = lastSession
+                  ? new Date(lastSession.completed_at).toLocaleDateString(undefined, {
+                      day: "numeric",
+                      month: "short"
+                    })
+                  : "";
+                const isExpanded = expandedWorkoutIds.has(workout.id);
 
-                {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
-
-                {hasExerciseDetails ? (
-                  <div className="workout-exercise-summary">
-                    {exercises.map((exercise) => (
-                      <div key={exercise.id || `${workout.id}-${exercise.position}`}>
-                        <strong>{exercise.exercise_name}</strong>
-                        <span>
-                          {exercise.sets || 0} sets
-                          {exercise.rep_min || exercise.rep_max
-                            ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
-                            : ""}
-                        </span>
+                return (
+                  <article className="workout-card" key={workout.id}>
+                    <div className="workout-card-head">
+                      <div>
+                        <p className="eyebrow">{workout.workout_type || "strength"}</p>
+                        <h2>{workout.name}</h2>
+                        <p>
+                          {hasExerciseDetails
+                            ? `${exercises.length} exercises - ${totalSets} total sets`
+                            : "Exercise details load on demand."}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                ) : null}
+                      <span className="status-pill">Template</span>
+                    </div>
 
-                <div className="library-actions">
-                  <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
-                    Start
-                  </button>
-                  <button className="primary-action" onClick={() => startEditWorkout(workout)} type="button">
-                    Edit
-                  </button>
-                  <button className="primary-action danger" onClick={() => deleteWorkout(workout.id)} type="button">
-                    Delete
-                  </button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                    <div className="workout-card-meta">
+                      <span>{muscleSummary.length ? muscleSummary.join(", ") : "Muscle details hidden"}</span>
+                      <span>{lastCompleted ? `Last done ${lastCompleted}` : "Not completed yet"}</span>
+                    </div>
+
+                    {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
+
+                    {isExpanded ? (
+                      hasExerciseDetails ? (
+                        <div className="workout-exercise-summary">
+                          {exercises.map((exercise) => (
+                            <div key={exercise.id || `${workout.id}-${exercise.position}`}>
+                              <strong>{exercise.exercise_name}</strong>
+                              <span>
+                                {exercise.sets || 0} sets
+                                {exercise.rep_min || exercise.rep_max
+                                  ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
+                                  : ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="compact-help">Loading details...</p>
+                      )
+                    ) : null}
+
+                    <div className="library-actions">
+                      <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
+                        Start
+                      </button>
+                      <button className="primary-action" onClick={() => startEditWorkout(workout)} type="button">
+                        Edit
+                      </button>
+                      <button className="primary-action" onClick={() => duplicateWorkout(workout)} type="button">
+                        Duplicate
+                      </button>
+                      <button className="primary-action" onClick={() => toggleWorkoutDetails(workout)} type="button">
+                        {isExpanded ? "Hide" : "Details"}
+                      </button>
+                      <button className="primary-action danger" onClick={() => deleteWorkout(workout.id)} type="button">
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       <div className="history-section">
