@@ -1515,6 +1515,17 @@ button {
   display: none;
 }
 
+.build-marker {
+  position: fixed;
+  right: 12px;
+  bottom: calc(78px + env(safe-area-inset-bottom));
+  z-index: 21;
+  color: color-mix(in srgb, var(--muted) 72%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
 .form-footer-actions {
   display: grid;
   gap: 10px;
@@ -1578,11 +1589,12 @@ button {
   }
 
   .screen-heading h1 {
-    font-size: 28px;
+    font-size: 24px;
+    font-weight: 780;
   }
 
   .screen-heading p {
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.45;
   }
 
@@ -1653,13 +1665,13 @@ button {
   }
 
   .stat-card strong {
-    font-size: 24px;
+    font-size: 21px;
   }
 
   .stat-card span {
     font-size: 9px;
     line-height: 1.2;
-    letter-spacing: 0.7px;
+    letter-spacing: 0.08em;
   }
 
   .workout-editor {
@@ -1825,7 +1837,7 @@ button {
   }
 
   .active-exercise-head h2 {
-    font-size: 23px;
+    font-size: 21px;
     line-height: 1.12;
   }
 
