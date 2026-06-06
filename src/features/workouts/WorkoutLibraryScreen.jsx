@@ -213,6 +213,20 @@ async function findYouTubeDemo(exerciseName) {
     }));
 }
 
+async function searchExerciseDb({ query = "", muscle = "", limit = CATALOG_SEARCH_LIMIT }) {
+  const searchParams = new URLSearchParams({
+    limit: String(limit)
+  });
+  if (query.trim()) searchParams.set("query", query.trim());
+  if (muscle.trim()) searchParams.set("muscle", muscle.trim());
+
+  const response = await fetch(`/api/exercise-search?${searchParams.toString()}`);
+  if (!response.ok) return [];
+
+  const result = await response.json();
+  return (result.exercises || []).map((exercise) => exercise.exercise_name).filter(Boolean);
+}
+
 function createSessionRows(exercise, previousRows = []) {
   const setCount = Math.max(Number(exercise.sets) || 1, previousRows.length);
   return Array.from({ length: setCount }, (_, index) => ({
@@ -291,7 +305,9 @@ export function WorkoutLibraryScreen({ user }) {
   const [customExerciseNames, setCustomExerciseNames] = useState(new Set());
   const [catalogExerciseNames, setCatalogExerciseNames] = useState(new Set());
   const [catalogSearchResults, setCatalogSearchResults] = useState({});
+  const [exerciseDbSearchResults, setExerciseDbSearchResults] = useState({});
   const [swapCatalogResults, setSwapCatalogResults] = useState([]);
+  const [swapExerciseDbResults, setSwapExerciseDbResults] = useState([]);
   const [demoVideo, setDemoVideo] = useState(null);
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -323,10 +339,16 @@ export function WorkoutLibraryScreen({ user }) {
     [customExerciseNames]
   );
 
+  const swapMuscleGroup = activeWorkout?.workout_template_exercises?.[swapTargetIndex]?.muscle_group || "";
+
   const knownExerciseKeys = useMemo(() => {
-    const names = [...getLocalExerciseNames(), ...customExerciseNames, ...catalogExerciseNames];
+    const exerciseDbNames = [
+      ...Object.values(exerciseDbSearchResults).flat(),
+      ...swapExerciseDbResults
+    ];
+    const names = [...getLocalExerciseNames(), ...customExerciseNames, ...catalogExerciseNames, ...exerciseDbNames];
     return new Set(names.map(toExerciseKey));
-  }, [catalogExerciseNames, customExerciseNames]);
+  }, [catalogExerciseNames, customExerciseNames, exerciseDbSearchResults, swapExerciseDbResults]);
 
   const loadWorkouts = useCallback(async () => {
     setMessage("");
@@ -468,26 +490,38 @@ export function WorkoutLibraryScreen({ user }) {
 
     const timeout = window.setTimeout(async () => {
       const nextResults = {};
+      const nextExerciseDbResults = {};
       const foundNames = [];
 
       await Promise.all(
         searchableExercises.map(async (exercise) => {
-          const { data, error } = await supabase
-            .from("exercise_catalog")
-            .select("exercise_name")
-            .ilike("exercise_name", `%${exercise.search}%`)
-            .order("exercise_name", { ascending: true })
-            .limit(CATALOG_SEARCH_LIMIT);
+          const [catalogResponse, exerciseDbNames] = await Promise.all([
+            supabase
+              .from("exercise_catalog")
+              .select("exercise_name")
+              .ilike("exercise_name", `%${exercise.search}%`)
+              .order("exercise_name", { ascending: true })
+              .limit(CATALOG_SEARCH_LIMIT),
+            searchExerciseDb({
+              query: exercise.search,
+              muscle: form.exercises[exercise.index]?.muscle_group || "",
+              limit: CATALOG_SEARCH_LIMIT
+            })
+          ]);
 
-          if (!error) {
-            const names = (data || []).map((row) => row.exercise_name);
+          if (!catalogResponse.error) {
+            const names = (catalogResponse.data || []).map((row) => row.exercise_name);
             nextResults[exercise.index] = names;
             foundNames.push(...names);
           }
+
+          nextExerciseDbResults[exercise.index] = exerciseDbNames;
+          foundNames.push(...exerciseDbNames);
         })
       );
 
       setCatalogSearchResults(nextResults);
+      setExerciseDbSearchResults(nextExerciseDbResults);
       setCatalogExerciseNames((current) => new Set([...current, ...foundNames]));
     }, 350);
 
@@ -503,22 +537,30 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     const timeout = window.setTimeout(async () => {
-      const { data, error } = await supabase
-        .from("exercise_catalog")
-        .select("exercise_name")
-        .ilike("exercise_name", `%${cleanSearch}%`)
-        .order("exercise_name", { ascending: true })
-        .limit(CATALOG_SEARCH_LIMIT);
+      const [catalogResponse, exerciseDbNames] = await Promise.all([
+        supabase
+          .from("exercise_catalog")
+          .select("exercise_name")
+          .ilike("exercise_name", `%${cleanSearch}%`)
+          .order("exercise_name", { ascending: true })
+          .limit(CATALOG_SEARCH_LIMIT),
+        searchExerciseDb({
+          query: cleanSearch,
+          muscle: swapMuscleGroup,
+          limit: CATALOG_SEARCH_LIMIT
+        })
+      ]);
 
-      if (error) return;
+      if (catalogResponse.error) return;
 
-      const names = (data || []).map((row) => row.exercise_name);
+      const names = (catalogResponse.data || []).map((row) => row.exercise_name);
       setSwapCatalogResults(names);
-      setCatalogExerciseNames((current) => new Set([...current, ...names]));
+      setSwapExerciseDbResults(exerciseDbNames);
+      setCatalogExerciseNames((current) => new Set([...current, ...names, ...exerciseDbNames]));
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [swapSearch, swapTargetIndex, user.id]);
+  }, [swapMuscleGroup, swapSearch, swapTargetIndex, user.id]);
 
   useEffect(() => {
     if (!activeNumberInput) return;
@@ -1232,6 +1274,7 @@ export function WorkoutLibraryScreen({ user }) {
     setSwapTargetIndex(exerciseIndex);
     setSwapSearch("");
     setSwapCatalogResults([]);
+    setSwapExerciseDbResults([]);
     setOpenSessionMenu(null);
     setActiveNumberInput(null);
     setMessage("");
@@ -1616,6 +1659,7 @@ export function WorkoutLibraryScreen({ user }) {
     const searchOptions = hasSearch
       ? uniqueNames([
           ...swapCatalogResults,
+          ...swapExerciseDbResults,
           ...getLocalExerciseNames().filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase())),
           ...customExerciseList.filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase()))
         ]).slice(0, CATALOG_SEARCH_LIMIT)
@@ -2267,6 +2311,7 @@ export function WorkoutLibraryScreen({ user }) {
               const searchResults = exercise.search
                 ? uniqueNames([
                     ...(catalogSearchResults[index] || []),
+                    ...(exerciseDbSearchResults[index] || []),
                     ...getLocalExerciseNames().filter((name) =>
                       name.toLowerCase().includes(exercise.search.toLowerCase())
                     ),
