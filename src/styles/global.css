@@ -925,6 +925,48 @@ button {
   background: var(--panel);
 }
 
+.request-list {
+  display: grid;
+  gap: 14px;
+}
+
+.request-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.request-card label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.request-card input,
+.request-card textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 14px;
+  text-transform: none;
+}
+
+.request-card textarea {
+  min-height: 86px;
+  padding: 14px;
+  resize: vertical;
+}
+
 .workout-card h2 {
   margin: 0 0 5px;
 }
@@ -1005,6 +1047,11 @@ button {
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 750;
+}
+
+.muted-pill {
+  border-color: var(--line);
+  color: var(--muted);
 }
 
 .danger-pill {

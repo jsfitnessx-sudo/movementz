@@ -28,6 +28,23 @@ create table if not exists public.exercise_review_requests (
 alter table public.user_exercise_options enable row level security;
 alter table public.exercise_review_requests enable row level security;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+  );
+$$;
+
+grant execute on function public.is_admin() to authenticated;
+
 drop policy if exists "Users manage own exercise options" on public.user_exercise_options;
 create policy "Users manage own exercise options"
 on public.user_exercise_options
@@ -38,6 +55,8 @@ with check (owner_id = auth.uid());
 
 drop policy if exists "Users create own exercise review requests" on public.exercise_review_requests;
 drop policy if exists "Users view own exercise review requests" on public.exercise_review_requests;
+drop policy if exists "Admins view exercise review requests" on public.exercise_review_requests;
+drop policy if exists "Admins update exercise review requests" on public.exercise_review_requests;
 create policy "Users create own exercise review requests"
 on public.exercise_review_requests
 for insert
@@ -49,6 +68,19 @@ on public.exercise_review_requests
 for select
 to authenticated
 using (requester_id = auth.uid());
+
+create policy "Admins view exercise review requests"
+on public.exercise_review_requests
+for select
+to authenticated
+using (public.is_admin());
+
+create policy "Admins update exercise review requests"
+on public.exercise_review_requests
+for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
 
 create index if not exists user_exercise_options_owner_name_idx
   on public.user_exercise_options(owner_id, lower(exercise_name));

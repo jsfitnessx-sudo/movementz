@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
-const roleOptions = [
+const baseRoleOptions = [
   { value: "normal_user", label: "Normal user" },
   { value: "client", label: "Client" },
-  { value: "coach", label: "Coach" },
-  { value: "admin", label: "Admin" }
+  { value: "coach", label: "Coach" }
 ];
 
 const experienceOptions = [
@@ -48,6 +47,10 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
   const [error, setError] = useState("");
 
   const isCoach = profileForm.role === "coach";
+  const roleOptions =
+    profile?.role === "admin"
+      ? [...baseRoleOptions, { value: "admin", label: "Admin" }]
+      : baseRoleOptions;
   const initials = useMemo(
     () => (profileForm.full_name || profileForm.email || "M").slice(0, 1).toUpperCase(),
     [profileForm.email, profileForm.full_name]
