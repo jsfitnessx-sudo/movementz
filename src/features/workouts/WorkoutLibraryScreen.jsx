@@ -2,6 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
+const hiitFocusAreas = ["Full Body", "Upper", "Lower", "Core", "Cardio"];
+const hiitTimerTypes = [
+  { value: "interval", label: "Interval" },
+  { value: "for_time", label: "For Time" }
+];
+const hiitTargetTypes = [
+  { value: "reps", label: "Reps" },
+  { value: "meters", label: "m" },
+  { value: "calories", label: "Cal" }
+];
 const CATALOG_SEARCH_LIMIT = 8;
 const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
 
@@ -75,6 +85,46 @@ const exerciseLibrary = {
     "Russian Twist",
     "Pallof Press",
     "Side Plank"
+  ],
+  "Full Body": [
+    "Bear Crawl",
+    "Turkish Get Up",
+    "Mountain Climber",
+    "Burpee",
+    "Jumping Jack",
+    "DB Devil Press",
+    "Sled Push",
+    "Kettlebell Swing"
+  ],
+  Upper: [
+    "Push Up",
+    "Battle Rope",
+    "DB Push Press",
+    "Renegade Row",
+    "Medicine Ball Slam",
+    "Inchworm",
+    "Bench Dip",
+    "Plank Shoulder Tap"
+  ],
+  Lower: [
+    "Walking Lunge",
+    "Jump Squat",
+    "Step Up",
+    "Wall Sit",
+    "Reverse Lunge",
+    "Box Jump",
+    "Goblet Squat",
+    "Skater Jump"
+  ],
+  Cardio: [
+    "Assault Bike",
+    "Row Erg",
+    "Ski Erg",
+    "Treadmill Run",
+    "Shuttle Run",
+    "High Knees",
+    "Mountain Climber",
+    "Jumping Jack"
   ]
 };
 
@@ -87,6 +137,8 @@ const emptyExercise = {
   start_kg: "",
   rest_seconds: 90,
   tip: "",
+  target_type: "reps",
+  target_value: 10,
   search: "",
   suggestionOffset: 0
 };
@@ -108,14 +160,15 @@ function createMuscleTargets() {
   return Object.fromEntries(muscleGroups.map((muscle) => [muscle, 0]));
 }
 
-function createExerciseForMuscle(muscle, index, defaultSets = 4) {
+function createExerciseForMuscle(muscle, index, defaultSets = 4, overrides = {}) {
   const options = exerciseLibrary[muscle] || [];
   return {
     ...emptyExercise,
     muscle_group: muscle,
     sets: defaultSets,
     exercise_name: options[index % options.length] || "",
-    suggestionOffset: index
+    suggestionOffset: index,
+    ...overrides
   };
 }
 
@@ -270,13 +323,62 @@ function formatDuration(totalSeconds = 0) {
   return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
+function secondsFromParts(minutes, seconds) {
+  return (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
+}
+
+function formatHiitTimerLabel(workout) {
+  if (workout?.workout_type !== "hiit") return workout?.workout_type || "strength";
+  return workout.hiit_timer_type === "for_time" ? "HIIT - For Time" : "HIIT - Interval";
+}
+
+function formatExerciseTarget(exercise, workoutType = "strength") {
+  if (workoutType === "hiit") {
+    const targetValue = exercise.target_value || exercise.rep_min || 0;
+    const targetType = exercise.target_type || "reps";
+    const label = hiitTargetTypes.find((type) => type.value === targetType)?.label || "Reps";
+    return `${targetValue} ${label}`;
+  }
+
+  return `${exercise.sets || 0} sets${
+    exercise.rep_min || exercise.rep_max ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps` : ""
+  }`;
+}
+
 function createDefaultSetup() {
   return {
     name: "",
     notes: "",
     workout_type: "strength",
     defaultSets: 4,
+    hiit_timer_type: "interval",
+    hiit_rounds: 8,
+    hiit_work_minutes: 0,
+    hiit_work_seconds: 45,
+    hiit_rest_minutes: 0,
+    hiit_rest_seconds: 20,
+    hiit_countdown_seconds: 10,
+    hiit_goal_minutes: 30,
+    hiit_goal_seconds: 0,
+    hiit_focus_area: "Full Body",
+    hiitTotalExercises: 4,
     muscleTargets: { ...createMuscleTargets(), Chest: 4 }
+  };
+}
+
+function createEmptyForm() {
+  return {
+    name: "",
+    notes: "",
+    workout_type: "strength",
+    hiit_timer_type: "interval",
+    hiit_rounds: 8,
+    hiit_work_seconds: 45,
+    hiit_rest_seconds: 20,
+    hiit_countdown_seconds: 10,
+    hiit_goal_seconds: 1800,
+    hiit_focus_area: "Full Body",
+    exercises: []
   };
 }
 
@@ -286,12 +388,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [mode, setMode] = useState("list");
   const [editingId, setEditingId] = useState(null);
   const [setup, setSetup] = useState(createDefaultSetup);
-  const [form, setForm] = useState({
-    name: "",
-    notes: "",
-    workout_type: "strength",
-    exercises: []
-  });
+  const [form, setForm] = useState(createEmptyForm);
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [activeNumberInput, setActiveNumberInput] = useState(null);
   const [openSessionMenu, setOpenSessionMenu] = useState(null);
@@ -325,11 +422,13 @@ export function WorkoutLibraryScreen({ user }) {
 
   const totalTargetExercises = useMemo(
     () =>
-      Object.values(setup.muscleTargets).reduce(
-        (sum, value) => sum + (Number(value) || 0),
-        0
-      ),
-    [setup.muscleTargets]
+      setup.workout_type === "hiit"
+        ? Number(setup.hiitTotalExercises) || 0
+        : Object.values(setup.muscleTargets).reduce(
+            (sum, value) => sum + (Number(value) || 0),
+            0
+          ),
+    [setup.hiitTotalExercises, setup.muscleTargets, setup.workout_type]
   );
 
   const selectedMuscleTargets = useMemo(
@@ -384,7 +483,7 @@ export function WorkoutLibraryScreen({ user }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("workout_templates")
-      .select("id,name,notes,workout_type,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max)")
+      .select("id,name,notes,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false })
       .order("position", { referencedTable: "workout_template_exercises", ascending: true })
@@ -613,7 +712,7 @@ export function WorkoutLibraryScreen({ user }) {
     const { data, error } = await supabase
       .from("workout_templates")
       .select(
-        "id,name,notes,workout_type,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,start_kg,rest_seconds,tip,superset_group)"
+        "id,name,notes,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,start_kg,rest_seconds,tip,superset_group,target_type,target_value)"
       )
       .eq("owner_id", user.id)
       .eq("id", workout.id)
@@ -702,18 +801,43 @@ export function WorkoutLibraryScreen({ user }) {
       return;
     }
 
+    const isHiit = setup.workout_type === "hiit";
     const exercises = [];
-    const defaultSets = Number(setup.defaultSets) || 4;
-    Object.entries(setup.muscleTargets).forEach(([muscle, count]) => {
-      for (let index = 0; index < Number(count || 0); index += 1) {
-        exercises.push(createExerciseForMuscle(muscle, index, defaultSets));
+
+    if (isHiit) {
+      const focusArea = setup.hiit_focus_area || "Full Body";
+      const totalExercises = Math.max(1, Math.min(20, Number(setup.hiitTotalExercises) || 4));
+      for (let index = 0; index < totalExercises; index += 1) {
+        exercises.push(
+          createExerciseForMuscle(focusArea, index, Number(setup.hiit_rounds) || 1, {
+            rep_min: 10,
+            rep_max: "",
+            rest_seconds: secondsFromParts(setup.hiit_rest_minutes, setup.hiit_rest_seconds),
+            target_type: "reps",
+            target_value: 10
+          })
+        );
       }
-    });
+    } else {
+      const defaultSets = Number(setup.defaultSets) || 4;
+      Object.entries(setup.muscleTargets).forEach(([muscle, count]) => {
+        for (let index = 0; index < Number(count || 0); index += 1) {
+          exercises.push(createExerciseForMuscle(muscle, index, defaultSets));
+        }
+      });
+    }
 
     setForm({
       name: setup.name,
       notes: setup.notes,
       workout_type: setup.workout_type,
+      hiit_timer_type: setup.hiit_timer_type,
+      hiit_rounds: Number(setup.hiit_rounds) || 1,
+      hiit_work_seconds: secondsFromParts(setup.hiit_work_minutes, setup.hiit_work_seconds),
+      hiit_rest_seconds: secondsFromParts(setup.hiit_rest_minutes, setup.hiit_rest_seconds),
+      hiit_countdown_seconds: Number(setup.hiit_countdown_seconds) || 0,
+      hiit_goal_seconds: secondsFromParts(setup.hiit_goal_minutes, setup.hiit_goal_seconds),
+      hiit_focus_area: setup.hiit_focus_area,
       exercises
     });
     setMessage("");
@@ -729,6 +853,13 @@ export function WorkoutLibraryScreen({ user }) {
       name: detailedWorkout.name || "",
       notes: detailedWorkout.notes || "",
       workout_type: detailedWorkout.workout_type || "strength",
+      hiit_timer_type: detailedWorkout.hiit_timer_type || "interval",
+      hiit_rounds: detailedWorkout.hiit_rounds || 8,
+      hiit_work_seconds: detailedWorkout.hiit_work_seconds || 45,
+      hiit_rest_seconds: detailedWorkout.hiit_rest_seconds || 20,
+      hiit_countdown_seconds: detailedWorkout.hiit_countdown_seconds || 10,
+      hiit_goal_seconds: detailedWorkout.hiit_goal_seconds || 1800,
+      hiit_focus_area: detailedWorkout.hiit_focus_area || "Full Body",
       exercises: (detailedWorkout.workout_template_exercises || []).map((exercise) => ({
         id: exercise.id,
         exercise_name: exercise.exercise_name || "",
@@ -739,6 +870,8 @@ export function WorkoutLibraryScreen({ user }) {
         start_kg: exercise.start_kg ?? "",
         rest_seconds: exercise.rest_seconds || 90,
         tip: exercise.tip || "",
+        target_type: exercise.target_type || "reps",
+        target_value: exercise.target_value || exercise.rep_min || 10,
         search: "",
         suggestionOffset: 0
       }))
@@ -777,6 +910,13 @@ export function WorkoutLibraryScreen({ user }) {
     setSetup((current) => ({
       ...current,
       defaultSets: Math.max(1, Math.min(8, (Number(current.defaultSets) || 4) + change))
+    }));
+  }
+
+  function updateHiitTotalExercises(change) {
+    setSetup((current) => ({
+      ...current,
+      hiitTotalExercises: Math.max(1, Math.min(20, (Number(current.hiitTotalExercises) || 4) + change))
     }));
   }
 
@@ -915,7 +1055,23 @@ export function WorkoutLibraryScreen({ user }) {
   function addExercise() {
     setForm((current) => ({
       ...current,
-      exercises: [...current.exercises, createExerciseForMuscle("Chest", current.exercises.length, 4)]
+      exercises: [
+        ...current.exercises,
+        createExerciseForMuscle(
+          current.workout_type === "hiit" ? current.hiit_focus_area || "Full Body" : "Chest",
+          current.exercises.length,
+          current.workout_type === "hiit" ? Number(current.hiit_rounds) || 1 : 4,
+          current.workout_type === "hiit"
+            ? {
+                rep_min: 10,
+                rep_max: "",
+                rest_seconds: current.hiit_rest_seconds || 0,
+                target_type: "reps",
+                target_value: 10
+              }
+            : {}
+        )
+      ]
     }));
   }
 
@@ -1028,6 +1184,13 @@ export function WorkoutLibraryScreen({ user }) {
         start_kg: exercise.start_kg === "" ? null : Number(exercise.start_kg),
         rest_seconds: exercise.rest_seconds === "" ? null : Number(exercise.rest_seconds),
         tip: exercise.tip.trim() || null,
+        target_type: form.workout_type === "hiit" ? exercise.target_type || "reps" : null,
+        target_value:
+          form.workout_type === "hiit"
+            ? exercise.target_value === "" || exercise.target_value === null
+              ? null
+              : Number(exercise.target_value)
+            : null,
         is_custom_exercise: Boolean(exercise.is_custom_exercise)
       }))
       .filter((exercise) => exercise.exercise_name);
@@ -1048,6 +1211,13 @@ export function WorkoutLibraryScreen({ user }) {
         name: cleanName,
         notes: form.notes,
         workout_type: form.workout_type,
+        hiit_timer_type: form.hiit_timer_type,
+        hiit_rounds: form.hiit_rounds,
+        hiit_work_seconds: form.hiit_work_seconds,
+        hiit_rest_seconds: form.hiit_rest_seconds,
+        hiit_countdown_seconds: form.hiit_countdown_seconds,
+        hiit_goal_seconds: form.hiit_goal_seconds,
+        hiit_focus_area: form.hiit_focus_area,
         workout_template_exercises: cleanExercises.map((exercise) => ({
           ...exercise,
           id: `${Date.now()}-${exercise.position}`
@@ -1075,6 +1245,17 @@ export function WorkoutLibraryScreen({ user }) {
       is_template: true,
       updated_at: new Date().toISOString()
     };
+
+    if (form.workout_type === "hiit") {
+      workoutPayload.hiit_timer_type = form.hiit_timer_type || "interval";
+      workoutPayload.hiit_rounds = Number(form.hiit_rounds) || 1;
+      workoutPayload.hiit_work_seconds = form.hiit_timer_type === "interval" ? Number(form.hiit_work_seconds) || 0 : null;
+      workoutPayload.hiit_rest_seconds = form.hiit_timer_type === "interval" ? Number(form.hiit_rest_seconds) || 0 : null;
+      workoutPayload.hiit_countdown_seconds =
+        form.hiit_timer_type === "interval" ? Number(form.hiit_countdown_seconds) || 0 : null;
+      workoutPayload.hiit_goal_seconds = form.hiit_timer_type === "for_time" ? Number(form.hiit_goal_seconds) || 0 : null;
+      workoutPayload.hiit_focus_area = form.hiit_focus_area || "Full Body";
+    }
 
     const workoutResult = editingId
       ? await supabase
@@ -1115,6 +1296,10 @@ export function WorkoutLibraryScreen({ user }) {
         cleanExercises.map((exercise) => {
           const exercisePayload = { ...exercise };
           delete exercisePayload.is_custom_exercise;
+          if (form.workout_type !== "hiit") {
+            delete exercisePayload.target_type;
+            delete exercisePayload.target_value;
+          }
           return {
             ...exercisePayload,
             template_id: templateId
@@ -1215,6 +1400,13 @@ export function WorkoutLibraryScreen({ user }) {
         name: duplicateName,
         notes: detailedWorkout.notes || null,
         workout_type: detailedWorkout.workout_type || "strength",
+        hiit_timer_type: detailedWorkout.hiit_timer_type || null,
+        hiit_rounds: detailedWorkout.hiit_rounds || null,
+        hiit_work_seconds: detailedWorkout.hiit_work_seconds || null,
+        hiit_rest_seconds: detailedWorkout.hiit_rest_seconds || null,
+        hiit_countdown_seconds: detailedWorkout.hiit_countdown_seconds || null,
+        hiit_goal_seconds: detailedWorkout.hiit_goal_seconds || null,
+        hiit_focus_area: detailedWorkout.hiit_focus_area || null,
         source_type: "personal",
         visibility: "private",
         is_template: true,
@@ -1242,7 +1434,9 @@ export function WorkoutLibraryScreen({ user }) {
           start_kg: exercise.start_kg || null,
           rest_seconds: exercise.rest_seconds || null,
           tip: exercise.tip || null,
-          superset_group: exercise.superset_group || null
+          superset_group: exercise.superset_group || null,
+          target_type: exercise.target_type || null,
+          target_value: exercise.target_value || null
         }))
       );
 
@@ -1261,6 +1455,11 @@ export function WorkoutLibraryScreen({ user }) {
   async function startSession(workout) {
     const detailedWorkout = await loadWorkoutDetails(workout);
     if (!detailedWorkout) return;
+
+    if (detailedWorkout.workout_type === "hiit") {
+      setMessage("HIIT templates are saving now. The live Interval and For Time timers are the next build step.");
+      return;
+    }
 
     const workoutExercises = detailedWorkout.workout_template_exercises || [];
     const previousSetsByExercise = await loadPreviousSetsForWorkout(workoutExercises, detailedWorkout.id);
@@ -2314,7 +2513,7 @@ export function WorkoutLibraryScreen({ user }) {
         <div className="screen-heading">
           <p className="eyebrow">Workout library</p>
           <h1>Build workout</h1>
-          <p>Choose the muscle groups first, then pick exercises from quick options.</p>
+          <p>Choose the workout type and setup first, then pick exercises from quick options.</p>
         </div>
 
         <div className="workout-editor panel">
@@ -2335,6 +2534,29 @@ export function WorkoutLibraryScreen({ user }) {
             />
           </label>
 
+          <div className="setup-card">
+            <p className="eyebrow">Workout type</p>
+            <div className="segmented-options">
+              <button
+                className={setup.workout_type === "strength" ? "segment active" : "segment"}
+                onClick={() => setSetup((current) => ({ ...current, workout_type: "strength" }))}
+                type="button"
+              >
+                Strength
+              </button>
+              <button
+                className={setup.workout_type === "hiit" ? "segment active hiit" : "segment"}
+                onClick={() => setSetup((current) => ({ ...current, workout_type: "hiit" }))}
+                type="button"
+              >
+                HIIT
+              </button>
+              <button className="segment muted" disabled type="button">
+                Run soon
+              </button>
+            </div>
+          </div>
+
           <label>
             Notes
             <textarea
@@ -2344,6 +2566,169 @@ export function WorkoutLibraryScreen({ user }) {
             />
           </label>
 
+          {setup.workout_type === "hiit" ? (
+            <>
+              <div className="setup-card hiit-setup-card">
+                <div>
+                  <p className="eyebrow">HIIT timer</p>
+                  <h2>{setup.hiit_timer_type === "for_time" ? "Goal time workout" : "Interval rounds"}</h2>
+                </div>
+                <div className="segmented-options">
+                  {hiitTimerTypes.map((timerType) => (
+                    <button
+                      className={setup.hiit_timer_type === timerType.value ? "segment active hiit" : "segment"}
+                      key={timerType.value}
+                      onClick={() => setSetup((current) => ({ ...current, hiit_timer_type: timerType.value }))}
+                      type="button"
+                    >
+                      {timerType.label}
+                    </button>
+                  ))}
+                </div>
+
+                {setup.hiit_timer_type === "interval" ? (
+                  <div className="form-grid four">
+                    <label>
+                      Rounds
+                      <input
+                        min="1"
+                        onChange={(event) => setSetup((current) => ({ ...current, hiit_rounds: event.target.value }))}
+                        type="number"
+                        value={setup.hiit_rounds}
+                      />
+                    </label>
+                    <label>
+                      Work min
+                      <input
+                        min="0"
+                        onChange={(event) =>
+                          setSetup((current) => ({ ...current, hiit_work_minutes: event.target.value }))
+                        }
+                        type="number"
+                        value={setup.hiit_work_minutes}
+                      />
+                    </label>
+                    <label>
+                      Work sec
+                      <input
+                        max="59"
+                        min="0"
+                        onChange={(event) =>
+                          setSetup((current) => ({ ...current, hiit_work_seconds: event.target.value }))
+                        }
+                        type="number"
+                        value={setup.hiit_work_seconds}
+                      />
+                    </label>
+                    <label>
+                      Rest min
+                      <input
+                        min="0"
+                        onChange={(event) =>
+                          setSetup((current) => ({ ...current, hiit_rest_minutes: event.target.value }))
+                        }
+                        type="number"
+                        value={setup.hiit_rest_minutes}
+                      />
+                    </label>
+                    <label>
+                      Rest sec
+                      <input
+                        max="59"
+                        min="0"
+                        onChange={(event) =>
+                          setSetup((current) => ({ ...current, hiit_rest_seconds: event.target.value }))
+                        }
+                        type="number"
+                        value={setup.hiit_rest_seconds}
+                      />
+                    </label>
+                    <label>
+                      Countdown
+                      <input
+                        min="0"
+                        onChange={(event) =>
+                          setSetup((current) => ({ ...current, hiit_countdown_seconds: event.target.value }))
+                        }
+                        type="number"
+                        value={setup.hiit_countdown_seconds}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="form-grid three">
+                    <label>
+                      Goal min
+                      <input
+                        min="0"
+                        onChange={(event) =>
+                          setSetup((current) => ({ ...current, hiit_goal_minutes: event.target.value }))
+                        }
+                        type="number"
+                        value={setup.hiit_goal_minutes}
+                      />
+                    </label>
+                    <label>
+                      Goal sec
+                      <input
+                        max="59"
+                        min="0"
+                        onChange={(event) =>
+                          setSetup((current) => ({ ...current, hiit_goal_seconds: event.target.value }))
+                        }
+                        type="number"
+                        value={setup.hiit_goal_seconds}
+                      />
+                    </label>
+                    <label>
+                      Rounds
+                      <input
+                        min="1"
+                        onChange={(event) => setSetup((current) => ({ ...current, hiit_rounds: event.target.value }))}
+                        type="number"
+                        value={setup.hiit_rounds}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="muscle-picker setup-card">
+                <div>
+                  <p className="eyebrow">Area focus</p>
+                  <h2>Pick the focus, then choose total exercises</h2>
+                </div>
+
+                <div className="muscle-chip-list">
+                  {hiitFocusAreas.map((focusArea) => (
+                    <button
+                      className={setup.hiit_focus_area === focusArea ? "chip active hiit" : "chip"}
+                      key={focusArea}
+                      onClick={() => setSetup((current) => ({ ...current, hiit_focus_area: focusArea }))}
+                      type="button"
+                    >
+                      {setup.hiit_focus_area === focusArea ? "+ " : ""}
+                      {focusArea}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="muscle-count-row">
+                  <strong>Total exercises</strong>
+                  <div className="stepper-control">
+                    <button onClick={() => updateHiitTotalExercises(-1)} type="button">
+                      -
+                    </button>
+                    <strong>{setup.hiitTotalExercises}</strong>
+                    <button onClick={() => updateHiitTotalExercises(1)} type="button">
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
           <div className="setup-card">
             <div className="section-row">
               <div>
@@ -2379,7 +2764,7 @@ export function WorkoutLibraryScreen({ user }) {
                     onClick={() => toggleMuscleTarget(muscle)}
                     type="button"
                   >
-                    {count > 0 ? "✓ " : ""}
+                        {count > 0 ? "+ " : ""}
                     {muscle}
                   </button>
                 );
@@ -2412,6 +2797,8 @@ export function WorkoutLibraryScreen({ user }) {
               </div>
             </div>
           </div>
+            </>
+          )}
 
           <button className="primary-action filled" onClick={buildExercisesFromSetup} type="button">
             Continue
@@ -2443,6 +2830,28 @@ export function WorkoutLibraryScreen({ user }) {
           </div>
 
           {message ? <p className="form-message error">{message}</p> : null}
+
+          {form.workout_type === "hiit" ? (
+            <div className="setup-card hiit-editor-summary">
+              <div>
+                <p className="eyebrow">HIIT workout</p>
+                <h2>{form.hiit_timer_type === "for_time" ? "For Time" : "Interval"}</h2>
+              </div>
+              <div className="hiit-summary-grid">
+                <span>Rounds: {form.hiit_rounds || 1}</span>
+                <span>Focus: {form.hiit_focus_area || "Full Body"}</span>
+                {form.hiit_timer_type === "for_time" ? (
+                  <span>Goal: {formatDuration(form.hiit_goal_seconds || 0)}</span>
+                ) : (
+                  <>
+                    <span>Work: {formatDuration(form.hiit_work_seconds || 0)}</span>
+                    <span>Rest: {formatDuration(form.hiit_rest_seconds || 0)}</span>
+                    <span>Countdown: {form.hiit_countdown_seconds || 0}s</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           <div className="exercise-list">
             <div className="section-row exercise-list-head">
@@ -2556,65 +2965,106 @@ export function WorkoutLibraryScreen({ user }) {
                     </button>
                   ) : null}
 
-                  <div className="form-grid four">
-                    <label>
-                      Sets
-                      <input
-                        min="1"
-                        onChange={(event) => updateExercise(index, "sets", event.target.value)}
-                        type="number"
-                        value={exercise.sets}
-                      />
-                    </label>
-                    <label>
-                      Rep min
-                      <input
-                        min="0"
-                        onChange={(event) => updateExercise(index, "rep_min", event.target.value)}
-                        type="number"
-                        value={exercise.rep_min}
-                      />
-                    </label>
-                    <label>
-                      Rep max
-                      <input
-                        min="0"
-                        onChange={(event) => updateExercise(index, "rep_max", event.target.value)}
-                        type="number"
-                        value={exercise.rep_max}
-                      />
-                    </label>
-                    <label>
-                      Start kg
-                      <input
-                        min="0"
-                        onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
-                        step="0.25"
-                        type="number"
-                        value={exercise.start_kg}
-                      />
-                    </label>
-                  </div>
+                  {form.workout_type === "hiit" ? (
+                    <>
+                      <div className="target-type-picker">
+                        <p className="eyebrow">Target</p>
+                        <div className="segmented-options">
+                          {hiitTargetTypes.map((targetType) => (
+                            <button
+                              className={exercise.target_type === targetType.value ? "segment active hiit" : "segment"}
+                              key={targetType.value}
+                              onClick={() => updateExercise(index, "target_type", targetType.value)}
+                              type="button"
+                            >
+                              {targetType.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="form-grid two">
+                        <label>
+                          Target value
+                          <input
+                            min="0"
+                            onChange={(event) => updateExercise(index, "target_value", event.target.value)}
+                            type="number"
+                            value={exercise.target_value}
+                          />
+                        </label>
+                        <label>
+                          Tip
+                          <input
+                            onChange={(event) => updateExercise(index, "tip", event.target.value)}
+                            placeholder="Optional cue"
+                            value={exercise.tip}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="form-grid four">
+                        <label>
+                          Sets
+                          <input
+                            min="1"
+                            onChange={(event) => updateExercise(index, "sets", event.target.value)}
+                            type="number"
+                            value={exercise.sets}
+                          />
+                        </label>
+                        <label>
+                          Rep min
+                          <input
+                            min="0"
+                            onChange={(event) => updateExercise(index, "rep_min", event.target.value)}
+                            type="number"
+                            value={exercise.rep_min}
+                          />
+                        </label>
+                        <label>
+                          Rep max
+                          <input
+                            min="0"
+                            onChange={(event) => updateExercise(index, "rep_max", event.target.value)}
+                            type="number"
+                            value={exercise.rep_max}
+                          />
+                        </label>
+                        <label>
+                          Start kg
+                          <input
+                            min="0"
+                            onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
+                            step="0.25"
+                            type="number"
+                            value={exercise.start_kg}
+                          />
+                        </label>
+                      </div>
 
-                  <div className="form-grid two">
-                    <label>
-                      Rest sec
-                      <input
-                        min="0"
-                        onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
-                        type="number"
-                        value={exercise.rest_seconds}
-                      />
-                    </label>
-                    <label>
-                      Tip
-                      <input
-                        onChange={(event) => updateExercise(index, "tip", event.target.value)}
-                        placeholder="Optional cue"
-                        value={exercise.tip}
-                      />
-                    </label>
-                  </div>
+                      <div className="form-grid two">
+                        <label>
+                          Rest sec
+                          <input
+                            min="0"
+                            onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
+                            type="number"
+                            value={exercise.rest_seconds}
+                          />
+                        </label>
+                        <label>
+                          Tip
+                          <input
+                            onChange={(event) => updateExercise(index, "tip", event.target.value)}
+                            placeholder="Optional cue"
+                            value={exercise.tip}
+                          />
+                        </label>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -2696,6 +3146,7 @@ export function WorkoutLibraryScreen({ user }) {
                 const totalSets = exercises.reduce((sum, exercise) => sum + (Number(exercise.sets) || 0), 0);
                 const hasExerciseDetails = exercises.length > 0;
                 const muscleSummary = [...new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean))];
+                const isHiitWorkout = workout.workout_type === "hiit";
                 const lastSession = lastSessionByName[workout.name];
                 const lastCompleted = lastSession
                   ? new Date(lastSession.completed_at).toLocaleDateString(undefined, {
@@ -2709,11 +3160,13 @@ export function WorkoutLibraryScreen({ user }) {
                   <article className="workout-card" key={workout.id}>
                     <div className="workout-card-head">
                       <div>
-                        <p className="eyebrow">{workout.workout_type || "strength"}</p>
+                        <p className="eyebrow">{formatHiitTimerLabel(workout)}</p>
                         <h2>{workout.name}</h2>
                         <p>
                           {hasExerciseDetails
-                            ? `${exercises.length} exercises - ${totalSets} total sets`
+                            ? isHiitWorkout
+                              ? `${exercises.length} exercises - ${workout.hiit_rounds || 1} rounds`
+                              : `${exercises.length} exercises - ${totalSets} total sets`
                             : "Exercise details load on demand."}
                         </p>
                       </div>
@@ -2733,12 +3186,7 @@ export function WorkoutLibraryScreen({ user }) {
                           {exercises.map((exercise) => (
                             <div key={exercise.id || `${workout.id}-${exercise.position}`}>
                               <strong>{exercise.exercise_name}</strong>
-                              <span>
-                                {exercise.sets || 0} sets
-                                {exercise.rep_min || exercise.rep_max
-                                  ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps`
-                                  : ""}
-                              </span>
+                              <span>{formatExerciseTarget(exercise, workout.workout_type)}</span>
                             </div>
                           ))}
                         </div>
@@ -2749,7 +3197,7 @@ export function WorkoutLibraryScreen({ user }) {
 
                     <div className="library-actions">
                       <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
-                        Start
+                        {isHiitWorkout ? "Timer soon" : "Start"}
                       </button>
                       <button className="primary-action" onClick={() => startEditWorkout(workout)} type="button">
                         Edit

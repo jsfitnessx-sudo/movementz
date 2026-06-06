@@ -654,6 +654,72 @@ button {
   font-size: 18px;
 }
 
+.segmented-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.segment {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.segment.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 12%, var(--field));
+  color: var(--teal);
+}
+
+.segment.active.hiit {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, var(--field));
+  color: var(--gold);
+}
+
+.segment.muted {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.hiit-setup-card {
+  border-color: color-mix(in srgb, var(--gold) 38%, var(--line));
+  background: color-mix(in srgb, var(--gold) 7%, #0d1720);
+}
+
+.hiit-editor-summary {
+  border-color: color-mix(in srgb, var(--gold) 34%, var(--line));
+}
+
+.hiit-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.hiit-summary-grid span {
+  min-height: 34px;
+  display: grid;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.target-type-picker {
+  display: grid;
+  gap: 8px;
+}
+
 .compact-help {
   margin: 0;
   color: var(--muted);
@@ -914,6 +980,10 @@ button {
 
 .form-grid.two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .form-grid.four {
@@ -1974,6 +2044,7 @@ button {
   .library-heading,
   .library-actions,
   .form-grid.two,
+  .form-grid.three,
   .form-grid.four {
     grid-template-columns: 1fr;
   }
@@ -2061,6 +2132,14 @@ button {
 
   .setup-card h2 {
     font-size: 16px;
+  }
+
+  .segmented-options {
+    grid-template-columns: 1fr;
+  }
+
+  .segment {
+    min-height: 40px;
   }
 
   .chip {
@@ -2164,6 +2243,11 @@ button {
 
   .exercise-editor .form-grid.two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .exercise-editor .form-grid.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
 
