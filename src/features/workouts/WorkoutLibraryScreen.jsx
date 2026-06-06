@@ -5,6 +5,7 @@ const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps",
 const hiitFocusAreas = ["Full Body", "Upper", "Lower", "Core", "Cardio"];
 const hiitTimerTypes = [
   { value: "interval", label: "Interval" },
+  { value: "tabata", label: "Tabata" },
   { value: "for_time", label: "For Time" }
 ];
 const hiitTargetTypes = [
@@ -336,7 +337,13 @@ function secondsFromParts(minutes, seconds) {
 
 function formatHiitTimerLabel(workout) {
   if (workout?.workout_type !== "hiit") return workout?.workout_type || "strength";
+  if (workout.hiit_timer_type === "tabata") return "HIIT - Tabata";
   return workout.hiit_timer_type === "for_time" ? "HIIT - For Time" : "HIIT - Interval";
+}
+
+function formatHiitPhase(phase) {
+  if (phase === "station-rest") return "Station rest";
+  return phase;
 }
 
 function formatExerciseTarget(exercise, workoutType = "strength") {
@@ -364,6 +371,8 @@ function createDefaultSetup() {
     hiit_work_seconds: 45,
     hiit_rest_minutes: 0,
     hiit_rest_seconds: 20,
+    hiit_station_rest_minutes: 1,
+    hiit_station_rest_seconds: 0,
     hiit_countdown_seconds: 10,
     hiit_goal_minutes: 30,
     hiit_goal_seconds: 0,
@@ -382,6 +391,7 @@ function createEmptyForm() {
     hiit_rounds: 8,
     hiit_work_seconds: 45,
     hiit_rest_seconds: 20,
+    hiit_station_rest_seconds: 60,
     hiit_countdown_seconds: 10,
     hiit_goal_seconds: 1800,
     hiit_focus_area: "Full Body",
@@ -423,6 +433,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const hiitLastBeepRef = useRef("");
+  const audioContextRef = useRef(null);
 
   const editingWorkout = useMemo(
     () => workouts.find((workout) => workout.id === editingId),
@@ -492,7 +503,7 @@ export function WorkoutLibraryScreen({ user }) {
     setLoading(true);
     const { data, error } = await supabase
       .from("workout_templates")
-      .select("id,name,notes,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
+      .select("id,name,notes,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_station_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false })
       .order("position", { referencedTable: "workout_template_exercises", ascending: true })
@@ -594,12 +605,41 @@ export function WorkoutLibraryScreen({ user }) {
     setMode("history");
   }
 
+  const playTone = useCallback((type = "tap") => {
+    if (typeof window === "undefined") return;
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const context = audioContextRef.current || new AudioContext();
+    audioContextRef.current = context;
+    if (context.state === "suspended") {
+      void context.resume();
+    }
+
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = type === "done" ? 980 : type === "start" ? 740 : type === "warning" ? 560 : 420;
+    gain.gain.setValueAtTime(type === "done" || type === "start" ? 0.18 : 0.08, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      context.currentTime + (type === "done" || type === "start" ? 0.18 : 0.06)
+    );
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + (type === "done" || type === "start" ? 0.18 : 0.06));
+  }, []);
+
   const getNextHiitIntervalState = useCallback((current, workout) => {
     const exercises = workout?.workout_template_exercises || [];
     const totalExercises = exercises.length || 1;
     const totalRounds = Math.max(1, Number(workout?.hiit_rounds) || 1);
     const workSeconds = Math.max(1, Number(workout?.hiit_work_seconds) || 30);
     const restSeconds = Math.max(1, Number(workout?.hiit_rest_seconds) || 10);
+    const stationRestSeconds = Math.max(1, Number(workout?.hiit_station_rest_seconds) || 60);
+    const isTabata = workout?.hiit_timer_type === "tabata";
 
     hiitLastBeepRef.current = "";
 
@@ -610,11 +650,55 @@ export function WorkoutLibraryScreen({ user }) {
 
     if (current.phase === "work") {
       playTone("done");
+
+      if (isTabata && current.round >= totalRounds) {
+        const nextExerciseIndex = current.exerciseIndex + 1;
+        if (nextExerciseIndex < totalExercises) {
+          return {
+            ...current,
+            phase: "station-rest",
+            remaining: stationRestSeconds,
+            completedCycles: current.completedCycles + 1
+          };
+        }
+
+        return {
+          ...current,
+          phase: "complete",
+          remaining: 0,
+          running: false,
+          completedCycles: current.completedCycles + 1,
+          exerciseIndex: totalExercises - 1,
+          round: totalRounds
+        };
+      }
+
       return {
         ...current,
         phase: "rest",
         remaining: restSeconds,
         completedCycles: current.completedCycles + 1
+      };
+    }
+
+    if (isTabata && current.phase === "rest") {
+      playTone("start");
+      return {
+        ...current,
+        phase: "work",
+        remaining: workSeconds,
+        round: current.round + 1
+      };
+    }
+
+    if (isTabata && current.phase === "station-rest") {
+      playTone("start");
+      return {
+        ...current,
+        phase: "work",
+        remaining: workSeconds,
+        exerciseIndex: Math.min(current.exerciseIndex + 1, totalExercises - 1),
+        round: 1
       };
     }
 
@@ -650,7 +734,7 @@ export function WorkoutLibraryScreen({ user }) {
       exerciseIndex: totalExercises - 1,
       round: totalRounds
     };
-  }, []);
+  }, [playTone]);
 
   useEffect(() => {
     const load = Promise.resolve().then(async () => {
@@ -794,7 +878,7 @@ export function WorkoutLibraryScreen({ user }) {
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [activeWorkout, getNextHiitIntervalState, hiitInterval?.running, mode]);
+  }, [activeWorkout, getNextHiitIntervalState, hiitInterval?.running, mode, playTone]);
 
   async function loadWorkoutDetails(workout) {
     if (!supabase || user.id === "demo-user") return workout;
@@ -805,7 +889,7 @@ export function WorkoutLibraryScreen({ user }) {
     const { data, error } = await supabase
       .from("workout_templates")
       .select(
-        "id,name,notes,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,start_kg,rest_seconds,tip,superset_group,target_type,target_value)"
+        "id,name,notes,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_station_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,start_kg,rest_seconds,tip,superset_group,target_type,target_value)"
       )
       .eq("owner_id", user.id)
       .eq("id", workout.id)
@@ -928,6 +1012,7 @@ export function WorkoutLibraryScreen({ user }) {
       hiit_rounds: Number(setup.hiit_rounds) || 1,
       hiit_work_seconds: secondsFromParts(setup.hiit_work_minutes, setup.hiit_work_seconds),
       hiit_rest_seconds: secondsFromParts(setup.hiit_rest_minutes, setup.hiit_rest_seconds),
+      hiit_station_rest_seconds: secondsFromParts(setup.hiit_station_rest_minutes, setup.hiit_station_rest_seconds),
       hiit_countdown_seconds: Number(setup.hiit_countdown_seconds) || 0,
       hiit_goal_seconds: secondsFromParts(setup.hiit_goal_minutes, setup.hiit_goal_seconds),
       hiit_focus_area: setup.hiit_focus_area,
@@ -950,6 +1035,7 @@ export function WorkoutLibraryScreen({ user }) {
       hiit_rounds: detailedWorkout.hiit_rounds || 8,
       hiit_work_seconds: detailedWorkout.hiit_work_seconds || 45,
       hiit_rest_seconds: detailedWorkout.hiit_rest_seconds || 20,
+      hiit_station_rest_seconds: detailedWorkout.hiit_station_rest_seconds || 60,
       hiit_countdown_seconds: detailedWorkout.hiit_countdown_seconds || 10,
       hiit_goal_seconds: detailedWorkout.hiit_goal_seconds || 1800,
       hiit_focus_area: detailedWorkout.hiit_focus_area || "Full Body",
@@ -1010,6 +1096,25 @@ export function WorkoutLibraryScreen({ user }) {
     setSetup((current) => ({
       ...current,
       hiitTotalExercises: Math.max(1, Math.min(20, (Number(current.hiitTotalExercises) || 4) + change))
+    }));
+  }
+
+  function selectHiitTimerType(timerType) {
+    setSetup((current) => ({
+      ...current,
+      hiit_timer_type: timerType,
+      ...(timerType === "tabata"
+        ? {
+            hiit_rounds: 8,
+            hiit_work_minutes: 0,
+            hiit_work_seconds: 40,
+            hiit_rest_minutes: 0,
+            hiit_rest_seconds: 10,
+            hiit_station_rest_minutes: 1,
+            hiit_station_rest_seconds: 0,
+            hiit_countdown_seconds: 3
+          }
+        : {})
     }));
   }
 
@@ -1308,6 +1413,7 @@ export function WorkoutLibraryScreen({ user }) {
         hiit_rounds: form.hiit_rounds,
         hiit_work_seconds: form.hiit_work_seconds,
         hiit_rest_seconds: form.hiit_rest_seconds,
+        hiit_station_rest_seconds: form.hiit_station_rest_seconds,
         hiit_countdown_seconds: form.hiit_countdown_seconds,
         hiit_goal_seconds: form.hiit_goal_seconds,
         hiit_focus_area: form.hiit_focus_area,
@@ -1342,10 +1448,20 @@ export function WorkoutLibraryScreen({ user }) {
     if (form.workout_type === "hiit") {
       workoutPayload.hiit_timer_type = form.hiit_timer_type || "interval";
       workoutPayload.hiit_rounds = Number(form.hiit_rounds) || 1;
-      workoutPayload.hiit_work_seconds = form.hiit_timer_type === "interval" ? Number(form.hiit_work_seconds) || 0 : null;
-      workoutPayload.hiit_rest_seconds = form.hiit_timer_type === "interval" ? Number(form.hiit_rest_seconds) || 0 : null;
+      workoutPayload.hiit_work_seconds =
+        form.hiit_timer_type === "interval" || form.hiit_timer_type === "tabata"
+          ? Number(form.hiit_work_seconds) || 0
+          : null;
+      workoutPayload.hiit_rest_seconds =
+        form.hiit_timer_type === "interval" || form.hiit_timer_type === "tabata"
+          ? Number(form.hiit_rest_seconds) || 0
+          : null;
+      workoutPayload.hiit_station_rest_seconds =
+        form.hiit_timer_type === "tabata" ? Number(form.hiit_station_rest_seconds) || 60 : null;
       workoutPayload.hiit_countdown_seconds =
-        form.hiit_timer_type === "interval" ? Number(form.hiit_countdown_seconds) || 0 : null;
+        form.hiit_timer_type === "interval" || form.hiit_timer_type === "tabata"
+          ? Number(form.hiit_countdown_seconds) || 0
+          : null;
       workoutPayload.hiit_goal_seconds = form.hiit_timer_type === "for_time" ? Number(form.hiit_goal_seconds) || 0 : null;
       workoutPayload.hiit_focus_area = form.hiit_focus_area || "Full Body";
     }
@@ -1497,6 +1613,7 @@ export function WorkoutLibraryScreen({ user }) {
         hiit_rounds: detailedWorkout.hiit_rounds || null,
         hiit_work_seconds: detailedWorkout.hiit_work_seconds || null,
         hiit_rest_seconds: detailedWorkout.hiit_rest_seconds || null,
+        hiit_station_rest_seconds: detailedWorkout.hiit_station_rest_seconds || null,
         hiit_countdown_seconds: detailedWorkout.hiit_countdown_seconds || null,
         hiit_goal_seconds: detailedWorkout.hiit_goal_seconds || null,
         hiit_focus_area: detailedWorkout.hiit_focus_area || null,
@@ -1550,8 +1667,8 @@ export function WorkoutLibraryScreen({ user }) {
     if (!detailedWorkout) return;
 
     if (detailedWorkout.workout_type === "hiit") {
-      if (detailedWorkout.hiit_timer_type !== "interval") {
-        setMessage("For Time HIIT is next. Interval HIIT is being built first.");
+      if (!["interval", "tabata"].includes(detailedWorkout.hiit_timer_type)) {
+        setMessage("For Time HIIT is next. Interval and Tabata HIIT are available now.");
         return;
       }
 
@@ -1575,6 +1692,7 @@ export function WorkoutLibraryScreen({ user }) {
         completedCycles: 0
       });
       hiitLastBeepRef.current = "";
+      playTone("start");
       setCompletedSession(null);
       setMessage("");
       setMode("hiit-session");
@@ -1664,28 +1782,6 @@ export function WorkoutLibraryScreen({ user }) {
         };
       })
     }));
-  }
-
-  function playTone(type = "tap") {
-    if (typeof window === "undefined") return;
-
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-
-    const context = new AudioContext();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = type === "done" ? 880 : type === "start" ? 660 : type === "warning" ? 520 : 420;
-    gain.gain.setValueAtTime(type === "done" || type === "start" ? 0.12 : 0.055, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(
-      0.001,
-      context.currentTime + (type === "done" || type === "start" ? 0.18 : 0.06)
-    );
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + (type === "done" || type === "start" ? 0.18 : 0.06));
   }
 
   function markSessionSetDone(exerciseIndex, rowIndex) {
@@ -2192,14 +2288,17 @@ export function WorkoutLibraryScreen({ user }) {
     const currentExercise = exercises[hiitInterval.exerciseIndex] || exercises[0];
     const totalExercises = exercises.length || 1;
     const totalRounds = Math.max(1, Number(activeWorkout.hiit_rounds) || 1);
+    const isTabataWorkout = activeWorkout.hiit_timer_type === "tabata";
     const phaseTotal =
-      hiitInterval.phase === "rest"
+      hiitInterval.phase === "station-rest"
+        ? Math.max(1, Number(activeWorkout.hiit_station_rest_seconds) || 60)
+        : hiitInterval.phase === "rest"
         ? Math.max(1, Number(activeWorkout.hiit_rest_seconds) || 10)
         : hiitInterval.phase === "countdown"
           ? Math.max(1, Number(activeWorkout.hiit_countdown_seconds) || 3)
           : Math.max(1, Number(activeWorkout.hiit_work_seconds) || 30);
     const progress = Math.max(0, Math.min(100, (hiitInterval.remaining / phaseTotal) * 100));
-    const isRest = hiitInterval.phase === "rest";
+    const isRest = hiitInterval.phase === "rest" || hiitInterval.phase === "station-rest";
     const isComplete = hiitInterval.phase === "complete";
 
     return (
@@ -2207,10 +2306,11 @@ export function WorkoutLibraryScreen({ user }) {
         <section className="screen-stack workout-library hiit-session-screen">
           <div className="screen-heading library-heading">
             <div>
-              <p className="eyebrow">HIIT interval</p>
+              <p className="eyebrow">{isTabataWorkout ? "HIIT tabata" : "HIIT interval"}</p>
               <h1>{activeWorkout.name}</h1>
               <p>
-                Exercise {Math.min(hiitInterval.exerciseIndex + 1, totalExercises)}/{totalExercises} - Round{" "}
+                Exercise {Math.min(hiitInterval.exerciseIndex + 1, totalExercises)}/{totalExercises} -{" "}
+                {isTabataWorkout ? "Effort" : "Round"}{" "}
                 {hiitInterval.round}/{totalRounds}
               </p>
             </div>
@@ -2219,10 +2319,10 @@ export function WorkoutLibraryScreen({ user }) {
           {message ? <p className="form-message error">{message}</p> : null}
 
           <div className={isRest ? "hiit-timer-card rest" : "hiit-timer-card work"}>
-            <p className="eyebrow">{isComplete ? "Complete" : hiitInterval.phase}</p>
+            <p className="eyebrow">{isComplete ? "Complete" : formatHiitPhase(hiitInterval.phase)}</p>
             <div className="hiit-timer-ring" style={{ "--timer-progress": `${progress}%` }}>
               <strong>{isComplete ? "Done" : formatClock(hiitInterval.remaining)}</strong>
-              <span>{isRest ? "rest" : hiitInterval.phase === "countdown" ? "countdown" : "work"}</span>
+              <span>{isRest ? formatHiitPhase(hiitInterval.phase) : hiitInterval.phase === "countdown" ? "countdown" : "work"}</span>
             </div>
             {currentExercise ? (
               <div className="hiit-current-station">
@@ -2812,14 +2912,20 @@ export function WorkoutLibraryScreen({ user }) {
               <div className="setup-card hiit-setup-card">
                 <div>
                   <p className="eyebrow">HIIT timer</p>
-                  <h2>{setup.hiit_timer_type === "for_time" ? "Goal time workout" : "Interval rounds"}</h2>
+                  <h2>
+                    {setup.hiit_timer_type === "for_time"
+                      ? "Goal time workout"
+                      : setup.hiit_timer_type === "tabata"
+                        ? "Tabata stations"
+                        : "Interval rounds"}
+                  </h2>
                 </div>
                 <div className="segmented-options">
                   {hiitTimerTypes.map((timerType) => (
                     <button
                       className={setup.hiit_timer_type === timerType.value ? "segment active hiit" : "segment"}
                       key={timerType.value}
-                      onClick={() => setSetup((current) => ({ ...current, hiit_timer_type: timerType.value }))}
+                      onClick={() => selectHiitTimerType(timerType.value)}
                       type="button"
                     >
                       {timerType.label}
@@ -2827,10 +2933,10 @@ export function WorkoutLibraryScreen({ user }) {
                   ))}
                 </div>
 
-                {setup.hiit_timer_type === "interval" ? (
+                {setup.hiit_timer_type === "interval" || setup.hiit_timer_type === "tabata" ? (
                   <div className="form-grid four">
                     <label>
-                      Rounds
+                      {setup.hiit_timer_type === "tabata" ? "Efforts" : "Rounds"}
                       <input
                         min="1"
                         onChange={(event) => setSetup((current) => ({ ...current, hiit_rounds: event.target.value }))}
@@ -2885,16 +2991,35 @@ export function WorkoutLibraryScreen({ user }) {
                       />
                     </label>
                     <label>
-                      Countdown
+                      {setup.hiit_timer_type === "tabata" ? "Station rest min" : "Countdown"}
                       <input
                         min="0"
                         onChange={(event) =>
-                          setSetup((current) => ({ ...current, hiit_countdown_seconds: event.target.value }))
+                          setup.hiit_timer_type === "tabata"
+                            ? setSetup((current) => ({ ...current, hiit_station_rest_minutes: event.target.value }))
+                            : setSetup((current) => ({ ...current, hiit_countdown_seconds: event.target.value }))
                         }
                         type="number"
-                        value={setup.hiit_countdown_seconds}
+                        value={
+                          setup.hiit_timer_type === "tabata"
+                            ? setup.hiit_station_rest_minutes
+                            : setup.hiit_countdown_seconds
+                        }
                       />
                     </label>
+                    {setup.hiit_timer_type === "tabata" ? (
+                      <label>
+                        Countdown
+                        <input
+                          min="0"
+                          onChange={(event) =>
+                            setSetup((current) => ({ ...current, hiit_countdown_seconds: event.target.value }))
+                          }
+                          type="number"
+                          value={setup.hiit_countdown_seconds}
+                        />
+                      </label>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="form-grid three">
@@ -3076,7 +3201,7 @@ export function WorkoutLibraryScreen({ user }) {
             <div className="setup-card hiit-editor-summary">
               <div>
                 <p className="eyebrow">HIIT workout</p>
-                <h2>{form.hiit_timer_type === "for_time" ? "For Time" : "Interval"}</h2>
+                <h2>{form.hiit_timer_type === "for_time" ? "For Time" : form.hiit_timer_type === "tabata" ? "Tabata" : "Interval"}</h2>
               </div>
               <div className="hiit-summary-grid">
                 <span>Rounds: {form.hiit_rounds || 1}</span>
@@ -3087,6 +3212,9 @@ export function WorkoutLibraryScreen({ user }) {
                   <>
                     <span>Work: {formatDuration(form.hiit_work_seconds || 0)}</span>
                     <span>Rest: {formatDuration(form.hiit_rest_seconds || 0)}</span>
+                    {form.hiit_timer_type === "tabata" ? (
+                      <span>Station rest: {formatDuration(form.hiit_station_rest_seconds || 0)}</span>
+                    ) : null}
                     <span>Countdown: {form.hiit_countdown_seconds || 0}s</span>
                   </>
                 )}
@@ -3438,7 +3566,7 @@ export function WorkoutLibraryScreen({ user }) {
 
                     <div className="library-actions">
                       <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
-                        {isHiitWorkout ? "Timer soon" : "Start"}
+                        {isHiitWorkout && workout.hiit_timer_type === "for_time" ? "Timer soon" : "Start"}
                       </button>
                       <button className="primary-action" onClick={() => startEditWorkout(workout)} type="button">
                         Edit

@@ -7,10 +7,11 @@ create table if not exists public.workout_templates (
   workout_type text not null default 'strength'
     check (workout_type in ('strength', 'home', 'hiit', 'run', 'cardio', 'other')),
   hiit_timer_type text
-    check (hiit_timer_type is null or hiit_timer_type in ('interval', 'for_time')),
+    check (hiit_timer_type is null or hiit_timer_type in ('interval', 'tabata', 'for_time')),
   hiit_rounds integer,
   hiit_work_seconds integer,
   hiit_rest_seconds integer,
+  hiit_station_rest_seconds integer,
   hiit_countdown_seconds integer,
   hiit_goal_seconds integer,
   hiit_focus_area text,
@@ -55,6 +56,9 @@ alter table public.workout_templates
   add column if not exists hiit_rest_seconds integer;
 
 alter table public.workout_templates
+  add column if not exists hiit_station_rest_seconds integer;
+
+alter table public.workout_templates
   add column if not exists hiit_countdown_seconds integer;
 
 alter table public.workout_templates
@@ -71,13 +75,12 @@ alter table public.workout_template_exercises
 
 do $$
 begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'workout_templates_hiit_timer_type_check'
-  ) then
-    alter table public.workout_templates
-      add constraint workout_templates_hiit_timer_type_check
-      check (hiit_timer_type is null or hiit_timer_type in ('interval', 'for_time'));
-  end if;
+  alter table public.workout_templates
+    drop constraint if exists workout_templates_hiit_timer_type_check;
+
+  alter table public.workout_templates
+    add constraint workout_templates_hiit_timer_type_check
+    check (hiit_timer_type is null or hiit_timer_type in ('interval', 'tabata', 'for_time'));
 
   if not exists (
     select 1 from pg_constraint where conname = 'workout_template_exercises_target_type_check'
