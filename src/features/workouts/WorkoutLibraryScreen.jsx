@@ -141,6 +141,10 @@ function isMissingSupabaseTable(error) {
   return error?.code === "42P01" || error?.message?.includes("schema cache");
 }
 
+function getYouTubeExerciseSearchUrl(exerciseName) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exerciseName} exercise demo`)}`;
+}
+
 function createSessionRows(exercise, previousRows = []) {
   const setCount = Math.max(Number(exercise.sets) || 1, previousRows.length);
   return Array.from({ length: setCount }, (_, index) => ({
@@ -689,8 +693,10 @@ export function WorkoutLibraryScreen({ user }) {
       return;
     }
 
+    const demoWindow = window.open(getYouTubeExerciseSearchUrl(exerciseName), "_blank", "noopener,noreferrer");
+
     if (!supabase || user.id === "demo-user") {
-      setMessage(`Demo links for ${exerciseName} will open here once approved.`);
+      setMessage("");
       return;
     }
 
@@ -703,6 +709,7 @@ export function WorkoutLibraryScreen({ user }) {
       .maybeSingle();
 
     if (error) {
+      demoWindow?.close();
       setMessage(
         isMissingSupabaseTable(error)
           ? "Demo links are not installed in Supabase yet. Run the updated Phase 4 exercise library SQL first."
@@ -712,11 +719,15 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     if (!data?.youtube_url) {
-      setMessage(`No approved demo link yet for ${exerciseName}.`);
+      setMessage("");
       return;
     }
 
-    window.open(data.youtube_url, "_blank", "noopener,noreferrer");
+    if (demoWindow) {
+      demoWindow.location.href = data.youtube_url;
+    } else {
+      window.open(data.youtube_url, "_blank", "noopener,noreferrer");
+    }
   }
 
   function addExercise() {
