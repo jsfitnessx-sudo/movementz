@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
+const CATALOG_SEARCH_LIMIT = 8;
 
 const exerciseLibrary = {
   Chest: [
@@ -124,17 +125,16 @@ function getSuggestions(exercise) {
   return [0, 1, 2].map((step) => options[(exercise.suggestionOffset + step) % options.length]);
 }
 
-function isKnownExercise(exerciseName) {
-  const normalizedName = exerciseName.trim().toLowerCase();
-  if (!normalizedName) return false;
-
-  return Object.values(exerciseLibrary)
-    .flat()
-    .some((name) => name.toLowerCase() === normalizedName);
-}
-
 function toExerciseKey(exerciseName) {
   return exerciseName.trim().toLowerCase();
+}
+
+function getLocalExerciseNames() {
+  return Object.values(exerciseLibrary).flat();
+}
+
+function uniqueNames(names) {
+  return [...new Set(names.filter(Boolean))];
 }
 
 function createSessionRows(exercise, previousRows = []) {
@@ -213,6 +213,9 @@ export function WorkoutLibraryScreen({ user }) {
   const [shareMode, setShareMode] = useState("transparent");
   const [sharePhoto, setSharePhoto] = useState("");
   const [customExerciseNames, setCustomExerciseNames] = useState(new Set());
+  const [catalogExerciseNames, setCatalogExerciseNames] = useState(new Set());
+  const [catalogSearchResults, setCatalogSearchResults] = useState({});
+  const [swapCatalogResults, setSwapCatalogResults] = useState([]);
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
@@ -242,6 +245,11 @@ export function WorkoutLibraryScreen({ user }) {
     () => Array.from(customExerciseNames).sort((a, b) => a.localeCompare(b)),
     [customExerciseNames]
   );
+
+  const knownExerciseKeys = useMemo(() => {
+    const names = [...getLocalExerciseNames(), ...customExerciseNames, ...catalogExerciseNames];
+    return new Set(names.map(toExerciseKey));
+  }, [catalogExerciseNames, customExerciseNames]);
 
   const loadWorkouts = useCallback(async () => {
     setMessage("");
@@ -366,6 +374,74 @@ export function WorkoutLibraryScreen({ user }) {
       void load;
     };
   }, [loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
+
+  useEffect(() => {
+    if (!supabase || user.id === "demo-user" || mode !== "editor") return undefined;
+
+    const searchableExercises = form.exercises
+      .map((exercise, index) => ({
+        index,
+        search: exercise.search.trim()
+      }))
+      .filter((exercise) => exercise.search.length >= 2);
+
+    if (searchableExercises.length === 0) {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      const nextResults = {};
+      const foundNames = [];
+
+      await Promise.all(
+        searchableExercises.map(async (exercise) => {
+          const { data, error } = await supabase
+            .from("exercise_catalog")
+            .select("exercise_name")
+            .ilike("exercise_name", `%${exercise.search}%`)
+            .order("exercise_name", { ascending: true })
+            .limit(CATALOG_SEARCH_LIMIT);
+
+          if (!error) {
+            const names = (data || []).map((row) => row.exercise_name);
+            nextResults[exercise.index] = names;
+            foundNames.push(...names);
+          }
+        })
+      );
+
+      setCatalogSearchResults(nextResults);
+      setCatalogExerciseNames((current) => new Set([...current, ...foundNames]));
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [form.exercises, mode, user.id]);
+
+  useEffect(() => {
+    if (!supabase || user.id === "demo-user" || swapTargetIndex === null) return undefined;
+
+    const cleanSearch = swapSearch.trim();
+    if (cleanSearch.length < 2) {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      const { data, error } = await supabase
+        .from("exercise_catalog")
+        .select("exercise_name")
+        .ilike("exercise_name", `%${cleanSearch}%`)
+        .order("exercise_name", { ascending: true })
+        .limit(CATALOG_SEARCH_LIMIT);
+
+      if (error) return;
+
+      const names = (data || []).map((row) => row.exercise_name);
+      setSwapCatalogResults(names);
+      setCatalogExerciseNames((current) => new Set([...current, ...names]));
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [swapSearch, swapTargetIndex, user.id]);
 
   useEffect(() => {
     if (!activeNumberInput) return;
@@ -573,7 +649,7 @@ export function WorkoutLibraryScreen({ user }) {
 
   function chooseExercise(index, exerciseName, clearSearch = false, isTypedCustom = false) {
     const cleanExerciseName = exerciseName.trim();
-    const isCustomExercise = isTypedCustom || (!isKnownExercise(cleanExerciseName) && !customExerciseNames.has(cleanExerciseName));
+    const isCustomExercise = isTypedCustom || !knownExerciseKeys.has(toExerciseKey(cleanExerciseName));
 
     setForm((current) => ({
       ...current,
@@ -1010,6 +1086,7 @@ export function WorkoutLibraryScreen({ user }) {
   function openSwapExercise(exerciseIndex) {
     setSwapTargetIndex(exerciseIndex);
     setSwapSearch("");
+    setSwapCatalogResults([]);
     setOpenSessionMenu(null);
     setActiveNumberInput(null);
     setMessage("");
@@ -1311,11 +1388,13 @@ export function WorkoutLibraryScreen({ user }) {
 
   function renderSwapPanel(exercise) {
     const muscleOptions = exerciseLibrary[exercise?.muscle_group] || [];
-    const searchOptions = swapSearch
-      ? Object.values(exerciseLibrary)
-          .flat()
-          .filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase()))
-          .slice(0, 8)
+    const hasSearch = swapSearch.trim().length >= 2;
+    const searchOptions = hasSearch
+      ? uniqueNames([
+          ...swapCatalogResults,
+          ...getLocalExerciseNames().filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase())),
+          ...customExerciseList.filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase()))
+        ]).slice(0, CATALOG_SEARCH_LIMIT)
       : muscleOptions.slice(0, 8);
 
     return (
@@ -1958,9 +2037,15 @@ export function WorkoutLibraryScreen({ user }) {
 
             {form.exercises.map((exercise, index) => {
               const searchResults = exercise.search
-                ? [...new Set([...Object.values(exerciseLibrary).flat(), ...customExerciseList])]
-                    .filter((name) => name.toLowerCase().includes(exercise.search.toLowerCase()))
-                    .slice(0, 5)
+                ? uniqueNames([
+                    ...(catalogSearchResults[index] || []),
+                    ...getLocalExerciseNames().filter((name) =>
+                      name.toLowerCase().includes(exercise.search.toLowerCase())
+                    ),
+                    ...customExerciseList.filter((name) =>
+                      name.toLowerCase().includes(exercise.search.toLowerCase())
+                    )
+                  ]).slice(0, 5)
                 : [];
 
               return (
