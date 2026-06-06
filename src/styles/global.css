@@ -1031,6 +1031,68 @@ button {
   color: #ffb9c1;
 }
 
+.swap-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--line));
+  border-radius: 16px;
+  background: #08131c;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.swap-panel-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.swap-panel h2 {
+  margin: 0;
+}
+
+.swap-panel label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.swap-panel input {
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #122232;
+  color: var(--text);
+  padding: 0 14px;
+  text-transform: none;
+}
+
+.swap-options {
+  display: grid;
+  gap: 8px;
+}
+
+.swap-options button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #122232;
+  color: var(--text);
+  padding: 0 12px;
+  text-align: left;
+  font-weight: 850;
+}
+
+.swap-options button:hover {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
 .previous-sets {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -1711,6 +1773,32 @@ button {
 
   .session-menu {
     width: min(250px, 76vw);
+  }
+
+  .swap-panel {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .swap-panel-head {
+    align-items: center;
+  }
+
+  .swap-panel h2 {
+    font-size: 18px;
+  }
+
+  .swap-panel input {
+    min-height: 44px;
+  }
+
+  .swap-options {
+    gap: 7px;
+  }
+
+  .swap-options button {
+    min-height: 40px;
+    font-size: 13px;
   }
 
   .previous-sets {

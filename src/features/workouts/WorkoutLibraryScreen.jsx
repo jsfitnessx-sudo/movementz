@@ -185,6 +185,8 @@ export function WorkoutLibraryScreen({ user }) {
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [activeNumberInput, setActiveNumberInput] = useState(null);
   const [openSessionMenu, setOpenSessionMenu] = useState(null);
+  const [swapTargetIndex, setSwapTargetIndex] = useState(null);
+  const [swapSearch, setSwapSearch] = useState("");
   const [completedSession, setCompletedSession] = useState(null);
   const [sessionFeedback, setSessionFeedback] = useState({ rating: 0, comment: "" });
   const [shareMode, setShareMode] = useState("transparent");
@@ -781,19 +783,33 @@ export function WorkoutLibraryScreen({ user }) {
     updateActiveNumber(`${currentValue}${key}`);
   }
 
-  function swapSessionExercise(exerciseIndex) {
+  function openSwapExercise(exerciseIndex) {
+    setSwapTargetIndex(exerciseIndex);
+    setSwapSearch("");
+    setOpenSessionMenu(null);
+    setActiveNumberInput(null);
+    setMessage("");
+  }
+
+  function chooseSwapExercise(exerciseName) {
+    if (swapTargetIndex === null) return;
+
     setActiveWorkout((current) => ({
       ...current,
       workout_template_exercises: current.workout_template_exercises.map((exercise, currentExerciseIndex) => {
-        if (currentExerciseIndex !== exerciseIndex) return exercise;
-        const options = exerciseLibrary[exercise.muscle_group] || [];
-        const currentOptionIndex = options.indexOf(exercise.exercise_name);
-        const nextName = options[(currentOptionIndex + 1 + options.length) % options.length] || exercise.exercise_name;
-        return { ...exercise, exercise_name: nextName, skipped: false };
+        if (currentExerciseIndex !== swapTargetIndex) return exercise;
+        return {
+          ...exercise,
+          exercise_name: exerciseName,
+          skipped: false,
+          original_exercise_name: exercise.original_exercise_name || exercise.exercise_name,
+          previousSets: []
+        };
       })
     }));
-    setOpenSessionMenu(null);
-    setMessage("Exercise swapped. Full substitution logging comes next in the workout logging phase.");
+    setSwapTargetIndex(null);
+    setSwapSearch("");
+    setMessage(`Swapped to ${exerciseName}.`);
   }
 
   function skipSessionExercise(exerciseIndex) {
@@ -804,6 +820,7 @@ export function WorkoutLibraryScreen({ user }) {
       )
     }));
     setOpenSessionMenu(null);
+    setSwapTargetIndex(null);
     setMessage("Exercise skipped for this session.");
   }
 
@@ -1097,7 +1114,7 @@ export function WorkoutLibraryScreen({ user }) {
                         <button onClick={() => showDemo(exercise.exercise_name)} type="button">
                           Demo
                         </button>
-                        <button onClick={() => swapSessionExercise(exerciseIndex)} type="button">
+                        <button onClick={() => openSwapExercise(exerciseIndex)} type="button">
                           Swap exercise
                         </button>
                         <button className="danger-text" onClick={() => skipSessionExercise(exerciseIndex)} type="button">
@@ -1203,6 +1220,56 @@ export function WorkoutLibraryScreen({ user }) {
             );
           })}
         </div>
+
+        {swapTargetIndex !== null ? (() => {
+          const exercise = activeWorkout.workout_template_exercises[swapTargetIndex];
+          const muscleOptions = exerciseLibrary[exercise?.muscle_group] || [];
+          const searchOptions = swapSearch
+            ? Object.values(exerciseLibrary)
+                .flat()
+                .filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase()))
+                .slice(0, 8)
+            : muscleOptions.slice(0, 8);
+
+          return (
+            <div className="swap-panel" role="dialog" aria-modal="false">
+              <div className="swap-panel-head">
+                <div>
+                  <p className="eyebrow">Swap exercise</p>
+                  <h2>{exercise?.exercise_name}</h2>
+                </div>
+                <button className="primary-action compact" onClick={() => setSwapTargetIndex(null)} type="button">
+                  Close
+                </button>
+              </div>
+
+              <label>
+                Search replacement
+                <input
+                  onChange={(event) => setSwapSearch(event.target.value)}
+                  placeholder={`Search ${exercise?.muscle_group || "strength"} exercises...`}
+                  value={swapSearch}
+                />
+              </label>
+
+              <div className="swap-options">
+                {searchOptions
+                  .filter((name) => name !== exercise?.exercise_name)
+                  .map((name) => (
+                    <button key={name} onClick={() => chooseSwapExercise(name)} type="button">
+                      {name}
+                    </button>
+                  ))}
+              </div>
+
+              {swapSearch && searchOptions.length === 0 ? (
+                <button className="primary-action compact" onClick={() => chooseSwapExercise(swapSearch)} type="button">
+                  Use "{swapSearch}"
+                </button>
+              ) : null}
+            </div>
+          );
+        })() : null}
 
         <div className="session-end-actions">
           <button className="primary-action" disabled={saving} onClick={finishActiveSession} type="button">
