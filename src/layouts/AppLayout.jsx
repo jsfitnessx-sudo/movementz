@@ -2,8 +2,6 @@ import { BrandMark } from "../components/brand/BrandMark.jsx";
 import { RoleSwitcher } from "../components/dev/RoleSwitcher.jsx";
 import { BottomNav } from "../components/navigation/BottomNav.jsx";
 
-const buildLabel = "build 46be98f";
-
 export function AppLayout({
   activeTab,
   canPreviewRole = false,
@@ -44,7 +42,6 @@ export function AppLayout({
         {children}
       </main>
 
-      <span className="build-marker">{buildLabel}</span>
       <BottomNav activeTab={activeTab} onTabChange={onTabChange} tabs={tabs} />
     </div>
   );

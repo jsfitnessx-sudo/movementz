@@ -943,10 +943,22 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
+  width: 100%;
   padding: 14px;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: #0d1720;
+  color: var(--text);
+  text-align: left;
+}
+
+.session-history-card:hover {
+  border-color: color-mix(in srgb, var(--teal) 42%, var(--line));
+}
+
+.session-history-card:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .session-history-card h3 {
@@ -986,6 +998,11 @@ button {
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 750;
+}
+
+.danger-pill {
+  border-color: color-mix(in srgb, var(--red) 60%, transparent);
+  color: #ffb9c1;
 }
 
 .workout-notes {
@@ -1293,6 +1310,64 @@ button {
   font-size: 24px;
 }
 
+.session-feedback-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #0d1720;
+}
+
+.session-feedback-summary span {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.session-feedback-summary p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.session-detail-list {
+  display: grid;
+  gap: 12px;
+}
+
+.session-detail-card.skipped {
+  opacity: 0.72;
+}
+
+.logged-set-list {
+  display: grid;
+  gap: 8px;
+}
+
+.logged-set-list div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.logged-set-list span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.logged-set-list strong {
+  color: var(--teal);
+}
+
 .session-rating {
   display: grid;
   justify-items: center;
@@ -1513,17 +1588,6 @@ button {
 
 .mobile-number-pad {
   display: none;
-}
-
-.build-marker {
-  position: fixed;
-  right: 12px;
-  bottom: calc(78px + env(safe-area-inset-bottom));
-  z-index: 21;
-  color: color-mix(in srgb, var(--muted) 72%, transparent);
-  font-size: 10px;
-  font-weight: 700;
-  pointer-events: none;
 }
 
 .form-footer-actions {

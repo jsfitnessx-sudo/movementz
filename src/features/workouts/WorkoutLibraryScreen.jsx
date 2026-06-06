@@ -161,6 +161,12 @@ function calculateSessionSummary(workout) {
   };
 }
 
+function formatDuration(totalSeconds = 0) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 function createDefaultSetup() {
   return {
     name: "",
@@ -189,11 +195,13 @@ export function WorkoutLibraryScreen({ user }) {
   const [swapTargetIndex, setSwapTargetIndex] = useState(null);
   const [swapSearch, setSwapSearch] = useState("");
   const [completedSession, setCompletedSession] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(null);
   const [sessionFeedback, setSessionFeedback] = useState({ rating: 0, comment: "" });
   const [shareMode, setShareMode] = useState("transparent");
   const [sharePhoto, setSharePhoto] = useState("");
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
+  const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -264,6 +272,50 @@ export function WorkoutLibraryScreen({ user }) {
 
     setRecentSessions(data || []);
   }, [user.id]);
+
+  async function openSessionHistory(session) {
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      setSelectedSession(session);
+      setMode("history");
+      return;
+    }
+
+    setLoadingSessionDetail(true);
+
+    const { data, error } = await supabase
+      .from("session_logs")
+      .select(
+        "id,name,completed_at,duration_seconds,total_exercises,completed_sets,total_volume_kg,rating,comment,session_log_exercises(id,position,exercise_name,original_exercise_name,muscle_group,target_sets,target_rep_min,target_rep_max,skipped,substituted,session_log_sets(id,set_number,kg,reps,completed))"
+      )
+      .eq("owner_id", user.id)
+      .eq("status", "completed")
+      .eq("id", session.id)
+      .single();
+
+    setLoadingSessionDetail(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    const sortedSession = {
+      ...data,
+      session_log_exercises: (data.session_log_exercises || [])
+        .map((exercise) => ({
+          ...exercise,
+          session_log_sets: (exercise.session_log_sets || []).sort(
+            (a, b) => a.set_number - b.set_number
+          )
+        }))
+        .sort((a, b) => a.position - b.position)
+    };
+
+    setSelectedSession(sortedSession);
+    setMode("history");
+  }
 
   useEffect(() => {
     const load = Promise.resolve().then(async () => {
@@ -1505,6 +1557,117 @@ export function WorkoutLibraryScreen({ user }) {
     );
   }
 
+  if (mode === "history" && selectedSession) {
+    const completedDate = new Date(selectedSession.completed_at).toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short"
+    });
+    const completedTime = new Date(selectedSession.completed_at).toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit"
+    });
+
+    return (
+      <section className="screen-stack workout-library">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">Session history</p>
+            <h1>{selectedSession.name}</h1>
+            <p>
+              {completedDate} at {completedTime}
+            </p>
+          </div>
+          <button
+            className="primary-action"
+            onClick={() => {
+              setSelectedSession(null);
+              setMode("list");
+            }}
+            type="button"
+          >
+            Back
+          </button>
+        </div>
+
+        {message ? <p className="form-message error">{message}</p> : null}
+
+        <div className="workout-card completion-card">
+          <div className="completion-summary">
+            <div>
+              <span>Duration</span>
+              <strong>{formatDuration(selectedSession.duration_seconds || 0)}</strong>
+            </div>
+            <div>
+              <span>Exercises</span>
+              <strong>{selectedSession.total_exercises || 0}</strong>
+            </div>
+            <div>
+              <span>Sets done</span>
+              <strong>{selectedSession.completed_sets || 0}</strong>
+            </div>
+            <div>
+              <span>Volume</span>
+              <strong>{Math.round(selectedSession.total_volume_kg || 0).toLocaleString()}kg</strong>
+            </div>
+          </div>
+
+          <div className="session-feedback-summary">
+            <span>{selectedSession.rating ? `${selectedSession.rating}/5 rating` : "No rating"}</span>
+            {selectedSession.comment ? <p>{selectedSession.comment}</p> : null}
+          </div>
+        </div>
+
+        <div className="session-detail-list">
+          {(selectedSession.session_log_exercises || []).map((exercise) => {
+            const completedSets = (exercise.session_log_sets || []).filter((set) => set.completed);
+
+            return (
+              <article
+                className={exercise.skipped ? "workout-card session-detail-card skipped" : "workout-card session-detail-card"}
+                key={exercise.id}
+              >
+                <div className="workout-card-head">
+                  <div>
+                    <p className="eyebrow">{exercise.muscle_group || "Strength"}</p>
+                    <h2>{exercise.exercise_name}</h2>
+                    <p>
+                      Target: {exercise.target_sets || 0} sets
+                      {exercise.target_rep_min || exercise.target_rep_max
+                        ? ` x ${exercise.target_rep_min || "?"}-${exercise.target_rep_max || "?"} reps`
+                        : ""}
+                    </p>
+                  </div>
+                  {exercise.substituted ? <span className="status-pill">Swapped</span> : null}
+                  {exercise.skipped ? <span className="status-pill danger-pill">Skipped</span> : null}
+                </div>
+
+                {exercise.original_exercise_name && exercise.original_exercise_name !== exercise.exercise_name ? (
+                  <p className="compact-help">Original: {exercise.original_exercise_name}</p>
+                ) : null}
+
+                {completedSets.length ? (
+                  <div className="logged-set-list">
+                    {completedSets.map((set) => (
+                      <div key={set.id || set.set_number}>
+                        <span>Set {set.set_number}</span>
+                        <strong>
+                          {set.kg ?? "-"}kg x {set.reps ?? "-"}
+                        </strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="compact-help">No completed sets recorded.</p>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
   if (mode === "setup") {
     return (
       <section className="screen-stack workout-library">
@@ -1908,23 +2071,29 @@ export function WorkoutLibraryScreen({ user }) {
           <span className="status-pill">{recentSessions.length} saved</span>
         </div>
 
+        {loadingSessionDetail ? <p className="form-message success">Loading session...</p> : null}
+
         {recentSessions.length ? (
           <div className="session-history-list">
             {recentSessions.map((session) => {
-              const minutes = Math.floor((session.duration_seconds || 0) / 60);
-              const seconds = (session.duration_seconds || 0) % 60;
               const completedDate = new Date(session.completed_at).toLocaleDateString(undefined, {
                 day: "numeric",
                 month: "short"
               });
 
               return (
-                <article className="session-history-card" key={session.id}>
+                <button
+                  className="session-history-card"
+                  disabled={loadingSessionDetail}
+                  key={session.id}
+                  onClick={() => openSessionHistory(session)}
+                  type="button"
+                >
                   <div>
                     <p className="eyebrow">{completedDate}</p>
                     <h3>{session.name}</h3>
                     <p>
-                      {minutes ? `${minutes}m ${seconds}s` : `${seconds}s`} - {session.total_exercises} exercises
+                      {formatDuration(session.duration_seconds || 0)} - {session.total_exercises} exercises
                     </p>
                   </div>
                   <div className="session-history-stats">
@@ -1934,7 +2103,7 @@ export function WorkoutLibraryScreen({ user }) {
                     <span>volume</span>
                     {session.rating ? <span>{session.rating}/5</span> : null}
                   </div>
-                </article>
+                </button>
               );
             })}
           </div>
