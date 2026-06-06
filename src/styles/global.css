@@ -1526,6 +1526,139 @@ button {
   color: var(--teal);
 }
 
+.hiit-session-screen {
+  align-items: center;
+}
+
+.hiit-timer-card {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(560px, 100%);
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--gold) 46%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--gold) 7%, #0b151d);
+}
+
+.hiit-timer-card.rest {
+  border-color: color-mix(in srgb, var(--blue) 46%, var(--line));
+  background: color-mix(in srgb, var(--blue) 7%, #0b151d);
+}
+
+.hiit-timer-card .eyebrow {
+  color: var(--gold);
+}
+
+.hiit-timer-card.rest .eyebrow {
+  color: var(--blue);
+}
+
+.hiit-timer-ring {
+  --timer-progress: 100%;
+  display: grid;
+  width: 148px;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at center, #141018 0 58%, transparent 59%),
+    conic-gradient(var(--gold) var(--timer-progress), #263747 0);
+}
+
+.hiit-timer-card.rest .hiit-timer-ring {
+  background:
+    radial-gradient(circle at center, #101722 0 58%, transparent 59%),
+    conic-gradient(var(--blue) var(--timer-progress), #263747 0);
+}
+
+.hiit-timer-ring strong,
+.hiit-timer-ring span {
+  grid-area: 1 / 1;
+}
+
+.hiit-timer-ring strong {
+  color: var(--text);
+  font-size: 32px;
+}
+
+.hiit-timer-ring span {
+  margin-top: 54px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.hiit-current-station {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--gold) 48%, var(--line));
+  border-radius: 12px;
+  background: #171118;
+}
+
+.hiit-timer-card.rest .hiit-current-station {
+  border-color: color-mix(in srgb, var(--blue) 48%, var(--line));
+  background: #111923;
+}
+
+.hiit-current-station h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.hiit-current-station p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hiit-station-list {
+  display: grid;
+  gap: 10px;
+  width: min(560px, 100%);
+}
+
+.hiit-station {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 70px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #121d27;
+}
+
+.hiit-station.active {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 9%, #121d27);
+}
+
+.hiit-station strong,
+.hiit-station span {
+  display: block;
+}
+
+.hiit-station span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.hiit-session-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: min(560px, 100%);
+}
+
 .previous-sets {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2280,6 +2413,29 @@ button {
 
   .active-exercise-head p {
     font-size: 14px;
+  }
+
+  .hiit-timer-card {
+    padding: 14px;
+  }
+
+  .hiit-timer-ring {
+    width: 132px;
+  }
+
+  .hiit-current-station,
+  .hiit-station {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .hiit-current-station .demo-action,
+  .hiit-station .demo-action {
+    width: 100%;
+  }
+
+  .hiit-session-actions {
+    grid-template-columns: 1fr;
   }
 
   .session-menu-button {
