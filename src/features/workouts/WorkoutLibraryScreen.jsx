@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
 const CATALOG_SEARCH_LIMIT = 8;
+const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
 
 const exerciseLibrary = {
   Chest: [
@@ -168,6 +169,34 @@ function getYouTubeEmbedUrl(url) {
   } catch {
     return "";
   }
+}
+
+async function findYouTubeDemo(exerciseName) {
+  if (!youtubeApiKey) return null;
+
+  const searchParams = new URLSearchParams({
+    part: "snippet",
+    maxResults: "1",
+    q: `${exerciseName} exercise tutorial form`,
+    safeSearch: "strict",
+    type: "video",
+    videoEmbeddable: "true",
+    key: youtubeApiKey
+  });
+
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${searchParams.toString()}`);
+  if (!response.ok) {
+    throw new Error("YouTube demo search is unavailable right now.");
+  }
+
+  const result = await response.json();
+  const videoId = result?.items?.[0]?.id?.videoId;
+  if (!videoId) return null;
+
+  return {
+    embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`,
+    externalUrl: `https://www.youtube.com/watch?v=${videoId}`
+  };
 }
 
 function createSessionRows(exercise, previousRows = []) {
@@ -722,7 +751,16 @@ export function WorkoutLibraryScreen({ user }) {
     const searchUrl = getYouTubeExerciseSearchUrl(exerciseName);
 
     if (!supabase || user.id === "demo-user") {
-      setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl });
+      try {
+        const youtubeDemo = await findYouTubeDemo(exerciseName);
+        setDemoVideo({
+          exerciseName,
+          embedUrl: youtubeDemo?.embedUrl || "",
+          externalUrl: youtubeDemo?.externalUrl || searchUrl
+        });
+      } catch (youtubeError) {
+        setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl, note: youtubeError.message });
+      }
       setMessage("");
       return;
     }
@@ -745,7 +783,17 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     if (!data?.youtube_url) {
-      setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl });
+      try {
+        const youtubeDemo = await findYouTubeDemo(exerciseName);
+        setDemoVideo({
+          exerciseName,
+          embedUrl: youtubeDemo?.embedUrl || "",
+          externalUrl: youtubeDemo?.externalUrl || searchUrl,
+          note: youtubeDemo ? "" : "YouTube auto-search is not configured yet."
+        });
+      } catch (youtubeError) {
+        setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl, note: youtubeError.message });
+      }
       setMessage("");
       return;
     }
@@ -1475,8 +1523,11 @@ export function WorkoutLibraryScreen({ user }) {
             </div>
           ) : (
             <div className="demo-search-fallback">
-              <h3>No approved in-app demo yet</h3>
-              <p>Open YouTube search for this exercise, or add an approved link from the admin requests screen.</p>
+              <h3>Demo video not attached yet</h3>
+              <p>
+                {demoVideo.note ||
+                  "Add a YouTube API key for automatic in-app lookup, or attach an approved admin demo link."}
+              </p>
               <a className="primary-action filled" href={demoVideo.externalUrl} rel="noreferrer" target="_blank">
                 Open YouTube search
               </a>
