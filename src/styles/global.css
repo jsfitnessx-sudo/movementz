@@ -936,6 +936,30 @@ button {
   gap: 14px;
 }
 
+.filter-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.filter-tabs button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: capitalize;
+}
+
+.filter-tabs button.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, var(--field));
+  color: var(--teal);
+}
+
 .request-card {
   display: grid;
   gap: 14px;
@@ -956,6 +980,7 @@ button {
 }
 
 .request-card input,
+.request-card select,
 .request-card textarea {
   width: 100%;
   min-height: 44px;

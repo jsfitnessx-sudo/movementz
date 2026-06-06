@@ -73,6 +73,13 @@ $$;
 
 grant execute on function public.is_admin() to authenticated;
 
+drop policy if exists "Admins view profiles" on public.profiles;
+create policy "Admins view profiles"
+on public.profiles
+for select
+to authenticated
+using (public.is_admin());
+
 drop policy if exists "Users manage own exercise options" on public.user_exercise_options;
 create policy "Users manage own exercise options"
 on public.user_exercise_options

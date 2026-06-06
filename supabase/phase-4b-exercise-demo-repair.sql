@@ -15,6 +15,13 @@ $$;
 
 grant execute on function public.is_admin() to authenticated;
 
+drop policy if exists "Admins view profiles" on public.profiles;
+create policy "Admins view profiles"
+on public.profiles
+for select
+to authenticated
+using (public.is_admin());
+
 create table if not exists public.exercise_review_requests (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references public.profiles(id) on delete cascade,
