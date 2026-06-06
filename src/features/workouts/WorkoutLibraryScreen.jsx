@@ -137,6 +137,10 @@ function uniqueNames(names) {
   return [...new Set(names.filter(Boolean))];
 }
 
+function isMissingSupabaseTable(error) {
+  return error?.code === "42P01" || error?.message?.includes("schema cache");
+}
+
 function createSessionRows(exercise, previousRows = []) {
   const setCount = Math.max(Number(exercise.sets) || 1, previousRows.length);
   return Array.from({ length: setCount }, (_, index) => ({
@@ -699,7 +703,11 @@ export function WorkoutLibraryScreen({ user }) {
       .maybeSingle();
 
     if (error) {
-      setMessage(`${error.message}. Run the updated supabase/phase-4-exercise-library.sql first.`);
+      setMessage(
+        isMissingSupabaseTable(error)
+          ? "Demo links are not installed in Supabase yet. Run the updated Phase 4 exercise library SQL first."
+          : error.message
+      );
       return;
     }
 
@@ -753,7 +761,11 @@ export function WorkoutLibraryScreen({ user }) {
       .upsert(uniqueCustomExercises, { onConflict: "owner_id,exercise_name" });
 
     if (optionError) {
-      setMessage(`${optionError.message}. Run supabase/phase-4-exercise-library.sql in Supabase first.`);
+      setMessage(
+        isMissingSupabaseTable(optionError)
+          ? "Workout saved, but the custom exercise request tables are not installed. Run the Phase 4 exercise library SQL in Supabase."
+          : `Workout saved, but the custom exercise request could not be saved: ${optionError.message}`
+      );
       return { created: false, failed: true };
     }
 
@@ -766,9 +778,14 @@ export function WorkoutLibraryScreen({ user }) {
 
     const { error: reviewError } = await supabase
       .from("exercise_review_requests")
-      .upsert(reviewRows, { onConflict: "requester_id,exercise_name" });
+      .upsert(reviewRows, { onConflict: "requester_id,exercise_name" })
+      .select("id");
     if (reviewError) {
-      setMessage(`${reviewError.message}. Run supabase/phase-4-exercise-library.sql in Supabase first.`);
+      setMessage(
+        isMissingSupabaseTable(reviewError)
+          ? "Workout saved, but the exercise review table is not installed. Run the Phase 4 exercise library SQL in Supabase."
+          : `Workout saved, but the custom exercise request could not be sent to admin: ${reviewError.message}`
+      );
       return { created: false, failed: true };
     }
 
