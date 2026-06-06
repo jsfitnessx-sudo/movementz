@@ -124,6 +124,15 @@ function getSuggestions(exercise) {
   return [0, 1, 2].map((step) => options[(exercise.suggestionOffset + step) % options.length]);
 }
 
+function isKnownExercise(exerciseName) {
+  const normalizedName = exerciseName.trim().toLowerCase();
+  if (!normalizedName) return false;
+
+  return Object.values(exerciseLibrary)
+    .flat()
+    .some((name) => name.toLowerCase() === normalizedName);
+}
+
 function createSessionRows(exercise, previousRows = []) {
   const setCount = Math.max(Number(exercise.sets) || 1, previousRows.length);
   return Array.from({ length: setCount }, (_, index) => ({
@@ -199,6 +208,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [sessionFeedback, setSessionFeedback] = useState({ rating: 0, comment: "" });
   const [shareMode, setShareMode] = useState("transparent");
   const [sharePhoto, setSharePhoto] = useState("");
+  const [customExerciseNames, setCustomExerciseNames] = useState(new Set());
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
@@ -222,6 +232,11 @@ export function WorkoutLibraryScreen({ user }) {
   const selectedMuscleTargets = useMemo(
     () => Object.entries(setup.muscleTargets).filter(([, count]) => Number(count) > 0),
     [setup.muscleTargets]
+  );
+
+  const customExerciseList = useMemo(
+    () => Array.from(customExerciseNames).sort((a, b) => a.localeCompare(b)),
+    [customExerciseNames]
   );
 
   const loadWorkouts = useCallback(async () => {
@@ -273,6 +288,26 @@ export function WorkoutLibraryScreen({ user }) {
     setRecentSessions(data || []);
   }, [user.id]);
 
+  const loadCustomExerciseOptions = useCallback(async () => {
+    if (!supabase || user.id === "demo-user") {
+      setCustomExerciseNames(new Set());
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("user_exercise_options")
+      .select("exercise_name")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(150);
+
+    if (error) {
+      return;
+    }
+
+    setCustomExerciseNames(new Set((data || []).map((exercise) => exercise.exercise_name)));
+  }, [user.id]);
+
   async function openSessionHistory(session) {
     setMessage("");
 
@@ -321,11 +356,12 @@ export function WorkoutLibraryScreen({ user }) {
     const load = Promise.resolve().then(async () => {
       await loadWorkouts();
       await loadRecentSessions();
+      await loadCustomExerciseOptions();
     });
     return () => {
       void load;
     };
-  }, [loadRecentSessions, loadWorkouts]);
+  }, [loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
 
   useEffect(() => {
     if (!activeNumberInput) return;
@@ -531,14 +567,18 @@ export function WorkoutLibraryScreen({ user }) {
     }));
   }
 
-  function chooseExercise(index, exerciseName, clearSearch = false) {
+  function chooseExercise(index, exerciseName, clearSearch = false, isTypedCustom = false) {
+    const cleanExerciseName = exerciseName.trim();
+    const isCustomExercise = isTypedCustom || (!isKnownExercise(cleanExerciseName) && !customExerciseNames.has(cleanExerciseName));
+
     setForm((current) => ({
       ...current,
       exercises: current.exercises.map((exercise, exerciseIndex) =>
         exerciseIndex === index
           ? {
               ...exercise,
-              exercise_name: exerciseName,
+              exercise_name: cleanExerciseName,
+              is_custom_exercise: isCustomExercise,
               search: clearSearch ? "" : exercise.search
             }
           : exercise
@@ -584,6 +624,59 @@ export function WorkoutLibraryScreen({ user }) {
     }));
   }
 
+  async function saveCustomExerciseRequests(cleanExercises) {
+    if (!supabase || user.id === "demo-user") return { created: false, failed: false };
+
+    const customExercises = cleanExercises.filter((exercise) => exercise.is_custom_exercise);
+    if (customExercises.length === 0) return { created: false, failed: false };
+
+    const uniqueCustomExercises = Array.from(
+      new Map(
+        customExercises.map((exercise) => [
+          exercise.exercise_name.toLowerCase(),
+          {
+            exercise_name: exercise.exercise_name,
+            muscle_group: exercise.muscle_group,
+            owner_id: user.id,
+            source: "user_custom"
+          }
+        ])
+      ).values()
+    );
+
+    const { error: optionError } = await supabase
+      .from("user_exercise_options")
+      .upsert(uniqueCustomExercises, { onConflict: "owner_id,exercise_name" });
+
+    if (optionError) {
+      setMessage(`${optionError.message}. Run supabase/phase-4-exercise-library.sql in Supabase first.`);
+      return { created: false, failed: true };
+    }
+
+    const reviewRows = uniqueCustomExercises.map((exercise) => ({
+      requester_id: user.id,
+      exercise_name: exercise.exercise_name,
+      muscle_group: exercise.muscle_group,
+      status: "pending"
+    }));
+
+    const { error: reviewError } = await supabase
+      .from("exercise_review_requests")
+      .upsert(reviewRows, { onConflict: "requester_id,exercise_name" });
+    if (reviewError) {
+      setMessage(`${reviewError.message}. Run supabase/phase-4-exercise-library.sql in Supabase first.`);
+      return { created: false, failed: true };
+    }
+
+    setCustomExerciseNames((current) => {
+      const next = new Set(current);
+      uniqueCustomExercises.forEach((exercise) => next.add(exercise.exercise_name));
+      return next;
+    });
+
+    return { created: true, failed: false };
+  }
+
   async function saveWorkout(event) {
     event.preventDefault();
     setMessage("");
@@ -599,7 +692,8 @@ export function WorkoutLibraryScreen({ user }) {
         rep_max: exercise.rep_max === "" ? null : Number(exercise.rep_max),
         start_kg: exercise.start_kg === "" ? null : Number(exercise.start_kg),
         rest_seconds: exercise.rest_seconds === "" ? null : Number(exercise.rest_seconds),
-        tip: exercise.tip.trim() || null
+        tip: exercise.tip.trim() || null,
+        is_custom_exercise: Boolean(exercise.is_custom_exercise)
       }))
       .filter((exercise) => exercise.exercise_name);
 
@@ -682,7 +776,16 @@ export function WorkoutLibraryScreen({ user }) {
 
     const { error: exerciseError } = await supabase
       .from("workout_template_exercises")
-      .insert(cleanExercises.map((exercise) => ({ ...exercise, template_id: templateId })));
+      .insert(
+        cleanExercises.map((exercise) => {
+          const exercisePayload = { ...exercise };
+          delete exercisePayload.is_custom_exercise;
+          return {
+            ...exercisePayload,
+            template_id: templateId
+          };
+        })
+      );
 
     if (exerciseError) {
       setMessage(exerciseError.message);
@@ -690,8 +793,12 @@ export function WorkoutLibraryScreen({ user }) {
       return;
     }
 
+    const customRequestResult = await saveCustomExerciseRequests(cleanExercises);
     await loadWorkouts();
     setSaving(false);
+    if (!customRequestResult.failed) {
+      setMessage(customRequestResult.created ? "Workout saved. Custom exercise sent for review." : "");
+    }
     setMode("list");
   }
 
@@ -1823,8 +1930,7 @@ export function WorkoutLibraryScreen({ user }) {
 
             {form.exercises.map((exercise, index) => {
               const searchResults = exercise.search
-                ? Object.values(exerciseLibrary)
-                    .flat()
+                ? [...new Set([...Object.values(exerciseLibrary).flat(), ...customExerciseList])]
                     .filter((name) => name.toLowerCase().includes(exercise.search.toLowerCase()))
                     .slice(0, 5)
                 : [];
@@ -1851,6 +1957,7 @@ export function WorkoutLibraryScreen({ user }) {
                     <div className="selected-exercise">
                       <span>Selected:</span>
                       <strong>{exercise.exercise_name}</strong>
+                      {exercise.is_custom_exercise ? <small>Pending review</small> : null}
                     </div>
                   ) : null}
 
@@ -1911,10 +2018,10 @@ export function WorkoutLibraryScreen({ user }) {
                   ) : exercise.search ? (
                     <button
                       className="primary-action compact"
-                      onClick={() => chooseExercise(index, exercise.search, true)}
+                      onClick={() => chooseExercise(index, exercise.search, true, true)}
                       type="button"
                     >
-                      Use "{exercise.search}"
+                      Add "{exercise.search}" to my options
                     </button>
                   ) : null}
 
