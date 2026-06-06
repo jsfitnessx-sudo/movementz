@@ -1002,6 +1002,19 @@ export function WorkoutLibraryScreen({ user }) {
     setMode("list");
   }
 
+  function cancelActiveSession() {
+    const shouldCancel = window.confirm("End this workout without saving it to history?");
+    if (!shouldCancel) return;
+
+    setActiveWorkout(null);
+    setActiveNumberInput(null);
+    setOpenSessionMenu(null);
+    setSwapTargetIndex(null);
+    setSwapSearch("");
+    setMessage("");
+    setMode("list");
+  }
+
   function handleSharePhoto(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1313,6 +1326,9 @@ export function WorkoutLibraryScreen({ user }) {
           <button className="primary-action" disabled={saving} onClick={finishActiveSession} type="button">
             {saving ? "Saving..." : "Finish Workout"}
           </button>
+          <button className="primary-action danger" disabled={saving} onClick={cancelActiveSession} type="button">
+            End Without Saving
+          </button>
         </div>
 
         {activeNumberInput ? (
@@ -1425,9 +1441,6 @@ export function WorkoutLibraryScreen({ user }) {
             </h1>
             <p>Download a clear or branded template. Photos stay on this device.</p>
           </div>
-          <button className="primary-action" onClick={finishShareFlow} type="button">
-            Done
-          </button>
         </div>
 
         <div className="share-mode-toggle">
@@ -1483,6 +1496,10 @@ export function WorkoutLibraryScreen({ user }) {
 
         <button className="primary-action filled" onClick={saveShareImage} type="button">
           Download Image
+        </button>
+
+        <button className="primary-action" onClick={finishShareFlow} type="button">
+          Done
         </button>
       </section>
     );
