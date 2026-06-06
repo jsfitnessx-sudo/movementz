@@ -173,6 +173,7 @@ function createDefaultSetup() {
 
 export function WorkoutLibraryScreen({ user }) {
   const [workouts, setWorkouts] = useState([]);
+  const [recentSessions, setRecentSessions] = useState([]);
   const [mode, setMode] = useState("list");
   const [editingId, setEditingId] = useState(null);
   const [setup, setSetup] = useState(createDefaultSetup);
@@ -241,12 +242,38 @@ export function WorkoutLibraryScreen({ user }) {
     setLoading(false);
   }, [user.id]);
 
+  const loadRecentSessions = useCallback(async () => {
+    if (!supabase || user.id === "demo-user") {
+      setRecentSessions([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("session_logs")
+      .select("id,name,completed_at,duration_seconds,total_exercises,completed_sets,total_volume_kg,rating")
+      .eq("owner_id", user.id)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(8);
+
+    if (error) {
+      setMessage(error.message);
+      setRecentSessions([]);
+      return;
+    }
+
+    setRecentSessions(data || []);
+  }, [user.id]);
+
   useEffect(() => {
-    const load = Promise.resolve().then(loadWorkouts);
+    const load = Promise.resolve().then(async () => {
+      await loadWorkouts();
+      await loadRecentSessions();
+    });
     return () => {
       void load;
     };
-  }, [loadWorkouts]);
+  }, [loadRecentSessions, loadWorkouts]);
 
   useEffect(() => {
     if (!activeNumberInput) return;
@@ -971,6 +998,7 @@ export function WorkoutLibraryScreen({ user }) {
     setSessionFeedback({ rating: 0, comment: "" });
     setShareMode("transparent");
     setSharePhoto("");
+    void loadRecentSessions();
     setMode("list");
   }
 
@@ -1856,6 +1884,49 @@ export function WorkoutLibraryScreen({ user }) {
           })}
         </div>
       )}
+
+      <div className="history-section">
+        <div className="section-row">
+          <h2>Recent sessions</h2>
+          <span className="status-pill">{recentSessions.length} saved</span>
+        </div>
+
+        {recentSessions.length ? (
+          <div className="session-history-list">
+            {recentSessions.map((session) => {
+              const minutes = Math.floor((session.duration_seconds || 0) / 60);
+              const seconds = (session.duration_seconds || 0) % 60;
+              const completedDate = new Date(session.completed_at).toLocaleDateString(undefined, {
+                day: "numeric",
+                month: "short"
+              });
+
+              return (
+                <article className="session-history-card" key={session.id}>
+                  <div>
+                    <p className="eyebrow">{completedDate}</p>
+                    <h3>{session.name}</h3>
+                    <p>
+                      {minutes ? `${minutes}m ${seconds}s` : `${seconds}s`} - {session.total_exercises} exercises
+                    </p>
+                  </div>
+                  <div className="session-history-stats">
+                    <strong>{session.completed_sets}</strong>
+                    <span>sets</span>
+                    <strong>{Math.round(session.total_volume_kg || 0).toLocaleString()}kg</strong>
+                    <span>volume</span>
+                    {session.rating ? <span>{session.rating}/5</span> : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="panel empty-state">
+            <p>No completed sessions yet.</p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

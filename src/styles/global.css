@@ -922,6 +922,58 @@ button {
   color: var(--muted);
 }
 
+.history-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.session-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.session-history-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #203747;
+  border-radius: 14px;
+  background: #0d1822;
+}
+
+.session-history-card h3 {
+  margin: 0 0 5px;
+  font-size: 18px;
+}
+
+.session-history-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.session-history-stats {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 2px 8px;
+  align-items: baseline;
+  justify-content: end;
+  text-align: right;
+}
+
+.session-history-stats strong {
+  color: var(--teal);
+}
+
+.session-history-stats span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .status-pill {
   border: 1px solid color-mix(in srgb, var(--teal) 65%, transparent);
   border-radius: 999px;
@@ -1619,6 +1671,16 @@ button {
 
   .workout-editor textarea {
     min-height: 82px;
+  }
+
+  .session-history-card {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .session-history-stats {
+    justify-content: start;
+    text-align: left;
   }
 
   .setup-card {
