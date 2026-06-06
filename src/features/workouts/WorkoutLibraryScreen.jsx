@@ -789,6 +789,12 @@ export function WorkoutLibraryScreen({ user }) {
     setOpenSessionMenu(null);
     setActiveNumberInput(null);
     setMessage("");
+    window.requestAnimationFrame(() => {
+      sessionInputRefs.current[`exercise-${exerciseIndex}`]?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    });
   }
 
   function chooseSwapExercise(exerciseName) {
@@ -1065,6 +1071,55 @@ export function WorkoutLibraryScreen({ user }) {
     download();
   }
 
+  function renderSwapPanel(exercise) {
+    const muscleOptions = exerciseLibrary[exercise?.muscle_group] || [];
+    const searchOptions = swapSearch
+      ? Object.values(exerciseLibrary)
+          .flat()
+          .filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase()))
+          .slice(0, 8)
+      : muscleOptions.slice(0, 8);
+
+    return (
+      <div className="swap-panel" role="dialog" aria-modal="false">
+        <div className="swap-panel-head">
+          <div>
+            <p className="eyebrow">Swap exercise</p>
+            <h2>{exercise?.exercise_name}</h2>
+          </div>
+          <button className="primary-action compact" onClick={() => setSwapTargetIndex(null)} type="button">
+            Close
+          </button>
+        </div>
+
+        <label>
+          Search replacement
+          <input
+            onChange={(event) => setSwapSearch(event.target.value)}
+            placeholder={`Search ${exercise?.muscle_group || "strength"} exercises...`}
+            value={swapSearch}
+          />
+        </label>
+
+        <div className="swap-options">
+          {searchOptions
+            .filter((name) => name !== exercise?.exercise_name)
+            .map((name) => (
+              <button key={name} onClick={() => chooseSwapExercise(name)} type="button">
+                {name}
+              </button>
+            ))}
+        </div>
+
+        {swapSearch && searchOptions.length === 0 ? (
+          <button className="primary-action compact" onClick={() => chooseSwapExercise(swapSearch)} type="button">
+            Use "{swapSearch}"
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
   if (mode === "session" && activeWorkout) {
     return (
       <section className="screen-stack workout-library">
@@ -1087,6 +1142,9 @@ export function WorkoutLibraryScreen({ user }) {
               <article
                 className={exercise.skipped ? "workout-card active-exercise-card skipped" : "workout-card active-exercise-card"}
                 key={exercise.id || exerciseIndex}
+                ref={(element) => {
+                  sessionInputRefs.current[`exercise-${exerciseIndex}`] = element;
+                }}
               >
                 <div className="active-exercise-head">
                   <div>
@@ -1124,6 +1182,8 @@ export function WorkoutLibraryScreen({ user }) {
                     ) : null}
                   </div>
                 </div>
+
+                {swapTargetIndex === exerciseIndex ? renderSwapPanel(exercise) : null}
 
                 <div className="previous-sets">
                   <span>Last</span>
@@ -1220,56 +1280,6 @@ export function WorkoutLibraryScreen({ user }) {
             );
           })}
         </div>
-
-        {swapTargetIndex !== null ? (() => {
-          const exercise = activeWorkout.workout_template_exercises[swapTargetIndex];
-          const muscleOptions = exerciseLibrary[exercise?.muscle_group] || [];
-          const searchOptions = swapSearch
-            ? Object.values(exerciseLibrary)
-                .flat()
-                .filter((name) => name.toLowerCase().includes(swapSearch.toLowerCase()))
-                .slice(0, 8)
-            : muscleOptions.slice(0, 8);
-
-          return (
-            <div className="swap-panel" role="dialog" aria-modal="false">
-              <div className="swap-panel-head">
-                <div>
-                  <p className="eyebrow">Swap exercise</p>
-                  <h2>{exercise?.exercise_name}</h2>
-                </div>
-                <button className="primary-action compact" onClick={() => setSwapTargetIndex(null)} type="button">
-                  Close
-                </button>
-              </div>
-
-              <label>
-                Search replacement
-                <input
-                  onChange={(event) => setSwapSearch(event.target.value)}
-                  placeholder={`Search ${exercise?.muscle_group || "strength"} exercises...`}
-                  value={swapSearch}
-                />
-              </label>
-
-              <div className="swap-options">
-                {searchOptions
-                  .filter((name) => name !== exercise?.exercise_name)
-                  .map((name) => (
-                    <button key={name} onClick={() => chooseSwapExercise(name)} type="button">
-                      {name}
-                    </button>
-                  ))}
-              </div>
-
-              {swapSearch && searchOptions.length === 0 ? (
-                <button className="primary-action compact" onClick={() => chooseSwapExercise(swapSearch)} type="button">
-                  Use "{swapSearch}"
-                </button>
-              ) : null}
-            </div>
-          );
-        })() : null}
 
         <div className="session-end-actions">
           <button className="primary-action" disabled={saving} onClick={finishActiveSession} type="button">
