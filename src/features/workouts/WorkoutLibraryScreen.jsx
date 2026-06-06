@@ -135,15 +135,7 @@ function createSessionRows(exercise) {
 }
 
 function getPreviousSetChips(exercise) {
-  const startKg = Number(exercise.start_kg);
-  const repMin = Number(exercise.rep_min) || 8;
-  if (!startKg) return [];
-
-  return [
-    `${startKg}kg x ${repMin}`,
-    `${startKg}kg x ${Math.max(repMin - 1, 1)}`,
-    `${startKg}kg x ${repMin + 2}`
-  ];
+  return exercise.previousSets || [];
 }
 
 function calculateSessionSummary(workout) {
@@ -297,6 +289,50 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     return data;
+  }
+
+  async function loadPreviousSetsForWorkout(exercises) {
+    if (!supabase || user.id === "demo-user" || exercises.length === 0) return {};
+
+    const exerciseNames = new Set(exercises.map((exercise) => exercise.exercise_name).filter(Boolean));
+    if (exerciseNames.size === 0) return {};
+
+    const { data, error } = await supabase
+      .from("session_logs")
+      .select(
+        "completed_at,session_log_exercises(exercise_name,session_log_sets(set_number,kg,reps,completed))"
+      )
+      .eq("owner_id", user.id)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(8);
+
+    if (error) {
+      setMessage(error.message);
+      return {};
+    }
+
+    const previousSetsByExercise = {};
+
+    for (const session of data || []) {
+      for (const exercise of session.session_log_exercises || []) {
+        if (!exerciseNames.has(exercise.exercise_name) || previousSetsByExercise[exercise.exercise_name]) {
+          continue;
+        }
+
+        const chips = (exercise.session_log_sets || [])
+          .filter((set) => set.completed && set.kg !== null && set.reps !== null)
+          .sort((a, b) => a.set_number - b.set_number)
+          .slice(0, 4)
+          .map((set) => `${set.kg}kg x ${set.reps}`);
+
+        if (chips.length) {
+          previousSetsByExercise[exercise.exercise_name] = chips;
+        }
+      }
+    }
+
+    return previousSetsByExercise;
   }
 
   function startNewWorkout() {
@@ -592,12 +628,16 @@ export function WorkoutLibraryScreen({ user }) {
     const detailedWorkout = await loadWorkoutDetails(workout);
     if (!detailedWorkout) return;
 
+    const workoutExercises = detailedWorkout.workout_template_exercises || [];
+    const previousSetsByExercise = await loadPreviousSetsForWorkout(workoutExercises);
+
     setActiveWorkout({
       ...detailedWorkout,
       startedAt: new Date().toISOString(),
-      workout_template_exercises: (detailedWorkout.workout_template_exercises || []).map((exercise) => ({
+      workout_template_exercises: workoutExercises.map((exercise) => ({
         ...exercise,
         original_exercise_name: exercise.exercise_name,
+        previousSets: previousSetsByExercise[exercise.exercise_name] || [],
         sessionRows: createSessionRows(exercise)
       }))
     });
@@ -1068,16 +1108,16 @@ export function WorkoutLibraryScreen({ user }) {
                   </div>
                 </div>
 
-                {previousSets.length ? (
-                  <div className="previous-sets">
-                    <span>Last</span>
-                    <div>
-                      {previousSets.map((set) => (
-                        <strong key={set}>{set}</strong>
-                      ))}
-                    </div>
+                <div className="previous-sets">
+                  <span>Last</span>
+                  <div>
+                    {previousSets.length ? (
+                      previousSets.map((set) => <strong key={set}>{set}</strong>)
+                    ) : (
+                      <em>No history yet</em>
+                    )}
                   </div>
-                ) : null}
+                </div>
 
                 {exercise.skipped ? <p className="form-message error">Skipped for this session.</p> : null}
 

@@ -1065,6 +1065,13 @@ button {
   font-size: 12px;
 }
 
+.previous-sets em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
 .session-set-table {
   display: grid;
   overflow: hidden;
