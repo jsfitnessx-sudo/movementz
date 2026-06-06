@@ -2271,6 +2271,7 @@ export function WorkoutLibraryScreen({ user }) {
     const width = canvas.width;
     const height = canvas.height;
     const isBranded = shareMode === "branded";
+    const isForTimeSession = completedSession?.sessionType === "for_time";
     const duration = completedSession
       ? formatShortDuration(completedSession.durationSeconds)
       : "0s";
@@ -2297,6 +2298,93 @@ export function WorkoutLibraryScreen({ user }) {
       ctx.fillRect(0, 0, width, height);
     }
 
+    const drawTrimmedText = (text, x, y, maxWidth) => {
+      const value = String(text || "");
+      if (ctx.measureText(value).width <= maxWidth) {
+        ctx.fillText(value, x, y);
+        return;
+      }
+
+      let trimmed = value;
+      while (trimmed.length > 3 && ctx.measureText(`${trimmed}...`).width > maxWidth) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      ctx.fillText(`${trimmed.trim()}...`, x, y);
+    };
+
+    if (isForTimeSession) {
+      const splits = completedSession?.splits || [];
+      const columns = splits.length > 10 ? 2 : 1;
+      const rows = Math.max(1, Math.ceil(splits.length / columns));
+      const splitTop = 500;
+      const splitBottom = 1320;
+      const rowHeight = Math.max(34, Math.min(82, Math.floor((splitBottom - splitTop) / rows)));
+      const columnGap = 54;
+      const sidePadding = 120;
+      const columnWidth = (width - sidePadding * 2 - columnGap * (columns - 1)) / columns;
+      const nameWidth = columnWidth - 150;
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#50d0c7";
+      ctx.font = "700 42px Arial";
+      ctx.fillText("MOVEMENTZ", width / 2, 145);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "800 38px Arial";
+      ctx.fillText("WORKOUT COMPLETE", width / 2, 245);
+      ctx.font = "900 74px Arial";
+      drawTrimmedText(completedSession?.name || "Workout", width / 2, 335, width - 180);
+
+      ctx.font = "800 30px Arial";
+      ctx.fillStyle = "rgba(255,255,255,0.86)";
+      ctx.textAlign = "left";
+      ctx.fillText(date, sidePadding, 420);
+      ctx.textAlign = "right";
+      ctx.fillText(`${completedSession?.totalExercises || 0} EXERCISES`, width - sidePadding, 420);
+
+      ctx.textAlign = "left";
+      ctx.font = splits.length > 14 ? "700 25px Arial" : "750 28px Arial";
+      splits.forEach((split, index) => {
+        const column = Math.floor(index / rows);
+        const row = index % rows;
+        const x = sidePadding + column * (columnWidth + columnGap);
+        const y = splitTop + row * rowHeight;
+
+        ctx.fillStyle = "rgba(7, 16, 24, 0.46)";
+        ctx.fillRect(x - 18, y - 28, columnWidth + 36, rowHeight - 8);
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        drawTrimmedText(`${index + 1}. ${split.exerciseName}`, x, y, nameWidth);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#50d0c7";
+        ctx.fillText(formatClock(split.durationSeconds), x + columnWidth, y);
+        ctx.textAlign = "left";
+      });
+
+      ctx.fillStyle = "rgba(7, 16, 24, 0.58)";
+      ctx.fillRect(110, 1430, width - 220, 185);
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.font = "800 28px Arial";
+      ctx.fillText("TIME", 155, 1500);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 58px Arial";
+      ctx.fillText(duration, 155, 1570);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.font = "800 28px Arial";
+      ctx.fillText("RESULT", width - 155, 1500);
+      ctx.fillStyle = completedSession?.isPbTime ? "#50d0c7" : "#ffffff";
+      ctx.font = "900 42px Arial";
+      drawTrimmedText(completedSession?.pbLabel || "For Time", width - 155, 1570, 390);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "900 42px Arial";
+      ctx.fillText("METZ", width / 2, 1740);
+      ctx.font = "700 26px Arial";
+      ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1790);
+      return;
+    }
+
     ctx.textAlign = "center";
     ctx.fillStyle = "#50d0c7";
     ctx.font = "700 56px Arial";
@@ -2313,36 +2401,14 @@ export function WorkoutLibraryScreen({ user }) {
     ctx.fillText(duration, width / 2, 990);
     ctx.font = "900 46px Arial";
     ctx.fillText(`${completedSession?.totalExercises || 0} EXERCISES`, width / 2, 1120);
-    if (completedSession?.sessionType === "for_time") {
-      ctx.fillStyle = "#50d0c7";
-      ctx.font = "900 46px Arial";
-      ctx.fillText(completedSession.pbLabel || "For Time", width / 2, 1225);
-
-      ctx.textAlign = "left";
-      ctx.font = "700 28px Arial";
-      const splits = (completedSession.splits || []).slice(0, 7);
-      splits.forEach((split, index) => {
-        const y = 1325 + index * 48;
-        ctx.fillStyle = "rgba(255,255,255,0.78)";
-        ctx.fillText(`${index + 1}. ${split.exerciseName}`, 190, y);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(formatClock(split.durationSeconds), width - 190, y);
-        ctx.textAlign = "left";
-      });
-      ctx.textAlign = "center";
-    } else {
-      ctx.fillStyle = "#50d0c7";
-      ctx.font = "900 76px Arial";
-      ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width / 2, 1255);
-    }
+    ctx.fillStyle = "#50d0c7";
+    ctx.font = "900 76px Arial";
+    ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width / 2, 1255);
     ctx.fillStyle = "#ffffff";
     ctx.font = "900 44px Arial";
     ctx.fillText("METZ", width / 2, 1650);
     ctx.font = "700 30px Arial";
     ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1705);
-    ctx.font = "600 24px Arial";
-    ctx.fillText("Built with METZ", width / 2, 1815);
   }
 
   function saveShareImage() {
@@ -3067,37 +3133,67 @@ export function WorkoutLibraryScreen({ user }) {
             className={shareMode === "branded" ? "share-preview branded" : "share-preview transparent"}
             style={sharePhoto ? { backgroundImage: `url(${sharePhoto})` } : undefined}
           >
-            <div className="share-preview-overlay">
-              <p className="share-logo">MOVEMENTZ</p>
-              <p className="share-complete">Workout Complete</p>
-              <h2>{completedSession.name}</h2>
-              <div className="share-details">
-                <strong>{completedSession.name}</strong>
-                <span>{sessionDate}</span>
-              </div>
-              <strong className="share-duration">{duration}</strong>
-              <p className="share-count">{completedSession.totalExercises} exercises</p>
+            <div className={isForTimeSession ? "share-preview-overlay for-time-share" : "share-preview-overlay"}>
               {isForTimeSession ? (
                 <>
-                  <strong className="share-volume">{completedSession.pbLabel}</strong>
-                  <div className="share-split-list">
-                    {(completedSession.splits || []).slice(0, 5).map((split, index) => (
+                  <p className="share-logo">MOVEMENTZ</p>
+                  <p className="share-complete">Workout Complete</p>
+                  <h2>{completedSession.name}</h2>
+                  <div className="share-title-meta">
+                    <span>{sessionDate}</span>
+                    <strong>{completedSession.totalExercises} exercises</strong>
+                  </div>
+                  <div
+                    className={
+                      (completedSession.splits || []).length > 10
+                        ? "share-split-list share-split-list-dense"
+                        : "share-split-list"
+                    }
+                  >
+                    {(completedSession.splits || []).map((split, index) => (
                       <span key={`${split.exerciseIndex}-${split.completedAtSeconds}`}>
-                        {index + 1}. {split.exerciseName} - {formatClock(split.durationSeconds)}
+                        <strong>
+                          {index + 1}. {split.exerciseName}
+                        </strong>
+                        <em>{formatClock(split.durationSeconds)}</em>
                       </span>
                     ))}
                   </div>
+                  <div className="share-bottom-stats">
+                    <span>
+                      <small>Time</small>
+                      <strong>{duration}</strong>
+                    </span>
+                    <span>
+                      <small>Result</small>
+                      <strong>{completedSession.pbLabel}</strong>
+                    </span>
+                  </div>
+                  <div className="share-footer">
+                    <strong>METZ</strong>
+                    <span>Move - Train - Grow</span>
+                  </div>
                 </>
               ) : (
-                <strong className="share-volume">
-                  {Math.round(completedSession.totalVolumeKg).toLocaleString()}kg
-                </strong>
+                <>
+                  <p className="share-logo">MOVEMENTZ</p>
+                  <p className="share-complete">Workout Complete</p>
+                  <h2>{completedSession.name}</h2>
+                  <div className="share-details">
+                    <strong>{completedSession.name}</strong>
+                    <span>{sessionDate}</span>
+                  </div>
+                  <strong className="share-duration">{duration}</strong>
+                  <p className="share-count">{completedSession.totalExercises} exercises</p>
+                  <strong className="share-volume">
+                    {Math.round(completedSession.totalVolumeKg).toLocaleString()}kg
+                  </strong>
+                  <div className="share-footer">
+                    <strong>METZ</strong>
+                    <span>Move - Train - Grow</span>
+                  </div>
+                </>
               )}
-              <div className="share-footer">
-                <strong>METZ</strong>
-                <span>Move - Train - Grow</span>
-                <small>Built with METZ</small>
-              </div>
             </div>
           </div>
         </div>
