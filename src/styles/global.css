@@ -1,21 +1,24 @@
 :root {
-  color: #f8fbff;
-  background: #071018;
+  color: #edf3f7;
+  background: #081018;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #071018;
-  --panel: #101b25;
-  --panel-strong: #142536;
-  --line: #244050;
-  --text: #f8fbff;
-  --muted: #9fb0bd;
-  --teal: #50d0c7;
-  --gold: #f4c542;
-  --blue: #80c7ff;
-  --red: #ff6475;
+  --bg: #081018;
+  --panel: #101a23;
+  --panel-strong: #142331;
+  --field: #111e2a;
+  --line: #243746;
+  --line-soft: #1b2b38;
+  --text: #edf3f7;
+  --muted: #a2afba;
+  --teal: #4fcac1;
+  --teal-soft: #8bded8;
+  --gold: #e4bd4f;
+  --blue: #8dbfea;
+  --red: #ed7480;
 }
 
 * {
@@ -27,6 +30,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--bg);
+  color: var(--text);
 }
 
 button,
@@ -92,7 +96,7 @@ button {
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: #0c1721;
+  background: #0c161f;
 }
 
 .auth-mode-tabs button {
@@ -101,7 +105,7 @@ button {
   border-radius: 10px;
   background: transparent;
   color: var(--muted);
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .auth-mode-tabs button.active {
@@ -120,8 +124,8 @@ button {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -131,8 +135,8 @@ button {
   width: 100%;
   min-height: 48px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 0 14px;
   text-transform: none;
@@ -160,11 +164,11 @@ button {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #122232;
+  background: var(--field);
   color: var(--text);
   padding: 0 12px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 750;
 }
 
 .chip.active {
@@ -178,7 +182,7 @@ button {
   padding: 12px;
   border-radius: 12px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 750;
   text-align: center;
 }
 
@@ -196,12 +200,12 @@ button {
 
 .auth-actions button,
 .primary-action {
-  min-height: 48px;
+  min-height: 44px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
-  font-weight: 800;
+  font-weight: 750;
 }
 
 .auth-actions button:hover,
@@ -223,8 +227,8 @@ button {
   justify-content: space-between;
   min-height: 76px;
   padding: 14px clamp(16px, 4vw, 42px);
-  border-bottom: 1px solid #172936;
-  background: rgba(8, 16, 24, 0.95);
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(8, 16, 24, 0.96);
   backdrop-filter: blur(12px);
 }
 
@@ -253,15 +257,15 @@ button {
 
 .brand-word {
   font-size: 14px;
-  font-weight: 900;
-  letter-spacing: 4px;
+  font-weight: 850;
+  letter-spacing: 0.24em;
 }
 
 .brand-subtitle {
   margin-top: 3px;
   color: var(--muted);
   font-size: 10px;
-  letter-spacing: 3px;
+  letter-spacing: 0.18em;
 }
 
 .topbar-actions {
@@ -275,8 +279,8 @@ button {
 .signout-shortcut {
   height: 40px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
 }
 
@@ -294,7 +298,7 @@ button {
   padding: 0 12px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .signout-shortcut:hover {
@@ -328,8 +332,9 @@ button {
 
 .screen-heading h1 {
   margin: 0;
-  font-size: clamp(28px, 5vw, 44px);
-  line-height: 1.05;
+  font-size: clamp(26px, 4vw, 38px);
+  line-height: 1.08;
+  letter-spacing: 0;
 }
 
 .screen-heading p {
@@ -339,9 +344,9 @@ button {
 
 .eyebrow {
   color: var(--teal) !important;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
@@ -374,21 +379,21 @@ button {
   gap: 8px;
   padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--panel);
   text-align: center;
 }
 
 .stat-card strong {
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1;
 }
 
 .stat-card span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -411,7 +416,7 @@ button {
 .panel {
   padding: 22px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--panel);
 }
 
@@ -429,7 +434,7 @@ button {
   gap: 18px;
   padding: 22px;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 12px;
   background: var(--panel);
 }
 
@@ -438,7 +443,7 @@ button {
   align-items: center;
   gap: 14px;
   padding-bottom: 18px;
-  border-bottom: 1px solid #203747;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .profile-avatar {
@@ -469,17 +474,17 @@ button {
   display: grid;
   gap: 14px;
   padding: 18px;
-  border: 1px solid #203747;
-  border-radius: 16px;
-  background: #0d1822;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: #0d1720;
 }
 
 .form-section h3 {
   margin: 0;
   color: var(--teal);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 2px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-align: center;
   text-transform: uppercase;
 }
@@ -489,8 +494,8 @@ button {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -500,8 +505,8 @@ button {
   width: 100%;
   min-height: 48px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 0 14px;
   text-transform: none;
@@ -560,8 +565,8 @@ button {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -571,10 +576,10 @@ button {
 .exercise-editor input,
 .exercise-editor select {
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 0 14px;
   text-transform: none;
@@ -589,7 +594,7 @@ button {
 .exercise-list,
 .workout-card-list {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .muscle-picker {
@@ -601,9 +606,9 @@ button {
   display: grid;
   gap: 12px;
   padding: 16px;
-  border: 1px solid #203747;
-  border-radius: 16px;
-  background: #0d1822;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: #0d1720;
 }
 
 .setup-card h2 {
@@ -638,8 +643,8 @@ button {
   min-height: 54px;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
 }
 
 .muscle-count-row strong,
@@ -649,17 +654,17 @@ button {
 
 .setup-summary-row {
   border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
-  background: color-mix(in srgb, var(--gold) 12%, #0d1822);
+  background: color-mix(in srgb, var(--gold) 10%, #0d1720);
 }
 
 .setup-summary-row span {
   color: var(--muted);
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .setup-summary-row strong {
   color: var(--gold);
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .stepper-control {
@@ -675,11 +680,11 @@ button {
   min-height: 42px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .stepper-control button {
@@ -697,14 +702,14 @@ button {
   gap: 10px;
   min-height: 86px;
   padding: 12px;
-  border: 1px solid #203747;
-  border-radius: 14px;
-  background: #0d1822;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: #0d1720;
 }
 
 .muscle-target.active {
   border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 12%, #0d1822);
+  background: color-mix(in srgb, var(--teal) 9%, #0d1720);
 }
 
 .muscle-target strong {
@@ -726,9 +731,9 @@ button {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #122232;
+  background: var(--field);
   color: var(--text);
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .muscle-target.active span {
@@ -739,13 +744,13 @@ button {
   position: relative;
   display: grid;
   gap: 10px;
-  padding: 18px 14px 14px;
-  border: 1px solid #2a4d60;
-  border-radius: 16px;
-  background: #08131c;
+  padding: 16px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0b151e;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 10px 24px rgba(0, 0, 0, 0.18);
+    0 8px 20px rgba(0, 0, 0, 0.16);
 }
 
 .exercise-editor::before {
@@ -754,9 +759,9 @@ button {
   top: 0;
   right: 14px;
   left: 14px;
-  height: 3px;
+  height: 2px;
   border-radius: 0 0 999px 999px;
-  background: color-mix(in srgb, var(--teal) 70%, #2a4d60);
+  background: color-mix(in srgb, var(--teal) 52%, var(--line));
 }
 
 .exercise-editor-head {
@@ -785,15 +790,15 @@ button {
   gap: 6px;
   min-height: 42px;
   border: 1px solid color-mix(in srgb, var(--teal) 70%, var(--line));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--teal) 12%, #0d1822);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 9%, #0d1720);
   padding: 0 12px;
   text-align: center;
 }
 
 .selected-exercise span {
   color: var(--teal);
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .selected-exercise strong {
@@ -811,8 +816,8 @@ button {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -824,17 +829,17 @@ button {
 .suggestion {
   min-height: 40px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 0 12px;
-  font-weight: 850;
+  font-weight: 750;
   text-align: left;
 }
 
 .suggestion.active {
   border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 15%, #122232);
+  background: color-mix(in srgb, var(--teal) 11%, var(--field));
   color: var(--teal);
 }
 
@@ -842,8 +847,8 @@ button {
   display: grid;
   gap: 8px;
   padding: 10px;
-  border: 1px solid #203747;
-  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
   background: #0b151e;
 }
 
@@ -851,7 +856,7 @@ button {
   min-height: 40px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #122232;
+  background: var(--field);
   color: var(--text);
   padding: 0 12px;
   text-align: left;
@@ -901,15 +906,15 @@ button {
   background: transparent;
   padding: 0 12px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .workout-card {
   display: grid;
-  gap: 16px;
-  padding: 20px;
+  gap: 14px;
+  padding: 18px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--panel);
 }
 
@@ -939,9 +944,9 @@ button {
   gap: 12px;
   align-items: center;
   padding: 14px;
-  border: 1px solid #203747;
-  border-radius: 14px;
-  background: #0d1822;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #0d1720;
 }
 
 .session-history-card h3 {
@@ -970,7 +975,7 @@ button {
 .session-history-stats span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 750;
   text-transform: uppercase;
 }
 
@@ -980,14 +985,14 @@ button {
   color: var(--teal);
   padding: 8px 12px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .workout-notes {
   padding: 12px;
-  border: 1px solid #203747;
-  border-radius: 12px;
-  background: #0d1822;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #0d1720;
 }
 
 .workout-exercise-summary {
@@ -1001,7 +1006,7 @@ button {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid #1d3343;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .workout-exercise-summary span {
@@ -1017,7 +1022,7 @@ button {
 }
 
 .active-exercise-card {
-  background: #0b151e;
+  background: #0b151d;
 }
 
 .active-exercise-card.skipped {
@@ -1046,10 +1051,10 @@ button {
   min-height: 44px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .session-menu {
@@ -1062,7 +1067,7 @@ button {
   width: min(260px, 72vw);
   padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   background: #111d2a;
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.38);
 }
@@ -1070,12 +1075,12 @@ button {
 .session-menu button {
   min-height: 46px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 0 14px;
   text-align: left;
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .session-menu .danger-text {
@@ -1088,8 +1093,8 @@ button {
   gap: 12px;
   padding: 16px;
   border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--line));
-  border-radius: 16px;
-  background: #08131c;
+  border-radius: 12px;
+  background: #0b151e;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
 }
 
@@ -1109,16 +1114,16 @@ button {
   gap: 7px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .swap-panel input {
-  min-height: 48px;
+  min-height: 44px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 0 14px;
   text-transform: none;
@@ -1132,12 +1137,12 @@ button {
 .swap-options button {
   min-height: 42px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 0 12px;
   text-align: left;
-  font-weight: 850;
+  font-weight: 750;
 }
 
 .swap-options button:hover {
@@ -1151,16 +1156,16 @@ button {
   gap: 10px;
   align-items: center;
   padding: 10px 12px;
-  border: 1px solid #203747;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--teal) 8%, #122232);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 6%, var(--field));
 }
 
 .previous-sets span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -1173,7 +1178,7 @@ button {
 .previous-sets strong {
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #172838;
+  background: #162534;
   color: var(--blue);
   padding: 7px 10px;
   font-size: 12px;
@@ -1183,14 +1188,14 @@ button {
   color: var(--muted);
   font-size: 12px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 750;
 }
 
 .session-set-table {
   display: grid;
   overflow: hidden;
-  border: 1px solid #203747;
-  border-radius: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
 }
 
 .session-set-row {
@@ -1199,7 +1204,7 @@ button {
   gap: 8px;
   align-items: center;
   padding: 10px;
-  border-top: 1px solid #203747;
+  border-top: 1px solid var(--line-soft);
 }
 
 .session-set-row:first-child {
@@ -1209,8 +1214,8 @@ button {
 .session-set-head {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -1220,7 +1225,7 @@ button {
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #122232;
+  background: var(--field);
   color: var(--text);
   padding: 0 10px;
   text-align: center;
@@ -1235,15 +1240,15 @@ button {
 .set-toggle {
   min-height: 38px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--muted);
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .set-toggle.done {
   border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 18%, #122232);
+  background: color-mix(in srgb, var(--teal) 12%, var(--field));
   color: var(--teal);
 }
 
@@ -1270,22 +1275,22 @@ button {
   min-height: 84px;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
 }
 
 .completion-summary span,
 .completion-notes {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 1px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .completion-summary strong {
   color: var(--teal);
-  font-size: 28px;
+  font-size: 24px;
 }
 
 .session-rating {
@@ -1293,9 +1298,9 @@ button {
   justify-items: center;
   gap: 12px;
   padding: 16px 12px;
-  border: 1px solid #203747;
-  border-radius: 14px;
-  background: #0d1822;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: #0d1720;
 }
 
 .session-rating h2 {
@@ -1311,18 +1316,18 @@ button {
 }
 
 .star-button {
-  min-height: 52px;
+  min-height: 48px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--muted);
-  font-size: 28px;
-  font-weight: 900;
+  font-size: 25px;
+  font-weight: 750;
 }
 
 .star-button.active {
   border-color: color-mix(in srgb, var(--gold) 70%, var(--line));
-  background: color-mix(in srgb, var(--gold) 16%, #122232);
+  background: color-mix(in srgb, var(--gold) 13%, var(--field));
   color: var(--gold);
 }
 
@@ -1334,8 +1339,8 @@ button {
 .completion-notes textarea {
   min-height: 112px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #122232;
+  border-radius: 10px;
+  background: var(--field);
   color: var(--text);
   padding: 14px;
   resize: vertical;
@@ -1355,34 +1360,34 @@ button {
 .share-mode-toggle button {
   display: grid;
   gap: 6px;
-  min-height: 86px;
+  min-height: 76px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #0d1822;
+  border-radius: 12px;
+  background: #0d1720;
   color: var(--muted);
 }
 
 .share-mode-toggle button.active {
   border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 13%, #0d1822);
+  background: color-mix(in srgb, var(--teal) 10%, #0d1720);
   color: var(--teal);
 }
 
 .share-mode-toggle strong {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .share-mode-toggle span {
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 750;
 }
 
 .share-preview-shell {
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: #122232;
+  border-radius: 12px;
+  background: var(--field);
 }
 
 .share-preview {
@@ -1390,10 +1395,10 @@ button {
   display: grid;
   min-height: 680px;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 12px;
   background:
     radial-gradient(circle at top, rgba(80, 208, 199, 0.12), transparent 30%),
-    #0d1822;
+    #0d1720;
   background-position: center;
   background-size: cover;
   color: #fff;
@@ -1490,11 +1495,11 @@ button {
   min-height: 64px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #122232;
+  border-radius: 12px;
+  background: var(--field);
   color: var(--teal);
-  font-size: 20px;
-  font-weight: 900;
+  font-size: 18px;
+  font-weight: 800;
   cursor: pointer;
 }
 
@@ -1573,7 +1578,7 @@ button {
   }
 
   .screen-heading h1 {
-    font-size: 32px;
+    font-size: 28px;
   }
 
   .screen-heading p {
@@ -1584,7 +1589,7 @@ button {
   .panel,
   .profile-panel {
     padding: 14px;
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .brand-subtitle {
@@ -1631,8 +1636,8 @@ button {
   }
 
   .action-row .primary-action {
-    min-height: 48px;
-    border-radius: 12px;
+    min-height: 44px;
+    border-radius: 10px;
   }
 
   .stats-grid {
@@ -1717,7 +1722,7 @@ button {
 
   .exercise-list,
   .workout-card-list {
-    gap: 16px;
+    gap: 14px;
   }
 
   .exercise-list-head {
@@ -1726,7 +1731,7 @@ button {
   }
 
   .exercise-list-head h2 {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .exercise-list-head .primary-action {
@@ -1737,7 +1742,7 @@ button {
   .exercise-editor {
     gap: 9px;
     padding: 16px 12px 12px;
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .exercise-editor::before {
@@ -1765,7 +1770,7 @@ button {
 
   .suggestion {
     min-height: 38px;
-    border-radius: 11px;
+    border-radius: 10px;
     font-size: 13px;
   }
 
@@ -1820,18 +1825,18 @@ button {
   }
 
   .active-exercise-head h2 {
-    font-size: 26px;
-    line-height: 1.05;
+    font-size: 23px;
+    line-height: 1.12;
   }
 
   .active-exercise-head p {
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .session-menu-button {
     min-width: 42px;
     min-height: 42px;
-    border-radius: 13px;
+    border-radius: 10px;
   }
 
   .session-menu {
@@ -1840,7 +1845,7 @@ button {
 
   .swap-panel {
     padding: 12px;
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .swap-panel-head {
@@ -1927,7 +1932,7 @@ button {
 
   .share-mode-toggle button {
     min-height: 74px;
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .share-mode-toggle strong {
@@ -1940,12 +1945,12 @@ button {
 
   .share-preview-shell {
     padding: 10px;
-    border-radius: 16px;
+    border-radius: 12px;
   }
 
   .share-preview {
     min-height: 560px;
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .share-preview-overlay {
@@ -2003,7 +2008,7 @@ button {
 
   .mobile-number-pad button {
     border: 0;
-    border-radius: 16px;
+    border-radius: 14px;
     background: transparent;
     color: var(--text);
     font-size: 34px;
