@@ -82,12 +82,19 @@ using (owner_id = auth.uid())
 with check (owner_id = auth.uid());
 
 drop policy if exists "Authenticated users view exercise catalog" on public.exercise_catalog;
+drop policy if exists "Users add pending exercise catalog entries" on public.exercise_catalog;
 drop policy if exists "Admins manage exercise catalog" on public.exercise_catalog;
 create policy "Authenticated users view exercise catalog"
 on public.exercise_catalog
 for select
 to authenticated
 using (true);
+
+create policy "Users add pending exercise catalog entries"
+on public.exercise_catalog
+for insert
+to authenticated
+with check (source = 'user_custom');
 
 create policy "Admins manage exercise catalog"
 on public.exercise_catalog

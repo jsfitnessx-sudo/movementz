@@ -939,6 +939,27 @@ export function WorkoutLibraryScreen({ user }) {
       return { created: false, failed: true };
     }
 
+    const catalogRows = uniqueCustomExercises.map((exercise) => ({
+      exercise_key: toExerciseKey(exercise.exercise_name),
+      exercise_name: exercise.exercise_name,
+      muscle_group: exercise.muscle_group || null,
+      source: "user_custom",
+      updated_at: new Date().toISOString()
+    }));
+
+    const { error: catalogError } = await supabase
+      .from("exercise_catalog")
+      .insert(catalogRows);
+
+    if (catalogError && catalogError.code !== "23505") {
+      setMessage(
+        isMissingSupabaseTable(catalogError)
+          ? "Workout saved, but the exercise catalogue table is not installed. Run the Phase 4 exercise library SQL in Supabase."
+          : `Workout saved, but the exercise could not be added to the catalogue: ${catalogError.message}`
+      );
+      return { created: false, failed: true };
+    }
+
     const reviewRows = uniqueCustomExercises.map((exercise) => ({
       requester_id: user.id,
       exercise_name: exercise.exercise_name,

@@ -71,21 +71,18 @@ export function AdminRequestsScreen({ user }) {
     if (!supabase) return;
 
     const draft = drafts[request.id] || {};
-    if (status === "approved" && !draft.youtube_url?.trim()) {
-      setMessage("Add a YouTube demo link before approving.");
-      return;
-    }
+    const cleanYoutubeUrl = draft.youtube_url?.trim() || "";
 
     setSavingId(request.id);
     setMessage("");
 
-    if (status === "approved") {
+    if (status === "approved" && cleanYoutubeUrl) {
       const { error: demoError } = await supabase.from("exercise_demo_links").upsert(
         {
           exercise_key: toExerciseKey(request.exercise_name),
           exercise_name: request.exercise_name,
           muscle_group: request.muscle_group || null,
-          youtube_url: draft.youtube_url.trim(),
+          youtube_url: cleanYoutubeUrl,
           source_request_id: request.id,
           created_by: user.id,
           updated_at: new Date().toISOString()
@@ -98,7 +95,7 @@ export function AdminRequestsScreen({ user }) {
         setMessage(`${demoError.message}. Run the updated supabase/phase-4-exercise-library.sql first.`);
         return;
       }
-    } else {
+    } else if (status === "rejected") {
       const { error: deleteDemoError } = await supabase
         .from("exercise_demo_links")
         .delete()
@@ -111,11 +108,30 @@ export function AdminRequestsScreen({ user }) {
       }
     }
 
+    if (status === "approved") {
+      const { error: catalogError } = await supabase.from("exercise_catalog").upsert(
+        {
+          exercise_key: toExerciseKey(request.exercise_name),
+          exercise_name: request.exercise_name,
+          muscle_group: request.muscle_group || null,
+          source: "admin",
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: "exercise_key" }
+      );
+
+      if (catalogError) {
+        setSavingId("");
+        setMessage(`${catalogError.message}. Run the updated supabase/phase-4-exercise-library.sql first.`);
+        return;
+      }
+    }
+
     const { error } = await supabase
       .from("exercise_review_requests")
       .update({
         status,
-        youtube_url: draft.youtube_url?.trim() || null,
+        youtube_url: cleanYoutubeUrl || null,
         admin_notes: draft.admin_notes?.trim() || null,
         reviewed_at: new Date().toISOString(),
         reviewed_by: user.id
@@ -135,7 +151,7 @@ export function AdminRequestsScreen({ user }) {
           ? {
               ...item,
               status,
-              youtube_url: draft.youtube_url?.trim() || null,
+              youtube_url: cleanYoutubeUrl || null,
               admin_notes: draft.admin_notes?.trim() || null
             }
           : item
