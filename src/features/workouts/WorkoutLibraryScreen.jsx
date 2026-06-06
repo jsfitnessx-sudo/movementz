@@ -146,6 +146,18 @@ function getYouTubeExerciseSearchUrl(exerciseName) {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${exerciseName} exercise demo`)}`;
 }
 
+function createDemoFallback(exerciseName, note = "") {
+  return {
+    exerciseName,
+    embedUrl: "",
+    externalUrl: getYouTubeExerciseSearchUrl(exerciseName),
+    loading: false,
+    note,
+    selectedVideoId: "",
+    videos: []
+  };
+}
+
 function getYouTubeEmbedUrl(url) {
   try {
     const parsedUrl = new URL(url);
@@ -172,15 +184,14 @@ function getYouTubeEmbedUrl(url) {
 }
 
 async function findYouTubeDemo(exerciseName) {
-  if (!youtubeApiKey) return null;
+  if (!youtubeApiKey) return [];
 
   const searchParams = new URLSearchParams({
     part: "snippet",
-    maxResults: "1",
-    q: `${exerciseName} exercise tutorial form`,
-    safeSearch: "strict",
+    maxResults: "3",
+    q: `${exerciseName} exercise tutorial`,
     type: "video",
-    videoEmbeddable: "true",
+    videoDuration: "medium",
     key: youtubeApiKey
   });
 
@@ -190,13 +201,16 @@ async function findYouTubeDemo(exerciseName) {
   }
 
   const result = await response.json();
-  const videoId = result?.items?.[0]?.id?.videoId;
-  if (!videoId) return null;
-
-  return {
-    embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`,
-    externalUrl: `https://www.youtube.com/watch?v=${videoId}`
-  };
+  return (result?.items || [])
+    .filter((item) => item?.id?.videoId)
+    .map((item) => ({
+      id: item.id.videoId,
+      title: item.snippet?.title || "Exercise tutorial",
+      channel: item.snippet?.channelTitle || "YouTube",
+      thumbnail: item.snippet?.thumbnails?.medium?.url || item.snippet?.thumbnails?.default?.url || "",
+      embedUrl: `https://www.youtube.com/embed/${item.id.videoId}?autoplay=1&rel=0`,
+      externalUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`
+    }));
 }
 
 function createSessionRows(exercise, previousRows = []) {
@@ -749,17 +763,31 @@ export function WorkoutLibraryScreen({ user }) {
     }
 
     const searchUrl = getYouTubeExerciseSearchUrl(exerciseName);
+    setDemoVideo({
+      exerciseName,
+      embedUrl: "",
+      externalUrl: searchUrl,
+      loading: true,
+      note: "",
+      selectedVideoId: "",
+      videos: []
+    });
 
     if (!supabase || user.id === "demo-user") {
       try {
-        const youtubeDemo = await findYouTubeDemo(exerciseName);
+        const youtubeVideos = await findYouTubeDemo(exerciseName);
+        const firstVideo = youtubeVideos[0];
         setDemoVideo({
           exerciseName,
-          embedUrl: youtubeDemo?.embedUrl || "",
-          externalUrl: youtubeDemo?.externalUrl || searchUrl
+          embedUrl: firstVideo?.embedUrl || "",
+          externalUrl: firstVideo?.externalUrl || searchUrl,
+          loading: false,
+          note: firstVideo ? "" : "YouTube auto-search is not configured yet.",
+          selectedVideoId: firstVideo?.id || "",
+          videos: youtubeVideos
         });
       } catch (youtubeError) {
-        setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl, note: youtubeError.message });
+        setDemoVideo(createDemoFallback(exerciseName, youtubeError.message));
       }
       setMessage("");
       return;
@@ -784,15 +812,19 @@ export function WorkoutLibraryScreen({ user }) {
 
     if (!data?.youtube_url) {
       try {
-        const youtubeDemo = await findYouTubeDemo(exerciseName);
+        const youtubeVideos = await findYouTubeDemo(exerciseName);
+        const firstVideo = youtubeVideos[0];
         setDemoVideo({
           exerciseName,
-          embedUrl: youtubeDemo?.embedUrl || "",
-          externalUrl: youtubeDemo?.externalUrl || searchUrl,
-          note: youtubeDemo ? "" : "YouTube auto-search is not configured yet."
+          embedUrl: firstVideo?.embedUrl || "",
+          externalUrl: firstVideo?.externalUrl || searchUrl,
+          loading: false,
+          note: firstVideo ? "" : "YouTube auto-search is not configured yet.",
+          selectedVideoId: firstVideo?.id || "",
+          videos: youtubeVideos
         });
       } catch (youtubeError) {
-        setDemoVideo({ exerciseName, embedUrl: "", externalUrl: searchUrl, note: youtubeError.message });
+        setDemoVideo(createDemoFallback(exerciseName, youtubeError.message));
       }
       setMessage("");
       return;
@@ -800,11 +832,19 @@ export function WorkoutLibraryScreen({ user }) {
 
     const embedUrl = getYouTubeEmbedUrl(data.youtube_url);
     if (!embedUrl) {
-      setDemoVideo({ exerciseName, embedUrl: "", externalUrl: data.youtube_url });
+      setDemoVideo({ ...createDemoFallback(exerciseName), externalUrl: data.youtube_url });
       return;
     }
 
-    setDemoVideo({ exerciseName, embedUrl, externalUrl: data.youtube_url });
+    setDemoVideo({
+      exerciseName,
+      embedUrl,
+      externalUrl: data.youtube_url,
+      loading: false,
+      note: "",
+      selectedVideoId: "",
+      videos: []
+    });
   }
 
   function addExercise() {
@@ -1512,7 +1552,12 @@ export function WorkoutLibraryScreen({ user }) {
             </button>
           </div>
 
-          {demoVideo.embedUrl ? (
+          {demoVideo.loading ? (
+            <div className="demo-loading">
+              <span className="demo-spinner" aria-hidden="true" />
+              <p>Finding tutorials...</p>
+            </div>
+          ) : demoVideo.embedUrl ? (
             <div className="demo-frame-shell">
               <iframe
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -1533,6 +1578,33 @@ export function WorkoutLibraryScreen({ user }) {
               </a>
             </div>
           )}
+
+          {!demoVideo.loading && demoVideo.videos?.length > 1 ? (
+            <div className="demo-video-list">
+              <p>More tutorials</p>
+              {demoVideo.videos.map((video) => (
+                <button
+                  className={demoVideo.selectedVideoId === video.id ? "active" : ""}
+                  key={video.id}
+                  onClick={() =>
+                    setDemoVideo((current) => ({
+                      ...current,
+                      embedUrl: video.embedUrl,
+                      externalUrl: video.externalUrl,
+                      selectedVideoId: video.id
+                    }))
+                  }
+                  type="button"
+                >
+                  {video.thumbnail ? <img alt="" src={video.thumbnail} /> : null}
+                  <span>
+                    <strong>{video.title}</strong>
+                    <small>{video.channel}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     );
