@@ -417,6 +417,8 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
   const [workouts, setWorkouts] = useState([]);
   const [recentSessions, setRecentSessions] = useState([]);
   const [coachClients, setCoachClients] = useState([]);
+  const [coachClientsError, setCoachClientsError] = useState("");
+  const [loadingCoachClients, setLoadingCoachClients] = useState(false);
   const [mode, setMode] = useState(initialMode);
   const [editingId, setEditingId] = useState(null);
   const [setup, setSetup] = useState(createDefaultSetup);
@@ -564,18 +566,25 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
   const loadCoachClients = useCallback(async () => {
     if (role !== "coach" || !supabase || user.id === "demo-user") {
       setCoachClients([]);
+      setCoachClientsError("");
       return;
     }
+
+    setLoadingCoachClients(true);
+    setCoachClientsError("");
 
     const { data, error } = await supabase
       .from("coach_clients")
       .select("client_id,profiles!coach_clients_client_id_fkey(id,full_name,email)")
       .eq("coach_id", user.id)
-      .eq("status", "active")
+      .in("status", ["active", "invited"])
       .order("created_at", { ascending: false })
       .limit(80);
 
+    setLoadingCoachClients(false);
+
     if (error) {
+      setCoachClientsError(error.message);
       setCoachClients([]);
       return;
     }
@@ -583,7 +592,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     setCoachClients(
       (data || []).map((link) => ({
         id: link.client_id,
-        name: link.profiles?.full_name || link.profiles?.email || "Client",
+        name: link.profiles?.full_name || link.profiles?.email || `Client ${String(link.client_id).slice(0, 8)}`,
         email: link.profiles?.email || ""
       }))
     );
@@ -1723,6 +1732,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     setAssignWorkout(workout);
     setAssignClientIds([]);
     setMessage("");
+    void loadCoachClients();
   }
 
   function toggleAssignClient(clientId) {
@@ -4206,6 +4216,8 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
               Close
             </button>
           </div>
+          {loadingCoachClients ? <p className="compact-help">Loading linked clients...</p> : null}
+          {coachClientsError ? <p className="form-message error">{coachClientsError}</p> : null}
           {coachClients.length ? (
             <div className="assignment-client-list">
               {coachClients.map((client) => (
@@ -4220,10 +4232,10 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
                 </button>
               ))}
             </div>
-          ) : (
+          ) : !loadingCoachClients && !coachClientsError ? (
             <p className="compact-help">Link clients first from the Clients tab.</p>
-          )}
-          <button className="primary-action filled" disabled={!coachClients.length} onClick={saveWorkoutAssignments} type="button">
+          ) : null}
+          <button className="primary-action filled" disabled={!coachClients.length || loadingCoachClients} onClick={saveWorkoutAssignments} type="button">
             Assign Workout
           </button>
         </div>
