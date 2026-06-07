@@ -4,6 +4,7 @@ import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
+import { MessagesScreen } from "../features/messages/MessagesScreen.jsx";
 import { PlansScreen } from "../features/plans/PlansScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
 import { PlaceholderScreen } from "../features/shared/PlaceholderScreen.jsx";
@@ -336,6 +337,8 @@ export function App() {
         <PlansScreen role={role} user={user} />
       ) : activeTab === "clients" && role === "coach" ? (
         <ClientsScreen profile={profile} user={user} />
+      ) : activeTab === "messages" && (role === "coach" || role === "client") ? (
+        <MessagesScreen role={role} user={user} />
       ) : activeTab === "requests" && role === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : (
