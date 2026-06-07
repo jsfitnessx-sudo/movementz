@@ -3,8 +3,8 @@ import { supabase } from "../../lib/supabase/client.js";
 
 const poses = ["front", "side", "back"];
 const bucketName = "progress-photos";
-const maxImageBytes = 850 * 1024;
-const maxThumbBytes = 180 * 1024;
+const maxImageBytes = 700 * 1024;
+const maxThumbBytes = 120 * 1024;
 
 function labelPose(pose) {
   return pose.slice(0, 1).toUpperCase() + pose.slice(1);
@@ -29,38 +29,43 @@ async function canvasToBlob(canvas, type, quality) {
 async function compressImage(file, maxWidth, quality, maxBytes) {
   const imageUrl = URL.createObjectURL(file);
   const image = new Image();
-  image.src = imageUrl;
-  await image.decode();
+  try {
+    image.src = imageUrl;
+    await image.decode();
 
-  let nextWidth = maxWidth;
-  let nextQuality = quality;
-  let result = null;
+    let nextWidth = maxWidth;
+    let nextQuality = quality;
+    let result = null;
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const scale = Math.min(1, nextWidth / image.width);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.width * scale));
-    canvas.height = Math.max(1, Math.round(image.height * scale));
+    for (let attempt = 0; attempt < 14; attempt += 1) {
+      const scale = Math.min(1, nextWidth / image.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
 
-    const context = canvas.getContext("2d");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-    result = await canvasToBlob(canvas, "image/webp", nextQuality);
-    if (!result) result = await canvasToBlob(canvas, "image/jpeg", nextQuality);
-    if (result && result.size <= maxBytes) break;
+      result = await canvasToBlob(canvas, "image/webp", nextQuality);
+      if (!result) result = await canvasToBlob(canvas, "image/jpeg", nextQuality);
+      if (result && result.size <= maxBytes) return result;
 
-    nextWidth = Math.max(520, Math.round(nextWidth * 0.82));
-    nextQuality = Math.max(0.42, nextQuality - 0.08);
+      nextWidth = Math.max(320, Math.round(nextWidth * 0.78));
+      nextQuality = Math.max(0.26, nextQuality - 0.07);
+    }
+
+    if (!result) throw new Error("Could not compress this photo.");
+    throw new Error("This photo is unusually large. Try a different photo or crop it first.");
+  } finally {
+    URL.revokeObjectURL(imageUrl);
   }
+}
 
-  URL.revokeObjectURL(imageUrl);
-
-  if (!result) throw new Error("Could not compress this photo.");
-  if (result.size > maxBytes) {
-    throw new Error("Photo is still too large after compression. Try a smaller image.");
-  }
-
-  return result;
+function formatProgressPhotoError(error) {
+  const message = error?.message || "Something went wrong.";
+  const isCompressionError = /compress|large|crop|photo/i.test(message);
+  if (isCompressionError) return message;
+  return `${message}. Run supabase/phase-12-progress-photos.sql in Supabase.`;
 }
 
 export function ProgressPhotosScreen({ role = "normal_user", user }) {
@@ -185,8 +190,8 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
 
     try {
       const [imageBlob, thumbnailBlob] = await Promise.all([
-        compressImage(file, 1100, 0.68, maxImageBytes),
-        compressImage(file, 420, 0.62, maxThumbBytes)
+        compressImage(file, 960, 0.62, maxImageBytes),
+        compressImage(file, 360, 0.56, maxThumbBytes)
       ]);
 
       const stamp = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -218,7 +223,7 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
       setMessage(`${labelPose(pose)} photo uploaded.`);
       await loadPhotos();
     } catch (error) {
-      setMessage(`${error.message}. Run supabase/phase-12-progress-photos.sql in Supabase.`);
+      setMessage(formatProgressPhotoError(error));
     } finally {
       setUploading(false);
     }
