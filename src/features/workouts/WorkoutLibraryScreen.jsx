@@ -442,6 +442,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState("All");
   const [expandedWorkoutIds, setExpandedWorkoutIds] = useState(new Set());
+  const [openWorkoutMenu, setOpenWorkoutMenu] = useState(null);
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
@@ -3391,7 +3392,7 @@ export function WorkoutLibraryScreen({ user }) {
                 ) : null}
 
                 {hasSplit ? (
-                  <div className="logged-set-list">
+                  <div className="logged-set-list split-stat-list">
                     <div>
                       <span>Split</span>
                       <strong>{formatClock(exercise.split_duration_seconds)}</strong>
@@ -4145,18 +4146,57 @@ export function WorkoutLibraryScreen({ user }) {
                       <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
                         Start
                       </button>
-                      <button className="primary-action" onClick={() => startEditWorkout(workout)} type="button">
-                        Edit
-                      </button>
-                      <button className="primary-action" onClick={() => duplicateWorkout(workout)} type="button">
-                        Duplicate
-                      </button>
-                      <button className="primary-action" onClick={() => toggleWorkoutDetails(workout)} type="button">
-                        {isExpanded ? "Hide" : "Details"}
-                      </button>
-                      <button className="primary-action danger" onClick={() => deleteWorkout(workout.id)} type="button">
-                        Delete
-                      </button>
+                      <div className="session-menu-wrap workout-menu-wrap">
+                        <button
+                          aria-label={`${workout.name} options`}
+                          className="icon-action"
+                          onClick={() => setOpenWorkoutMenu((current) => (current === workout.id ? null : workout.id))}
+                          type="button"
+                        >
+                          ...
+                        </button>
+                        {openWorkoutMenu === workout.id ? (
+                          <div className="session-menu workout-action-menu">
+                            <button
+                              onClick={() => {
+                                setOpenWorkoutMenu(null);
+                                startEditWorkout(workout);
+                              }}
+                              type="button"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOpenWorkoutMenu(null);
+                                duplicateWorkout(workout);
+                              }}
+                              type="button"
+                            >
+                              Duplicate
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOpenWorkoutMenu(null);
+                                toggleWorkoutDetails(workout);
+                              }}
+                              type="button"
+                            >
+                              {isExpanded ? "Hide details" : "Details"}
+                            </button>
+                            <button
+                              className="danger-text"
+                              onClick={() => {
+                                setOpenWorkoutMenu(null);
+                                deleteWorkout(workout.id);
+                              }}
+                              type="button"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </article>
                 );

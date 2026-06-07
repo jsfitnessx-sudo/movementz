@@ -1026,8 +1026,8 @@ button {
 
 .workout-card {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
@@ -1102,6 +1102,8 @@ button {
 
 .workout-card h2 {
   margin: 0 0 5px;
+  font-size: 28px;
+  line-height: 1.05;
 }
 
 .workout-card p {
@@ -1214,6 +1216,21 @@ button {
   padding: 7px 10px;
   font-size: 12px;
   font-weight: 800;
+}
+
+.library-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.workout-menu-wrap {
+  justify-self: end;
+}
+
+.workout-action-menu {
+  width: min(220px, 68vw);
 }
 
 .workout-exercise-summary {
@@ -1920,20 +1937,20 @@ button {
 }
 
 .completion-card {
-  gap: 18px;
+  gap: 14px;
 }
 
 .completion-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .completion-summary div {
   display: grid;
-  gap: 6px;
-  min-height: 84px;
-  padding: 12px;
+  gap: 4px;
+  min-height: 68px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--field);
@@ -1942,7 +1959,7 @@ button {
 .completion-summary span,
 .completion-notes {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 750;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1950,7 +1967,8 @@ button {
 
 .completion-summary strong {
   color: var(--teal);
-  font-size: 24px;
+  font-size: 21px;
+  line-height: 1.05;
 }
 
 .completion-split-list {
@@ -2005,7 +2023,12 @@ button {
 
 .session-detail-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+}
+
+.session-detail-card {
+  gap: 10px;
+  padding: 14px;
 }
 
 .session-detail-card.skipped {
@@ -2015,6 +2038,10 @@ button {
 .logged-set-list {
   display: grid;
   gap: 8px;
+}
+
+.split-stat-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .logged-set-list div {
@@ -2027,6 +2054,11 @@ button {
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: var(--field);
+}
+
+.split-stat-list div {
+  min-height: 36px;
+  padding: 8px 10px;
 }
 
 .logged-set-list span {
@@ -2460,7 +2492,6 @@ button {
   .auth-form-grid,
   .profile-actions,
   .library-heading,
-  .library-actions,
   .form-grid.two,
   .form-grid.three,
   .form-grid.four {
@@ -2470,10 +2501,40 @@ button {
   .library-toolbar,
   .section-row,
   .workout-card-head,
-  .library-actions,
   .workout-exercise-summary div {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .workout-card {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .workout-card h2 {
+    font-size: 24px;
+  }
+
+  .workout-card p {
+    font-size: 13px;
+  }
+
+  .workout-card-meta {
+    gap: 6px;
+  }
+
+  .workout-card-meta span {
+    min-height: 26px;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .library-actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .workout-action-menu {
+    right: 0;
   }
 
   .mini-actions {
@@ -2541,6 +2602,55 @@ button {
   .session-history-stats {
     justify-content: start;
     text-align: left;
+  }
+
+  .completion-card {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .completion-summary {
+    gap: 7px;
+  }
+
+  .completion-summary div {
+    min-height: 58px;
+    padding: 8px;
+  }
+
+  .completion-summary span,
+  .completion-notes {
+    font-size: 9px;
+  }
+
+  .completion-summary strong {
+    font-size: 18px;
+  }
+
+  .session-detail-list {
+    gap: 8px;
+  }
+
+  .session-detail-card {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .session-detail-card .workout-card-head h2 {
+    font-size: 24px;
+  }
+
+  .session-detail-card .workout-card-head p {
+    font-size: 13px;
+  }
+
+  .split-stat-list {
+    gap: 7px;
+  }
+
+  .split-stat-list div {
+    min-height: 34px;
+    padding: 7px 9px;
   }
 
   .setup-card {
