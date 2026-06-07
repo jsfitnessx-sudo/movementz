@@ -2413,6 +2413,221 @@ button {
   margin-top: 4px;
 }
 
+.plans-screen {
+  max-width: 980px;
+}
+
+.plan-builder-panel {
+  display: grid;
+  gap: 14px;
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
+}
+
+.plan-builder-panel label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plan-builder-panel input,
+.plan-builder-panel select,
+.plan-builder-panel textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 14px;
+  text-transform: none;
+}
+
+.plan-builder-panel textarea {
+  min-height: 92px;
+  padding: 14px;
+}
+
+.plan-type-grid,
+.plan-builder-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.plan-choice {
+  display: grid;
+  gap: 4px;
+  min-height: 66px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 850;
+}
+
+.plan-choice span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.plan-choice.active {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--gold);
+}
+
+.block-period-picker {
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+
+.block-period-picker > div {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.plan-builder-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: #0d1720;
+}
+
+.plan-builder-summary h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.plan-builder-summary p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.plan-inline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px auto;
+  gap: 8px;
+}
+
+.import-workout-list,
+.plan-workout-list,
+.plan-library-list {
+  display: grid;
+  gap: 10px;
+}
+
+.import-workout-list button,
+.client-assignment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.import-workout-list button:disabled {
+  opacity: 0.62;
+}
+
+.import-workout-list span {
+  display: grid;
+  gap: 3px;
+}
+
+.import-workout-list em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.import-workout-list small,
+.client-assignment strong {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.plan-workouts-panel,
+.coach-assignment-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #101810;
+}
+
+.plan-workout-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--gold) 5%, #0d1720);
+}
+
+.plan-workout-card div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.plan-workout-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.weekday-picker {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.weekday-picker button {
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.weekday-picker button.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.client-assignment.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 10%, var(--field));
+}
+
+.status-pill.active {
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
 .bottom-nav {
   position: fixed;
   right: 0;
@@ -3055,6 +3270,30 @@ button {
 
   .share-bottom-stats strong {
     font-size: 14px;
+  }
+
+  .plan-type-grid,
+  .plan-builder-actions,
+  .plan-inline-form,
+  .form-footer-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .block-period-picker > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .plan-builder-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-workout-card {
+    grid-template-columns: 1fr;
+  }
+
+  .weekday-picker button {
+    min-height: 30px;
+    padding: 0 9px;
   }
 
   .share-details {

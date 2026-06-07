@@ -3,6 +3,7 @@ import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
+import { PlansScreen } from "../features/plans/PlansScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
 import { PlaceholderScreen } from "../features/shared/PlaceholderScreen.jsx";
 import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.jsx";
@@ -216,6 +217,8 @@ export function App() {
         />
       ) : activeTab === "workouts" ? (
         <WorkoutLibraryScreen user={user} />
+      ) : activeTab === "plans" ? (
+        <PlansScreen user={user} />
       ) : activeTab === "requests" && role === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : (
