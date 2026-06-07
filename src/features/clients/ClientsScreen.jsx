@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
+const progressPhotoBucket = "progress-photos";
+
 function clientName(client) {
   return client?.client_name || client?.full_name || client?.email || "Client";
 }
@@ -10,17 +12,31 @@ function buildInviteUrl(code) {
   return `${window.location.origin}/?invite=${code}`;
 }
 
+function formatClientPhotoDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 export function ClientsScreen({ profile, user }) {
   const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [clientPhotos, setClientPhotos] = useState([]);
+  const [clientPhotoCount, setClientPhotoCount] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [inviteUrl, setInviteUrl] = useState("");
   const [loading, setLoading] = useState(Boolean(supabase));
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [searching, setSearching] = useState(false);
   const [savingClientId, setSavingClientId] = useState(null);
   const [message, setMessage] = useState("");
 
   const activeCount = useMemo(() => clients.filter((client) => client.status === "active").length, [clients]);
+  const activeClients = useMemo(() => clients.filter((client) => client.status === "active"), [clients]);
+  const selectedClient = useMemo(
+    () => activeClients.find((client) => client.client_id === selectedClientId) || activeClients[0],
+    [activeClients, selectedClientId]
+  );
   const databaseRole = (profile?.role || "unknown").toLowerCase();
   const canManageClients = databaseRole === "coach" || databaseRole === "admin";
 
@@ -41,8 +57,53 @@ export function ClientsScreen({ profile, user }) {
       return;
     }
 
-    setClients(data || []);
+    const nextClients = data || [];
+    setClients(nextClients);
+    setSelectedClientId((current) => {
+      if (nextClients.some((client) => client.client_id === current && client.status === "active")) return current;
+      return nextClients.find((client) => client.status === "active")?.client_id || "";
+    });
   }, [user.id]);
+
+  const loadClientPhotos = useCallback(async () => {
+    const clientId = selectedClient?.client_id;
+    if (!clientId || !supabase || user.id === "demo-user") {
+      setClientPhotos([]);
+      setClientPhotoCount(0);
+      setLoadingPhotos(false);
+      return;
+    }
+
+    setLoadingPhotos(true);
+
+    const { data, error, count } = await supabase
+      .from("progress_photos")
+      .select("id,pose,note,thumbnail_path,taken_at,created_at", { count: "exact" })
+      .eq("user_id", clientId)
+      .order("taken_at", { ascending: false })
+      .limit(6);
+
+    if (error) {
+      setClientPhotos([]);
+      setClientPhotoCount(0);
+      setLoadingPhotos(false);
+      return;
+    }
+
+    const signedPhotos = await Promise.all(
+      (data || []).map(async (photo) => {
+        const { data: signed } = await supabase.storage
+          .from(progressPhotoBucket)
+          .createSignedUrl(photo.thumbnail_path, 60 * 60);
+
+        return { ...photo, thumbnail_url: signed?.signedUrl || "" };
+      })
+    );
+
+    setClientPhotos(signedPhotos);
+    setClientPhotoCount(count ?? signedPhotos.length);
+    setLoadingPhotos(false);
+  }, [selectedClient?.client_id, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -55,6 +116,18 @@ export function ClientsScreen({ profile, user }) {
       alive = false;
     };
   }, [loadClients]);
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.resolve().then(() => {
+      if (alive) loadClientPhotos();
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [loadClientPhotos]);
 
   async function searchUsers(event) {
     event.preventDefault();
@@ -215,6 +288,80 @@ export function ClientsScreen({ profile, user }) {
           </div>
         </div>
       </div>
+
+      {activeClients.length ? (
+        <section className="panel client-insight-panel">
+          <div className="client-insight-header">
+            <div>
+              <p className="eyebrow">Selected client</p>
+              <h2>{clientName(selectedClient)}</h2>
+              <p>Progress photos and tracker information update from this client.</p>
+            </div>
+            <select value={selectedClient?.client_id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
+              {activeClients.map((client) => (
+                <option key={client.client_id} value={client.client_id}>
+                  {clientName(client)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="client-metric-grid">
+            <div>
+              <span>Workouts</span>
+              <strong>0</strong>
+            </div>
+            <div>
+              <span>Adherence</span>
+              <strong>-</strong>
+            </div>
+            <div>
+              <span>Check-ins</span>
+              <strong>0</strong>
+            </div>
+            <div>
+              <span>Photos</span>
+              <strong>{clientPhotoCount}</strong>
+            </div>
+          </div>
+
+          <section className="client-progress-card">
+            <div className="client-section-title">
+              <div>
+                <p className="eyebrow">Progress photos</p>
+                <span>Latest private uploads from {clientName(selectedClient)}.</span>
+              </div>
+              <button className="primary-action compact" onClick={loadClientPhotos} disabled={loadingPhotos} type="button">
+                {loadingPhotos ? "Loading..." : "Refresh"}
+              </button>
+            </div>
+
+            {clientPhotos.length ? (
+              <div className="client-photo-strip">
+                {clientPhotos.map((photo) => (
+                  <article className="client-photo-thumb" key={photo.id}>
+                    {photo.thumbnail_url ? <img alt={`${photo.pose} progress`} src={photo.thumbnail_url} /> : <div />}
+                    <strong>{photo.pose}</strong>
+                    <span>{formatClientPhotoDate(photo.taken_at || photo.created_at)}</span>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="compact-help">{loadingPhotos ? "Loading client photos..." : "No progress photos uploaded yet."}</p>
+            )}
+          </section>
+
+          <section className="client-progress-card">
+            <div className="client-section-title">
+              <div>
+                <p className="eyebrow">Tracker</p>
+                <span>Weekly measurements and check-in data will appear here once tracker periods are built.</span>
+              </div>
+            </div>
+            <p className="compact-help">No active tracker yet.</p>
+          </section>
+        </section>
+      ) : null}
 
       {loading ? <p className="form-message success">Loading clients...</p> : null}
 
