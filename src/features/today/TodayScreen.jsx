@@ -27,10 +27,11 @@ function getPlanWindow(plan, assignedAt) {
 }
 
 function formatPlanWindow(plan, assignedAt) {
-  const { end, status } = getPlanWindow(plan, assignedAt);
+  const { start, end, status } = getPlanWindow(plan, assignedAt);
   if (!end) return "No timeframe";
   const daysLeft = Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86400000));
-  return status === "active" ? `Week block - ${daysLeft} days left` : "Archived";
+  const weekNumber = Math.min(Number(plan.block_weeks) || 4, Math.max(1, Math.floor((Date.now() - start.getTime()) / 604800000) + 1));
+  return status === "active" ? `Week ${weekNumber} of ${plan.block_weeks || 4} - ${daysLeft} days left` : "Archived";
 }
 
 function formatTodayDate() {
@@ -48,6 +49,7 @@ function normalisePlan(assignment, source) {
   return {
     assignmentId: assignment.assignment_id || plan.id,
     assignedAt: assignment.assigned_at || plan.created_at,
+    coachName: assignment.coach_name || assignment.assigned_by_name || assignment.coach?.full_name || "",
     plan,
     source,
     window
@@ -92,12 +94,25 @@ export function TodayScreen({ role, user }) {
           planId: plan.id,
           planLabel: formatPlanWindow(plan, entry.assignedAt),
           planName: plan.name || (entry.source === "assigned" ? "Coach plan" : "My plan"),
+          planCoachName: entry.coachName,
           planSource: entry.source,
           planWindow: entry.window,
           sourceKey: `${entry.source}-${entry.assignmentId}`
         }));
-    });
+    }).sort((a, b) => (a.position || 0) - (b.position || 0));
   }, [activePlans, selectedDay]);
+
+  const dayCounts = useMemo(() => {
+    return Object.fromEntries(
+      weekdays.map((day) => [
+        day,
+        activePlans.reduce((count, entry) => {
+          const workouts = entry.plan.training_plan_workouts || [];
+          return count + workouts.filter((workout) => Array.isArray(workout.scheduled_days) && workout.scheduled_days.includes(day)).length;
+        }, 0)
+      ])
+    );
+  }, [activePlans]);
 
   const loadSchedule = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
@@ -220,6 +235,7 @@ export function TodayScreen({ role, user }) {
             type="button"
           >
             {day}
+            {dayCounts[day] ? <span>{dayCounts[day]}</span> : null}
           </button>
         ))}
       </div>
@@ -233,9 +249,14 @@ export function TodayScreen({ role, user }) {
           <div className="assignment-card-list">
             {scheduledWorkouts.map((workout) => (
               <article className="schedule-session-card" key={`${workout.sourceKey}-${workout.id}`}>
-                <p className="schedule-plan-name">{workout.planName}</p>
+                <div className="schedule-card-top">
+                  <p className="schedule-plan-name">{workout.planName}</p>
+                  <span className={workout.planSource === "assigned" ? "status-pill gold-pill" : "status-pill"}>
+                    {workout.planSource === "assigned" ? "Coach" : "Mine"}
+                  </span>
+                </div>
                 <div className="schedule-select-look">
-                  {workout.planSource === "assigned" ? "Coach plan" : "My plan"} - {workout.planLabel}
+                  {workout.planSource === "assigned" ? `Coach plan${workout.planCoachName ? ` - ${workout.planCoachName}` : ""}` : "My plan"} - {workout.planLabel}
                 </div>
                 <div className="schedule-session-main">
                   <h3>{workout.name}</h3>
@@ -244,7 +265,7 @@ export function TodayScreen({ role, user }) {
                   </span>
                 </div>
                 <button className="primary-action filled schedule-start" onClick={() => startScheduledWorkout(workout)} type="button">
-                  ▶ Start Session
+                  Start Session
                 </button>
               </article>
             ))}

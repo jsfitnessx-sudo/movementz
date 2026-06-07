@@ -221,10 +221,11 @@ export function ClientsScreen({ profile, user }) {
       {clients.length ? (
         <div className="client-list">
           {clients.map((client) => (
-            <article className="client-row" key={client.link_id}>
+            <article className="client-row coach-client-card" key={client.link_id}>
               <div>
                 <strong>{clientName(client)}</strong>
                 <span>{client.client_email}</span>
+                <em>{client.status === "active" ? "Confirmed client" : "Invite pending"}</em>
               </div>
               <span className={client.status === "active" ? "status-pill active" : "status-pill"}>{client.status}</span>
             </article>

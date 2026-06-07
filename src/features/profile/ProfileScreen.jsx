@@ -307,11 +307,16 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
         </div>
 
         {isClient ? (
-          <div className="form-section coach-status-panel">
-            <h3>Coach connection</h3>
+          <div className="form-section coach-status-panel confirmed-coach-panel">
+            <div className="section-row">
+              <h3>Your coach</h3>
+              <span className={coachLinks.some((coach) => coach.status === "active") ? "status-pill active" : "status-pill"}>
+                {coachLinks.some((coach) => coach.status === "active") ? "Confirmed client" : "Not connected"}
+              </span>
+            </div>
             {coachLinks.length ? (
               coachLinks.map((coach) => (
-                <div className="client-row" key={coach.coach_id}>
+                <div className="coach-confirmation-card" key={coach.coach_id}>
                   <div>
                     <strong>{coach.coach_name}</strong>
                     <span>{coach.coach_email}</span>
@@ -322,7 +327,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
                 </div>
               ))
             ) : (
-              <p className="muted-note">No coach connected yet. Accept a coach invite to connect.</p>
+              <p className="muted-note">No coach connected yet. Accept a coach invite and your coach will show here.</p>
             )}
           </div>
         ) : null}

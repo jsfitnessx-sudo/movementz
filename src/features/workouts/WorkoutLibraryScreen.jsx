@@ -1801,6 +1801,8 @@ export function WorkoutLibraryScreen({
   async function deleteWorkout(workoutId) {
     setMessage("");
 
+    if (!window.confirm("Delete this workout permanently?")) return;
+
     if (!supabase || user.id === "demo-user") {
       setWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
       setArchivedWorkouts((current) => current.filter((workout) => workout.id !== workoutId));

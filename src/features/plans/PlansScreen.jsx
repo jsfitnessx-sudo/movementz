@@ -847,7 +847,17 @@ export function PlansScreen({ role = "normal_user", user }) {
             </div>
 
             <div className="coach-assignment-panel">
-              <p className="eyebrow">Coach assignment</p>
+              <div className="section-row">
+                <div>
+                  <p className="eyebrow">Coach assignment</p>
+                  <p className="compact-help">
+                    {builder.selectedClientIds.length
+                      ? `${builder.selectedClientIds.length} client${builder.selectedClientIds.length === 1 ? "" : "s"} will receive this plan when saved.`
+                      : "Choose linked clients to assign this plan as soon as it is saved."}
+                  </p>
+                </div>
+                <span className="status-pill">{builder.selectedClientIds.length} selected</span>
+              </div>
               {clients.length ? (
                 clients.map((client) => (
                   <button
@@ -875,7 +885,7 @@ export function PlansScreen({ role = "normal_user", user }) {
                 Cancel
               </button>
               <button className="primary-action filled" disabled={saving} onClick={savePlan} type="button">
-                {saving ? "Saving..." : editingPlanId ? "Update Plan" : "Save Plan"}
+                {saving ? "Saving..." : editingPlanId ? "Update Plan" : builder.selectedClientIds.length ? "Save & assign plan" : "Save Plan"}
               </button>
             </div>
           </div>
