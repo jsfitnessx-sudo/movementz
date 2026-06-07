@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
@@ -86,9 +86,40 @@ export function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [role, setRole] = useState(getInitialRole);
+  const [pendingInviteCode, setPendingInviteCode] = useState(() => new URLSearchParams(window.location.search).get("invite") || "");
+  const [claimedInviteCode, setClaimedInviteCode] = useState("");
+  const [appMessage, setAppMessage] = useState("");
   const tabs = useMemo(() => roleTabs[role] ?? roleTabs.normal_user, [role]);
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   const user = useMemo(() => buildUser(session, profile), [session, profile]);
+
+  const claimInviteIfNeeded = useCallback(
+    async (nextSession) => {
+      const code = pendingInviteCode.trim();
+      if (!code || claimedInviteCode === code || !supabase || !nextSession?.user?.id) return null;
+
+      const { data, error } = await supabase.rpc("accept_client_invite", {
+        invite_code_input: code
+      });
+
+      setClaimedInviteCode(code);
+
+      if (error) {
+        setAppMessage(`${error.message}.`);
+        return null;
+      }
+
+      const nextProfile = await loadProfile(nextSession.user);
+      setProfile(nextProfile);
+      setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
+      setActiveTab("home");
+      setPendingInviteCode("");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setAppMessage(`Invite accepted. You are now linked to ${data?.[0]?.coach_name || "your coach"}.`);
+      return nextProfile;
+    },
+    [claimedInviteCode, pendingInviteCode]
+  );
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -144,6 +175,20 @@ export function App() {
     }
   }, [activeTab, role]);
 
+  useEffect(() => {
+    if (!session?.user || !pendingInviteCode || claimedInviteCode === pendingInviteCode) return undefined;
+
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      if (alive) await claimInviteIfNeeded(session);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [claimedInviteCode, claimInviteIfNeeded, pendingInviteCode, session]);
+
   function handleDemoLogin(nextRole) {
     setRole(nextRole);
     setActiveTab((roleTabs[nextRole] ?? roleTabs.normal_user)[0].id);
@@ -162,6 +207,7 @@ export function App() {
     setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
     setSession(nextSession);
     setActiveTab((roleTabs[nextProfile?.role || nextSession.user.user_metadata?.role] ?? roleTabs.normal_user)[0].id);
+    await claimInviteIfNeeded(nextSession);
   }
 
   async function handleSignOut() {
@@ -207,6 +253,7 @@ export function App() {
       tabs={tabs}
       user={user}
     >
+      {appMessage ? <p className="form-message success">{appMessage}</p> : null}
       {activeTab === "home" ? (
         <HomeScreen onNavigate={setActiveTab} role={role} user={user} />
       ) : activeTab === "profile" ? (
@@ -221,7 +268,7 @@ export function App() {
       ) : activeTab === "plans" ? (
         <PlansScreen user={user} />
       ) : activeTab === "clients" && role === "coach" ? (
-        <ClientsScreen user={user} />
+        <ClientsScreen profile={profile} user={user} />
       ) : activeTab === "requests" && role === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : (

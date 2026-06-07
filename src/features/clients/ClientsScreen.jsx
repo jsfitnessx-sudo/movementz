@@ -10,7 +10,7 @@ function buildInviteUrl(code) {
   return `${window.location.origin}/?invite=${code}`;
 }
 
-export function ClientsScreen({ user }) {
+export function ClientsScreen({ profile, user }) {
   const [clients, setClients] = useState([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -21,6 +21,7 @@ export function ClientsScreen({ user }) {
   const [message, setMessage] = useState("");
 
   const activeCount = useMemo(() => clients.filter((client) => client.status === "active").length, [clients]);
+  const canManageClients = profile?.role === "coach" || profile?.role === "admin";
 
   const loadClients = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
@@ -105,7 +106,11 @@ export function ClientsScreen({ user }) {
     setSavingClientId(null);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(
+        error.message.includes("Only coaches")
+          ? `Only coaches can add clients. Your database profile role is "${profile?.role || "unknown"}". Change this account to coach in Profile, then try again.`
+          : error.message
+      );
       return;
     }
 
@@ -142,15 +147,15 @@ export function ClientsScreen({ user }) {
     if (navigator.clipboard && nextUrl) {
       try {
         await navigator.clipboard.writeText(nextUrl);
-        setMessage("Invite link copied.");
+        setMessage("Invite link copied. Send it to the client by text, email, WhatsApp, or your own message system.");
         return;
       } catch {
-        setMessage("Invite link created. Copy it from the box below.");
+        setMessage("Invite link created. Copy it from the box below and send it to the client.");
         return;
       }
     }
 
-    setMessage("Invite link created.");
+    setMessage("Invite link created. Copy it from the box below and send it to the client.");
   }
 
   return (
@@ -159,17 +164,20 @@ export function ClientsScreen({ user }) {
         <div>
           <p className="eyebrow">Clients</p>
           <h1>Coach clients</h1>
-          <p>Find existing users, link them as clients, and assign plans.</p>
+          <p>Find existing users, link them as clients, or create a link to send outside the app.</p>
         </div>
         <button className="primary-action compact filled" onClick={createInviteLink} type="button">
           Invite Link
         </button>
       </div>
 
-      {message ? <p className={message.includes("Run supabase") || message.includes("Only coaches") ? "form-message error" : "form-message success"}>{message}</p> : null}
+      {!canManageClients ? (
+        <p className="form-message error">Your database role is "{profile?.role || "unknown"}". This account must be set to coach before it can add clients.</p>
+      ) : null}
+      {message ? <p className={message.includes("Run supabase") || message.includes("Only coaches") || message.includes("must be set to coach") ? "form-message error" : "form-message success"}>{message}</p> : null}
       {inviteUrl ? (
         <div className="panel invite-link-panel">
-          <span>Latest invite</span>
+          <span>Latest invite. Send this link to the client. When they open it and sign in, they become linked to you.</span>
           <strong>{inviteUrl}</strong>
         </div>
       ) : null}
@@ -177,7 +185,7 @@ export function ClientsScreen({ user }) {
       <form className="panel client-search-panel" onSubmit={searchUsers}>
         <div>
           <h2>Find or invite a client</h2>
-          <p>Search existing users by name or email, or send your invite link.</p>
+          <p>Search existing users by name or email. For new users, create an invite link and send it to them.</p>
         </div>
         <div className="client-search-row">
           <input

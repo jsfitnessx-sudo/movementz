@@ -81,3 +81,76 @@ end;
 $$;
 
 grant execute on function public.link_client_to_coach(uuid) to authenticated;
+
+create or replace function public.accept_client_invite(invite_code_input text)
+returns table (
+  coach_id uuid,
+  coach_name text,
+  link_id uuid
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  invite_row public.invites;
+  coach_profile public.profiles;
+  created_link public.coach_clients;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in to accept an invite.';
+  end if;
+
+  select *
+  into invite_row
+  from public.invites
+  where invite_code = upper(trim(invite_code_input))
+    and invite_type = 'client'
+    and used_at is null
+    and (expires_at is null or expires_at > now())
+  limit 1;
+
+  if invite_row.id is null then
+    raise exception 'Invite link is invalid or already used.';
+  end if;
+
+  if invite_row.inviter_id = auth.uid() then
+    raise exception 'You cannot accept your own invite link.';
+  end if;
+
+  select *
+  into coach_profile
+  from public.profiles
+  where id = invite_row.inviter_id
+    and role in ('coach', 'admin');
+
+  if coach_profile.id is null then
+    raise exception 'This invite is not attached to an active coach.';
+  end if;
+
+  insert into public.coach_clients (coach_id, client_id, status)
+  values (invite_row.inviter_id, auth.uid(), 'active')
+  on conflict (coach_id, client_id)
+  do update set status = 'active'
+  returning * into created_link;
+
+  update public.profiles
+  set role = 'client',
+      updated_at = now()
+  where id = auth.uid()
+    and role = 'normal_user';
+
+  update public.invites
+  set used_by = auth.uid(),
+      used_at = now()
+  where id = invite_row.id;
+
+  return query
+  select
+    coach_profile.id,
+    coalesce(coach_profile.full_name, coach_profile.email, 'Coach'),
+    created_link.id;
+end;
+$$;
+
+grant execute on function public.accept_client_invite(text) to authenticated;
