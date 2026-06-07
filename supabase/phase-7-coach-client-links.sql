@@ -46,18 +46,33 @@ set search_path = public
 as $$
 declare
   current_role text;
+  has_coach_profile boolean;
   created_link public.coach_clients;
 begin
   if auth.uid() is null then
     raise exception 'You must be signed in.';
   end if;
 
-  select lower(role) into current_role
+  select lower(trim(coalesce(role, ''))) into current_role
   from public.profiles
   where id = auth.uid();
 
-  if current_role not in ('coach', 'admin') then
-    raise exception 'Only coaches can add clients.';
+  select exists (
+    select 1
+    from public.coach_profiles
+    where user_id = auth.uid()
+  )
+  into has_coach_profile;
+
+  if current_role not in ('coach', 'admin') and not has_coach_profile then
+    raise exception 'Only coaches can add clients. Current database role: %.', coalesce(current_role, 'missing');
+  end if;
+
+  if has_coach_profile and current_role = 'normal_user' then
+    update public.profiles
+    set role = 'coach',
+        updated_at = now()
+    where id = auth.uid();
   end if;
 
   if target_client_id = auth.uid() then
@@ -92,18 +107,33 @@ set search_path = public
 as $$
 declare
   current_role text;
+  has_coach_profile boolean;
   created_invite public.invites;
 begin
   if auth.uid() is null then
     raise exception 'You must be signed in.';
   end if;
 
-  select lower(role) into current_role
+  select lower(trim(coalesce(role, ''))) into current_role
   from public.profiles
   where id = auth.uid();
 
-  if current_role not in ('coach', 'admin') then
-    raise exception 'Only coaches can create client invite links.';
+  select exists (
+    select 1
+    from public.coach_profiles
+    where user_id = auth.uid()
+  )
+  into has_coach_profile;
+
+  if current_role not in ('coach', 'admin') and not has_coach_profile then
+    raise exception 'Only coaches can create client invite links. Current database role: %.', coalesce(current_role, 'missing');
+  end if;
+
+  if has_coach_profile and current_role = 'normal_user' then
+    update public.profiles
+    set role = 'coach',
+        updated_at = now()
+    where id = auth.uid();
   end if;
 
   insert into public.invites (inviter_id, invite_type)
