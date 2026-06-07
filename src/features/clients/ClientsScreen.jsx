@@ -1,0 +1,244 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "../../lib/supabase/client.js";
+
+function clientName(profile) {
+  return profile?.full_name || profile?.email || "Client";
+}
+
+function buildInviteUrl(code) {
+  if (!code) return "";
+  return `${window.location.origin}/?invite=${code}`;
+}
+
+export function ClientsScreen({ user }) {
+  const [clients, setClients] = useState([]);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [loading, setLoading] = useState(Boolean(supabase));
+  const [searching, setSearching] = useState(false);
+  const [savingClientId, setSavingClientId] = useState(null);
+  const [message, setMessage] = useState("");
+
+  const activeCount = useMemo(() => clients.filter((client) => client.status === "active").length, [clients]);
+
+  const loadClients = useCallback(async () => {
+    if (!supabase || user.id === "demo-user") {
+      setClients([]);
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("coach_clients")
+      .select("id,client_id,status,created_at,profiles!coach_clients_client_id_fkey(id,full_name,email,role)")
+      .eq("coach_id", user.id)
+      .in("status", ["active", "paused", "invited"])
+      .order("created_at", { ascending: false })
+      .limit(80);
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-1-auth-profiles.sql and supabase/phase-7-coach-client-links.sql in Supabase.`);
+      setClients([]);
+      return;
+    }
+
+    setClients(data || []);
+  }, [user.id]);
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.resolve().then(() => {
+      if (alive) loadClients();
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [loadClients]);
+
+  async function searchUsers(event) {
+    event.preventDefault();
+    const searchText = query.trim();
+
+    if (searchText.length < 2) {
+      setMessage("Search by at least 2 characters.");
+      setResults([]);
+      return;
+    }
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Connect Supabase to search real users.");
+      return;
+    }
+
+    setSearching(true);
+    setMessage("");
+    const { data, error } = await supabase.rpc("search_users_for_client_invite", {
+      search_text: searchText
+    });
+    setSearching(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-7-coach-client-links.sql in Supabase.`);
+      setResults([]);
+      return;
+    }
+
+    setResults(data || []);
+    if (!data?.length) setMessage("No matching users found.");
+  }
+
+  async function addClient(profileId) {
+    if (!supabase || user.id === "demo-user") return;
+
+    setSavingClientId(profileId);
+    setMessage("");
+
+    const { error } = await supabase.rpc("link_client_to_coach", {
+      target_client_id: profileId
+    });
+
+    setSavingClientId(null);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setQuery("");
+    setResults([]);
+    setMessage("Client linked. They will see the client app view when their profile reloads.");
+    await loadClients();
+  }
+
+  async function createInviteLink() {
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Connect Supabase to create invite links.");
+      return;
+    }
+
+    setMessage("");
+    const { data, error } = await supabase
+      .from("invites")
+      .insert({
+        inviter_id: user.id,
+        invite_type: "client"
+      })
+      .select("invite_code")
+      .single();
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-1-auth-profiles.sql in Supabase.`);
+      return;
+    }
+
+    const nextUrl = buildInviteUrl(data?.invite_code);
+    setInviteUrl(nextUrl);
+
+    if (navigator.clipboard && nextUrl) {
+      try {
+        await navigator.clipboard.writeText(nextUrl);
+        setMessage("Invite link copied.");
+        return;
+      } catch {
+        setMessage("Invite link created. Copy it from the box below.");
+        return;
+      }
+    }
+
+    setMessage("Invite link created.");
+  }
+
+  return (
+    <section className="screen-stack clients-screen">
+      <div className="screen-heading library-heading">
+        <div>
+          <p className="eyebrow">Clients</p>
+          <h1>Coach clients</h1>
+          <p>Find existing users, link them as clients, and assign plans.</p>
+        </div>
+        <button className="primary-action compact filled" onClick={createInviteLink} type="button">
+          Invite Link
+        </button>
+      </div>
+
+      {message ? <p className={message.includes("Run supabase") || message.includes("Only coaches") ? "form-message error" : "form-message success"}>{message}</p> : null}
+      {inviteUrl ? (
+        <div className="panel invite-link-panel">
+          <span>Latest invite</span>
+          <strong>{inviteUrl}</strong>
+        </div>
+      ) : null}
+
+      <form className="panel client-search-panel" onSubmit={searchUsers}>
+        <div>
+          <h2>Find or invite a client</h2>
+          <p>Search existing users by name or email, or send your invite link.</p>
+        </div>
+        <div className="client-search-row">
+          <input
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by name or email"
+            value={query}
+          />
+          <button className="primary-action compact" disabled={searching} type="submit">
+            {searching ? "Searching..." : "Search"}
+          </button>
+        </div>
+      </form>
+
+      {results.length ? (
+        <div className="client-result-list">
+          {results.map((profile) => (
+            <article className="client-row" key={profile.id}>
+              <div>
+                <strong>{clientName(profile)}</strong>
+                <span>{profile.email}</span>
+              </div>
+              <button className="primary-action compact filled" disabled={savingClientId === profile.id} onClick={() => addClient(profile.id)} type="button">
+                {savingClientId === profile.id ? "Adding..." : "Add"}
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="panel clients-summary-panel">
+        <div className="completion-summary">
+          <div>
+            <span>Active</span>
+            <strong>{activeCount}</strong>
+          </div>
+          <div>
+            <span>Total</span>
+            <strong>{clients.length}</strong>
+          </div>
+        </div>
+      </div>
+
+      {loading ? <p className="form-message success">Loading clients...</p> : null}
+
+      {clients.length ? (
+        <div className="client-list">
+          {clients.map((client) => (
+            <article className="client-row" key={client.id}>
+              <div>
+                <strong>{clientName(client.profiles)}</strong>
+                <span>{client.profiles?.email}</span>
+              </div>
+              <span className={client.status === "active" ? "status-pill active" : "status-pill"}>{client.status}</span>
+            </article>
+          ))}
+        </div>
+      ) : !loading ? (
+        <div className="panel empty-state">
+          <p>No clients linked yet. Search for an existing user or create an invite link.</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}

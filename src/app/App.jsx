@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
+import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
 import { PlansScreen } from "../features/plans/PlansScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
@@ -219,6 +220,8 @@ export function App() {
         <WorkoutLibraryScreen user={user} />
       ) : activeTab === "plans" ? (
         <PlansScreen user={user} />
+      ) : activeTab === "clients" && role === "coach" ? (
+        <ClientsScreen user={user} />
       ) : activeTab === "requests" && role === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : (

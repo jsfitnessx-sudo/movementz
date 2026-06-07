@@ -2645,6 +2645,81 @@ button {
   background: color-mix(in srgb, var(--teal) 10%, var(--field));
 }
 
+.clients-screen {
+  gap: 14px;
+}
+
+.client-search-panel,
+.invite-link-panel,
+.clients-summary-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.client-search-panel h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.client-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.client-search-row input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 16px;
+}
+
+.client-result-list,
+.client-list {
+  display: grid;
+  gap: 8px;
+}
+
+.client-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.client-row div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.client-row strong,
+.invite-link-panel strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-row span,
+.invite-link-panel span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .status-pill.active {
   background: color-mix(in srgb, var(--gold) 12%, transparent);
   border-color: var(--gold);
