@@ -21,7 +21,8 @@ export function ClientsScreen({ profile, user }) {
   const [message, setMessage] = useState("");
 
   const activeCount = useMemo(() => clients.filter((client) => client.status === "active").length, [clients]);
-  const canManageClients = profile?.role === "coach" || profile?.role === "admin";
+  const databaseRole = (profile?.role || "unknown").toLowerCase();
+  const canManageClients = databaseRole === "coach" || databaseRole === "admin";
 
   const loadClients = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
@@ -108,7 +109,7 @@ export function ClientsScreen({ profile, user }) {
     if (error) {
       setMessage(
         error.message.includes("Only coaches")
-          ? `Only coaches can add clients. Your database profile role is "${profile?.role || "unknown"}". Change this account to coach in Profile, then try again.`
+          ? `Only coaches can add clients. Your database profile role is "${databaseRole}". If this says coach, run the latest supabase/phase-7-coach-client-links.sql.`
           : error.message
       );
       return;
@@ -127,21 +128,14 @@ export function ClientsScreen({ profile, user }) {
     }
 
     setMessage("");
-    const { data, error } = await supabase
-      .from("invites")
-      .insert({
-        inviter_id: user.id,
-        invite_type: "client"
-      })
-      .select("invite_code")
-      .single();
+    const { data, error } = await supabase.rpc("create_client_invite");
 
     if (error) {
-      setMessage(`${error.message}. Run supabase/phase-1-auth-profiles.sql in Supabase.`);
+      setMessage(`${error.message}. Run the latest supabase/phase-7-coach-client-links.sql in Supabase.`);
       return;
     }
 
-    const nextUrl = buildInviteUrl(data?.invite_code);
+    const nextUrl = buildInviteUrl(data?.[0]?.invite_code);
     setInviteUrl(nextUrl);
 
     if (navigator.clipboard && nextUrl) {
@@ -172,7 +166,7 @@ export function ClientsScreen({ profile, user }) {
       </div>
 
       {!canManageClients ? (
-        <p className="form-message error">Your database role is "{profile?.role || "unknown"}". This account must be set to coach before it can add clients.</p>
+        <p className="form-message error">Your database role is "{databaseRole}". This account must be set to coach before it can add clients.</p>
       ) : null}
       {message ? <p className={message.includes("Run supabase") || message.includes("Only coaches") || message.includes("must be set to coach") ? "form-message error" : "form-message success"}>{message}</p> : null}
       {inviteUrl ? (

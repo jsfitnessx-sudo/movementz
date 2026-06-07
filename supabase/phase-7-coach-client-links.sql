@@ -52,7 +52,7 @@ begin
     raise exception 'You must be signed in.';
   end if;
 
-  select role into current_role
+  select lower(role) into current_role
   from public.profiles
   where id = auth.uid();
 
@@ -81,6 +81,40 @@ end;
 $$;
 
 grant execute on function public.link_client_to_coach(uuid) to authenticated;
+
+create or replace function public.create_client_invite()
+returns table (
+  invite_code text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_role text;
+  created_invite public.invites;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in.';
+  end if;
+
+  select lower(role) into current_role
+  from public.profiles
+  where id = auth.uid();
+
+  if current_role not in ('coach', 'admin') then
+    raise exception 'Only coaches can create client invite links.';
+  end if;
+
+  insert into public.invites (inviter_id, invite_type)
+  values (auth.uid(), 'client')
+  returning * into created_invite;
+
+  return query select created_invite.invite_code;
+end;
+$$;
+
+grant execute on function public.create_client_invite() to authenticated;
 
 create or replace function public.accept_client_invite(invite_code_input text)
 returns table (
@@ -122,7 +156,7 @@ begin
   into coach_profile
   from public.profiles
   where id = invite_row.inviter_id
-    and role in ('coach', 'admin');
+    and lower(role) in ('coach', 'admin');
 
   if coach_profile.id is null then
     raise exception 'This invite is not attached to an active coach.';
