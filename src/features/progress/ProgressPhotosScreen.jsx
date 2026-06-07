@@ -35,7 +35,7 @@ const measurementFields = [
   ["right_thigh_cm", "Right thigh cm"]
 ];
 const trackerSelect =
-  "id,user_id,goal_name,goal_type,gender,age,height_cm,activity_level,start_weight_kg,goal_weight_kg,deficit_style,maintenance_calories,target_calories,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,duration_weeks,start_date,status,initial_photo_ids,created_at";
+  "id,user_id,goal_name,goal_type,gender,age,height_cm,activity_level,start_weight_kg,goal_weight_kg,deficit_style,maintenance_calories,target_calories,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,duration_weeks,start_date,status,initial_photo_ids,completed_at,archived_at,final_summary,created_at";
 
 function blankTrackerForm(profile) {
   return {
@@ -646,6 +646,88 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     }
   }
 
+  async function completeTracker() {
+    if (!tracker || !supabase || user.id === "demo-user") return;
+    const finalCheckin = checkins.find((row) => row.week_number === tracker.duration_weeks);
+    if (!finalCheckin) {
+      setMessage(`Log week ${tracker.duration_weeks} with final photos before submitting final results.`);
+      return;
+    }
+    if (!window.confirm("Submit final tracker results and finish this tracker?")) return;
+
+    const finalSummary = buildFinalTrackerSummary(tracker, finalCheckin, checkins);
+    setSavingTracker(true);
+    setMessage("");
+    const { error } = await supabase
+      .from("goal_trackers")
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        final_summary: finalSummary
+      })
+      .eq("id", tracker.id)
+      .eq("user_id", user.id);
+    setSavingTracker(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-15-tracker-completion.sql in Supabase.`);
+      return;
+    }
+
+    setTracker(null);
+    setCheckins([]);
+    setProgressView("hub");
+    setMessage("Tracker completed. Final summary saved.");
+  }
+
+  async function archiveTracker() {
+    if (!tracker || !supabase || user.id === "demo-user") return;
+    if (!window.confirm("Archive this tracker? You can start a new tracker after archiving.")) return;
+
+    setSavingTracker(true);
+    setMessage("");
+    const { error } = await supabase
+      .from("goal_trackers")
+      .update({ status: "archived", archived_at: new Date().toISOString() })
+      .eq("id", tracker.id)
+      .eq("user_id", user.id);
+    setSavingTracker(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-15-tracker-completion.sql in Supabase.`);
+      return;
+    }
+
+    setTracker(null);
+    setCheckins([]);
+    setProgressView("hub");
+    setMessage("Tracker archived. You can start a new one when ready.");
+  }
+
+  async function deleteTracker() {
+    if (!tracker || !supabase || user.id === "demo-user") return;
+    if (!window.confirm("Delete this tracker and its weekly check-ins? This cannot be undone.")) return;
+
+    setSavingTracker(true);
+    setMessage("");
+    const { error } = await supabase
+      .from("goal_trackers")
+      .delete()
+      .eq("id", tracker.id)
+      .eq("user_id", user.id);
+    setSavingTracker(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setTracker(null);
+    setCheckins([]);
+    setProgressView("hub");
+    setMessage("Tracker deleted. You can start again.");
+  }
+
   async function uploadPhoto(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -734,6 +816,9 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
         message={message}
         onBack={() => setProgressView("hub")}
         onCancelWeek={() => setEditingWeek(null)}
+        onArchiveTracker={archiveTracker}
+        onCompleteTracker={completeTracker}
+        onDeleteTracker={deleteTracker}
         onOpenPhotos={() => setProgressView("photos")}
         onOpenWeek={openWeekLog}
         onPhotoChange={updateWeekPhotoFile}
@@ -1061,8 +1146,11 @@ function TrackerDashboardScreen({
   goalProgress,
   loading,
   message,
+  onArchiveTracker,
   onBack,
   onCancelWeek,
+  onCompleteTracker,
+  onDeleteTracker,
   onOpenPhotos,
   onOpenWeek,
   onPhotoChange,
@@ -1077,6 +1165,8 @@ function TrackerDashboardScreen({
   const checkinPercent = tracker?.duration_weeks ? Math.round((checkins.length / tracker.duration_weeks) * 100) : 0;
   const activeWeek = weekRows.find((week) => week.weekNumber === editingWeek);
   const measurementChange = latestMeasurementChange(tracker, checkins);
+  const [chartsOpen, setChartsOpen] = useState(false);
+  const finalWeekLogged = weekRows.length > 0 && weekRows.every((week) => Boolean(week.checkin));
 
   return (
     <section className="screen-stack tracker-screen">
@@ -1087,6 +1177,11 @@ function TrackerDashboardScreen({
           <p>{formatTrackerDate(tracker.start_date)} - {tracker.duration_weeks} weeks</p>
         </div>
         <button className="primary-action compact" onClick={onBack} type="button">Hub</button>
+      </div>
+
+      <div className="tracker-action-row">
+        <button className="primary-action compact" disabled={saving} onClick={onArchiveTracker} type="button">Archive</button>
+        <button className="danger-link" disabled={saving} onClick={onDeleteTracker} type="button">Delete</button>
       </div>
 
       {message ? <p className={message.includes("saved") || message.includes("started") ? "form-message success" : "form-message error"}>{message}</p> : null}
@@ -1116,11 +1211,14 @@ function TrackerDashboardScreen({
             <p className="eyebrow">Progress charts</p>
             <span>Open detailed tracker and lift progression graphs.</span>
           </div>
-          <button className="primary-action compact" type="button">Open</button>
+          <button className="primary-action compact" onClick={() => setChartsOpen((open) => !open)} type="button">
+            {chartsOpen ? "Hide" : "Open"}
+          </button>
         </div>
         <div className="tracker-chart-placeholder">
           <span style={{ width: `${Math.max(8, checkinPercent)}%` }} />
         </div>
+        {chartsOpen ? <TrackerCharts tracker={tracker} checkins={checkins} /> : null}
       </section>
 
       <section className="tracker-estimate-card">
@@ -1187,6 +1285,18 @@ function TrackerDashboardScreen({
 
       <button className="primary-action" onClick={onOpenPhotos} type="button">Open Progress Photos</button>
 
+      {finalWeekLogged ? (
+        <section className="tracker-estimate-card tracker-finish-card">
+          <p className="eyebrow">Final submission</p>
+          <p>All weekly check-ins are logged. Submit final results to complete this tracker and save the before/after summary.</p>
+          <button className="primary-action filled" disabled={saving} onClick={onCompleteTracker} type="button">
+            {saving ? "Submitting..." : "Submit Final Results"}
+          </button>
+        </section>
+      ) : (
+        <p className="compact-help centered">Final results unlock after week {tracker.duration_weeks} is logged with photos.</p>
+      )}
+
       <section className="tracker-estimate-card">
         <p className="eyebrow">Weekly measurements</p>
         <div className="tracker-week-list">
@@ -1220,6 +1330,70 @@ function TrackerPhotoInput({ file, hasExisting = false, label, onChange }) {
   );
 }
 
+function TrackerCharts({ checkins, tracker }) {
+  const weightPoints = [
+    { label: "Start", value: tracker.start_weight_kg },
+    ...checkins.map((row) => ({ label: `W${row.week_number}`, value: row.weight_kg }))
+  ].filter((point) => point.value !== null && point.value !== undefined && point.value !== "");
+  const fatPoints = [
+    { label: "Start", value: tracker.fat_kg },
+    ...checkins.map((row) => ({ label: `W${row.week_number}`, value: row.fat_kg }))
+  ].filter((point) => point.value !== null && point.value !== undefined && point.value !== "");
+  const musclePoints = [
+    { label: "Start", value: tracker.muscle_kg },
+    ...checkins.map((row) => ({ label: `W${row.week_number}`, value: row.muscle_kg }))
+  ].filter((point) => point.value !== null && point.value !== undefined && point.value !== "");
+  const waistPoints = [
+    { label: "Start", value: tracker.waist_cm },
+    ...checkins.map((row) => ({ label: `W${row.week_number}`, value: row.waist_cm }))
+  ].filter((point) => point.value !== null && point.value !== undefined && point.value !== "");
+
+  return (
+    <div className="tracker-chart-grid">
+      <MiniLineChart color="teal" label="Weight change" points={weightPoints} suffix="kg" />
+      <MiniLineChart color="gold" label="Fat mass" points={fatPoints} suffix="kg" />
+      <MiniLineChart color="blue" label="Muscle mass" points={musclePoints} suffix="kg" />
+      <MiniLineChart color="teal" label="Waist change" points={waistPoints} suffix="cm" />
+    </div>
+  );
+}
+
+function MiniLineChart({ color, label, points, suffix }) {
+  if (points.length < 2) {
+    return (
+      <article className="mini-line-chart empty">
+        <p className="eyebrow">{label}</p>
+        <span>Log at least one check-in to see this chart.</span>
+      </article>
+    );
+  }
+
+  const values = points.map((point) => Number(point.value));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const path = points
+    .map((point, index) => {
+      const x = points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
+      const y = 86 - ((Number(point.value) - min) / range) * 72;
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <article className={`mini-line-chart ${color}`}>
+      <p className="eyebrow">{label}</p>
+      <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d={path} />
+      </svg>
+      <div className="mini-chart-labels">
+        <span>{points[0].label}: {points[0].value}{suffix}</span>
+        <strong>{points.at(-1).label}: {points.at(-1).value}{suffix}</strong>
+      </div>
+    </article>
+  );
+}
+
 function TrackerStat({ label, tone = "teal", value }) {
   return (
     <div className={`tracker-stat ${tone}`}>
@@ -1243,5 +1417,52 @@ function latestMeasurementChange(tracker, checkins) {
     cm: measurementFields
       .map(([field, label]) => ({ label: label.replace(" cm", ""), value: delta(tracker[field], latest[field], "cm") }))
       .filter((item) => item.value !== "-")
+  };
+}
+
+function buildFinalTrackerSummary(tracker, finalCheckin, checkins) {
+  const delta = (start, end) => {
+    if (start === null || start === undefined || end === null || end === undefined) return null;
+    return Number(end) - Number(start);
+  };
+
+  const measurementSummary = Object.fromEntries(
+    measurementFields.map(([field, label]) => [
+      field,
+      {
+        label,
+        start: tracker[field] ?? null,
+        final: finalCheckin[field] ?? null,
+        change: delta(tracker[field], finalCheckin[field])
+      }
+    ])
+  );
+
+  return {
+    completed_at: new Date().toISOString(),
+    duration_weeks: tracker.duration_weeks,
+    checkins_logged: checkins.length,
+    start: {
+      weight_kg: tracker.start_weight_kg ?? null,
+      body_fat_percent: tracker.body_fat_percent ?? null,
+      fat_kg: tracker.fat_kg ?? null,
+      muscle_kg: tracker.muscle_kg ?? null
+    },
+    final: {
+      week_number: finalCheckin.week_number,
+      weight_kg: finalCheckin.weight_kg ?? null,
+      body_fat_percent: finalCheckin.body_fat_percent ?? null,
+      fat_kg: finalCheckin.fat_kg ?? null,
+      muscle_kg: finalCheckin.muscle_kg ?? null
+    },
+    changes: {
+      weight_kg: delta(tracker.start_weight_kg, finalCheckin.weight_kg),
+      body_fat_percent: delta(tracker.body_fat_percent, finalCheckin.body_fat_percent),
+      fat_kg: delta(tracker.fat_kg, finalCheckin.fat_kg),
+      muscle_kg: delta(tracker.muscle_kg, finalCheckin.muscle_kg)
+    },
+    measurements: measurementSummary,
+    initial_photo_ids: tracker.initial_photo_ids || {},
+    final_photo_ids: finalCheckin.photo_ids || {}
   };
 }
