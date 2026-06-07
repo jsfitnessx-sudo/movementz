@@ -81,7 +81,6 @@ as $$
     jsonb_build_object(
       'id', tp.id,
       'name', tp.name,
-      'status', tp.status,
       'plan_type', tp.plan_type,
       'block_weeks', tp.block_weeks,
       'created_at', tp.created_at,

@@ -7,6 +7,10 @@ alter table public.workout_templates
   add column if not exists status text not null default 'active'
     check (status in ('active', 'archived'));
 
+alter table public.training_plans
+  add column if not exists status text not null default 'active'
+    check (status in ('active', 'paused', 'archived'));
+
 alter table public.workout_templates
   add column if not exists archived_at timestamptz;
 
