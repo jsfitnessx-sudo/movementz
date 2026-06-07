@@ -3608,6 +3608,47 @@ button {
   background: rgba(10, 19, 28, 0.98);
 }
 
+.nav-more-wrap {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
+.nav-more-menu {
+  position: absolute;
+  right: 4px;
+  bottom: calc(100% + 10px);
+  display: grid;
+  gap: 6px;
+  width: min(190px, 58vw);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(13, 23, 32, 0.98);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+}
+
+.nav-more-menu button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  min-height: 40px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 850;
+  text-align: left;
+}
+
+.nav-more-menu button.active {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
 .nav-item {
   display: grid;
   place-items: center;
@@ -3619,6 +3660,7 @@ button {
   font-weight: 900;
   letter-spacing: 1px;
   text-transform: uppercase;
+  min-width: 0;
 }
 
 .nav-item.active {

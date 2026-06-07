@@ -3,6 +3,8 @@ import { supabase } from "../../lib/supabase/client.js";
 
 const poses = ["front", "side", "back"];
 const bucketName = "progress-photos";
+const maxImageBytes = 850 * 1024;
+const maxThumbBytes = 180 * 1024;
 
 function labelPose(pose) {
   return pose.slice(0, 1).toUpperCase() + pose.slice(1);
@@ -24,25 +26,41 @@ async function canvasToBlob(canvas, type, quality) {
   });
 }
 
-async function compressImage(file, maxWidth, quality) {
+async function compressImage(file, maxWidth, quality, maxBytes) {
   const imageUrl = URL.createObjectURL(file);
   const image = new Image();
   image.src = imageUrl;
   await image.decode();
 
-  const scale = Math.min(1, maxWidth / image.width);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(image.width * scale));
-  canvas.height = Math.max(1, Math.round(image.height * scale));
+  let nextWidth = maxWidth;
+  let nextQuality = quality;
+  let result = null;
 
-  const context = canvas.getContext("2d");
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const scale = Math.min(1, nextWidth / image.width);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    result = await canvasToBlob(canvas, "image/webp", nextQuality);
+    if (!result) result = await canvasToBlob(canvas, "image/jpeg", nextQuality);
+    if (result && result.size <= maxBytes) break;
+
+    nextWidth = Math.max(520, Math.round(nextWidth * 0.82));
+    nextQuality = Math.max(0.42, nextQuality - 0.08);
+  }
+
   URL.revokeObjectURL(imageUrl);
 
-  const webpBlob = await canvasToBlob(canvas, "image/webp", quality);
-  if (webpBlob) return webpBlob;
+  if (!result) throw new Error("Could not compress this photo.");
+  if (result.size > maxBytes) {
+    throw new Error("Photo is still too large after compression. Try a smaller image.");
+  }
 
-  return canvasToBlob(canvas, "image/jpeg", quality);
+  return result;
 }
 
 export function ProgressPhotosScreen({ role = "normal_user", user }) {
@@ -167,8 +185,8 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
 
     try {
       const [imageBlob, thumbnailBlob] = await Promise.all([
-        compressImage(file, 1200, 0.72),
-        compressImage(file, 420, 0.65)
+        compressImage(file, 1100, 0.68, maxImageBytes),
+        compressImage(file, 420, 0.62, maxThumbBytes)
       ]);
 
       const stamp = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
