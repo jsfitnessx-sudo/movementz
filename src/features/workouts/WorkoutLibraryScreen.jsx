@@ -549,14 +549,15 @@ export function WorkoutLibraryScreen({
     setLoading(true);
     const { data, error } = await supabase
       .from("workout_templates")
-      .select("id,name,notes,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_station_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
+      .select("id,name,notes,status,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_station_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
       .eq("owner_id", user.id)
+      .eq("status", "active")
       .order("created_at", { ascending: false })
       .order("position", { referencedTable: "workout_template_exercises", ascending: true })
       .limit(25);
 
     if (error) {
-      setMessage("Could not load workouts yet. Run the Phase 2 SQL in Supabase first.");
+      setMessage("Could not load workouts yet. Run supabase/phase-10-archive-lifecycle.sql in Supabase first.");
       setWorkouts([]);
     } else {
       setWorkouts(data || []);
@@ -1789,6 +1790,29 @@ export function WorkoutLibraryScreen({
     } else {
       await loadWorkouts();
     }
+  }
+
+  async function archiveWorkout(workoutId) {
+    setOpenWorkoutMenu(null);
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      setWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
+      return;
+    }
+
+    const { error } = await supabase
+      .from("workout_templates")
+      .update({ status: "archived", archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("owner_id", user.id)
+      .eq("id", workoutId);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-10-archive-lifecycle.sql in Supabase first.`);
+      return;
+    }
+
+    setWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
   }
 
   function openAssignWorkout(workout) {
@@ -4624,6 +4648,12 @@ export function WorkoutLibraryScreen({
                               type="button"
                             >
                               {isExpanded ? "Hide details" : "Details"}
+                            </button>
+                            <button
+                              onClick={() => archiveWorkout(workout.id)}
+                              type="button"
+                            >
+                              Archive
                             </button>
                             <button
                               className="danger-text"

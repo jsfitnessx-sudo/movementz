@@ -65,8 +65,9 @@ export function PlansScreen({ role = "normal_user", user }) {
 
     const { data, error } = await supabase
       .from("training_plans")
-      .select("id,name,plan_type,block_weeks,created_at,training_plan_workouts(id),training_plan_assignments(id)")
+      .select("id,name,status,plan_type,block_weeks,created_at,training_plan_workouts(id),training_plan_assignments(id)")
       .eq("owner_id", user.id)
+      .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(30);
 
@@ -88,8 +89,9 @@ export function PlansScreen({ role = "normal_user", user }) {
 
     const { data, error } = await supabase
       .from("workout_templates")
-      .select("id,name,workout_type,hiit_timer_type,hiit_rounds,created_at,workout_template_exercises(id)")
+      .select("id,name,status,workout_type,hiit_timer_type,hiit_rounds,created_at,workout_template_exercises(id)")
       .eq("owner_id", user.id)
+      .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(80);
 
@@ -294,6 +296,29 @@ export function PlansScreen({ role = "normal_user", user }) {
     }
 
     const { error } = await supabase.from("training_plans").delete().eq("owner_id", user.id).eq("id", planId);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setPlans((current) => current.filter((plan) => plan.id !== planId));
+  }
+
+  async function archivePlan(planId) {
+    setOpenPlanMenu(null);
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      setPlans((current) => current.filter((plan) => plan.id !== planId));
+      return;
+    }
+
+    const { error } = await supabase
+      .from("training_plans")
+      .update({ status: "archived", archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("owner_id", user.id)
+      .eq("id", planId);
+
     if (error) {
       setMessage(error.message);
       return;
@@ -995,6 +1020,9 @@ export function PlansScreen({ role = "normal_user", user }) {
                       </button>
                       <button onClick={() => openPlanDetails(plan)} type="button">
                         Details
+                      </button>
+                      <button onClick={() => archivePlan(plan.id)} type="button">
+                        Archive
                       </button>
                       <button className="danger-text" onClick={() => deletePlan(plan.id)} type="button">
                         Delete
