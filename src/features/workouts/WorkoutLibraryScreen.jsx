@@ -413,9 +413,10 @@ function createEmptyForm() {
   };
 }
 
-export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", onClose, onWorkoutSaved, user }) {
+export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", onClose, onWorkoutSaved, role = "normal_user", user }) {
   const [workouts, setWorkouts] = useState([]);
   const [recentSessions, setRecentSessions] = useState([]);
+  const [coachClients, setCoachClients] = useState([]);
   const [mode, setMode] = useState(initialMode);
   const [editingId, setEditingId] = useState(null);
   const [setup, setSetup] = useState(createDefaultSetup);
@@ -443,6 +444,8 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState("All");
   const [expandedWorkoutIds, setExpandedWorkoutIds] = useState(new Set());
   const [openWorkoutMenu, setOpenWorkoutMenu] = useState(null);
+  const [assignWorkout, setAssignWorkout] = useState(null);
+  const [assignClientIds, setAssignClientIds] = useState([]);
   const [openBuilderExerciseMenu, setOpenBuilderExerciseMenu] = useState(null);
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -557,6 +560,34 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
 
     setRecentSessions(data || []);
   }, [user.id]);
+
+  const loadCoachClients = useCallback(async () => {
+    if (role !== "coach" || !supabase || user.id === "demo-user") {
+      setCoachClients([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("coach_clients")
+      .select("client_id,profiles!coach_clients_client_id_fkey(id,full_name,email)")
+      .eq("coach_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(80);
+
+    if (error) {
+      setCoachClients([]);
+      return;
+    }
+
+    setCoachClients(
+      (data || []).map((link) => ({
+        id: link.client_id,
+        name: link.profiles?.full_name || link.profiles?.email || "Client",
+        email: link.profiles?.email || ""
+      }))
+    );
+  }, [role, user.id]);
 
   const loadCustomExerciseOptions = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
@@ -758,11 +789,12 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
       await loadWorkouts();
       await loadRecentSessions();
       await loadCustomExerciseOptions();
+      await loadCoachClients();
     });
     return () => {
       void load;
     };
-  }, [loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
+  }, [loadCoachClients, loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
 
   useEffect(() => {
     if (!supabase || user.id === "demo-user" || mode !== "editor") return undefined;
@@ -1684,6 +1716,54 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     } else {
       await loadWorkouts();
     }
+  }
+
+  function openAssignWorkout(workout) {
+    setOpenWorkoutMenu(null);
+    setAssignWorkout(workout);
+    setAssignClientIds([]);
+    setMessage("");
+  }
+
+  function toggleAssignClient(clientId) {
+    setAssignClientIds((current) =>
+      current.includes(clientId)
+        ? current.filter((id) => id !== clientId)
+        : [...current, clientId]
+    );
+  }
+
+  async function saveWorkoutAssignments() {
+    if (!assignWorkout) return;
+
+    if (!assignClientIds.length) {
+      setMessage("Choose at least one client to assign this workout.");
+      return;
+    }
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Connect Supabase to assign workouts.");
+      return;
+    }
+
+    const { error } = await supabase.from("coach_workout_assignments").upsert(
+      assignClientIds.map((clientId) => ({
+        coach_id: user.id,
+        client_id: clientId,
+        workout_template_id: assignWorkout.id,
+        status: "active"
+      })),
+      { onConflict: "coach_id,client_id,workout_template_id" }
+    );
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-8-workout-assignments.sql in Supabase.`);
+      return;
+    }
+
+    setMessage(`Assigned ${assignWorkout.name} to ${assignClientIds.length} client${assignClientIds.length === 1 ? "" : "s"}.`);
+    setAssignWorkout(null);
+    setAssignClientIds([]);
   }
 
   async function toggleWorkoutDetails(workout) {
@@ -4114,6 +4194,40 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
       </div>
 
       {message ? <p className="form-message error">{message}</p> : null}
+      {assignWorkout ? (
+        <div className="panel assignment-panel">
+          <div className="section-row">
+            <div>
+              <p className="eyebrow">Assign workout</p>
+              <h2>{assignWorkout.name}</h2>
+              <p>Choose linked clients who should receive this workout.</p>
+            </div>
+            <button className="primary-action compact" onClick={() => setAssignWorkout(null)} type="button">
+              Close
+            </button>
+          </div>
+          {coachClients.length ? (
+            <div className="assignment-client-list">
+              {coachClients.map((client) => (
+                <button
+                  className={assignClientIds.includes(client.id) ? "client-assignment active" : "client-assignment"}
+                  key={client.id}
+                  onClick={() => toggleAssignClient(client.id)}
+                  type="button"
+                >
+                  <span>{client.name}</span>
+                  <strong>{assignClientIds.includes(client.id) ? "Added" : "Add"}</strong>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="compact-help">Link clients first from the Clients tab.</p>
+          )}
+          <button className="primary-action filled" disabled={!coachClients.length} onClick={saveWorkoutAssignments} type="button">
+            Assign Workout
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="panel">
@@ -4229,6 +4343,14 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
                         </button>
                         {openWorkoutMenu === workout.id ? (
                           <div className="session-menu workout-action-menu">
+                            {role === "coach" ? (
+                              <button
+                                onClick={() => openAssignWorkout(workout)}
+                                type="button"
+                              >
+                                Assign
+                              </button>
+                            ) : null}
                             <button
                               onClick={() => {
                                 setOpenWorkoutMenu(null);

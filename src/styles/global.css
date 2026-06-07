@@ -2720,6 +2720,40 @@ button {
   white-space: nowrap;
 }
 
+.assignment-panel,
+.assignment-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.assignment-client-list,
+.assignment-card-list {
+  display: grid;
+  gap: 8px;
+}
+
+.assignment-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.assignment-card h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.assignment-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .status-pill.active {
   background: color-mix(in srgb, var(--gold) 12%, transparent);
   border-color: var(--gold);

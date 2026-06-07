@@ -7,6 +7,7 @@ import { HomeScreen } from "../features/home/HomeScreen.jsx";
 import { PlansScreen } from "../features/plans/PlansScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
 import { PlaceholderScreen } from "../features/shared/PlaceholderScreen.jsx";
+import { TodayScreen } from "../features/today/TodayScreen.jsx";
 import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.jsx";
 import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
@@ -256,6 +257,8 @@ export function App() {
       {appMessage ? <p className="form-message success">{appMessage}</p> : null}
       {activeTab === "home" ? (
         <HomeScreen onNavigate={setActiveTab} role={role} user={user} />
+      ) : activeTab === "today" ? (
+        <TodayScreen role={role} user={user} />
       ) : activeTab === "profile" ? (
         <ProfileScreen
           onProfileSaved={handleProfileSaved}
@@ -264,7 +267,7 @@ export function App() {
           user={user}
         />
       ) : activeTab === "workouts" ? (
-        <WorkoutLibraryScreen user={user} />
+        <WorkoutLibraryScreen role={role} user={user} />
       ) : activeTab === "plans" ? (
         <PlansScreen user={user} />
       ) : activeTab === "clients" && role === "coach" ? (
