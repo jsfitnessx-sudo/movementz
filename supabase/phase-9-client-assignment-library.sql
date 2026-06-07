@@ -99,7 +99,25 @@ as $$
         'workout_type', tpw.workout_type,
         'source_type', tpw.source_type,
         'summary', tpw.summary,
-        'scheduled_days', tpw.scheduled_days
+        'scheduled_days', tpw.scheduled_days,
+        'exercises', coalesce((
+          select jsonb_agg(
+            jsonb_build_object(
+              'id', wte.id,
+              'position', wte.position,
+              'exercise_name', wte.exercise_name,
+              'muscle_group', wte.muscle_group,
+              'sets', wte.sets,
+              'rep_min', wte.rep_min,
+              'rep_max', wte.rep_max,
+              'target_type', wte.target_type,
+              'target_value', wte.target_value
+            )
+            order by wte.position
+          )
+          from public.workout_template_exercises wte
+          where wte.template_id = tpw.workout_template_id
+        ), '[]'::jsonb)
       )
       order by tpw.position
     ) as items

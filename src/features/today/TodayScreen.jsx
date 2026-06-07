@@ -33,6 +33,14 @@ function formatPlanWindow(plan, assignedAt) {
   return status === "active" ? `Week block - ${daysLeft} days left` : "Archived";
 }
 
+function formatTodayDate() {
+  return new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
+}
+
 function normalisePlan(assignment, source) {
   const plan = source === "assigned" ? assignment.plan || {} : assignment;
   const window = getPlanWindow(plan, assignment.assigned_at);
@@ -67,11 +75,6 @@ export function TodayScreen({ role, user }) {
 
   const activePlans = useMemo(
     () => schedulePlans.filter((entry) => entry.window.status === "active" && entry.plan.status !== "archived"),
-    [schedulePlans]
-  );
-
-  const archivedPlans = useMemo(
-    () => schedulePlans.filter((entry) => entry.window.status === "archived" || entry.plan.status === "archived"),
     [schedulePlans]
   );
 
@@ -200,85 +203,54 @@ export function TodayScreen({ role, user }) {
 
   return (
     <section className="screen-stack today-screen">
-      <div className="screen-heading">
-        <p className="eyebrow">Today</p>
-        <h1>Training schedule</h1>
-        <p>Own plans and coach plans appear by scheduled day while the block is active.</p>
+      <div className="screen-heading today-heading">
+        <h1>Training <span>Schedule</span></h1>
+        <p>{formatTodayDate()}</p>
       </div>
 
       {message ? <p className="form-message error">{message}</p> : null}
       {loading ? <p className="form-message success">Loading schedule...</p> : null}
 
-      {role === "client" ? (
-        <div className="panel assignment-section coach-status-panel compact-panel">
-          <div className="section-row">
-            <h2>Your coach</h2>
-            <span className={coachLinks[0]?.status === "active" ? "status-pill active" : "status-pill"}>
-              {coachLinks[0]?.status || "Not connected"}
-            </span>
-          </div>
-          {coachLinks.length ? (
-            <div className="assignment-card-list">
-              {coachLinks.map((coach) => (
-                <article className="assignment-card compact-card" key={coach.coach_id}>
-                  <div>
-                    <p className="eyebrow">Coach</p>
-                    <h3>{coach.coach_name}</h3>
-                    <span>{coach.coach_email}</span>
-                  </div>
-                  <span className="status-pill active">Confirmed</span>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="compact-help">No coach connected yet.</p>
-          )}
-        </div>
+      <div className="schedule-day-tabs prototype-day-tabs" role="tablist" aria-label="Training days">
+        {weekdays.map((day) => (
+          <button
+            className={selectedDay === day ? "active" : ""}
+            key={day}
+            onClick={() => setSelectedDay(day)}
+            type="button"
+          >
+            {day}
+          </button>
+        ))}
+      </div>
+
+      {role === "client" && coachLinks.length ? (
+        <p className="compact-help today-coach-line">Coach: {coachLinks[0].coach_name}</p>
       ) : null}
 
-      <div className="panel assignment-section training-schedule-panel">
-        <div className="section-row">
-          <div>
-            <h2>Schedule</h2>
-            <p className="compact-help">
-              {activePlans.length} active plan{activePlans.length === 1 ? "" : "s"}
-              {archivedPlans.length ? ` - ${archivedPlans.length} archived` : ""}
-            </p>
-          </div>
-          <span className="status-pill">{scheduledWorkouts.length}</span>
-        </div>
-        <div className="schedule-day-tabs" role="tablist" aria-label="Training days">
-          {weekdays.map((day) => (
-            <button
-              className={selectedDay === day ? "active" : ""}
-              key={day}
-              onClick={() => setSelectedDay(day)}
-              type="button"
-            >
-              {day}
-            </button>
-          ))}
-        </div>
+      <div className="training-schedule-panel prototype-schedule-list">
         {scheduledWorkouts.length ? (
           <div className="assignment-card-list">
             {scheduledWorkouts.map((workout) => (
-              <article className="assignment-card schedule-workout-card" key={`${workout.sourceKey}-${workout.id}`}>
-                <div>
-                  <p className="eyebrow">{workout.planSource === "assigned" ? "Coach plan" : "My plan"}</p>
+              <article className="schedule-session-card" key={`${workout.sourceKey}-${workout.id}`}>
+                <p className="schedule-plan-name">{workout.planName}</p>
+                <div className="schedule-select-look">
+                  {workout.planSource === "assigned" ? "Coach plan" : "My plan"} - {workout.planLabel}
+                </div>
+                <div className="schedule-session-main">
                   <h3>{workout.name}</h3>
                   <span>
-                    {workout.planName} - {workout.summary || workout.workout_type || "Scheduled workout"}
+                    {workout.summary || workout.workout_type || "Scheduled workout"}
                   </span>
-                  <em>{workout.planLabel}</em>
                 </div>
-                <button className="primary-action compact filled" onClick={() => startScheduledWorkout(workout)} type="button">
-                  Start
+                <button className="primary-action filled schedule-start" onClick={() => startScheduledWorkout(workout)} type="button">
+                  ▶ Start Session
                 </button>
               </article>
             ))}
           </div>
         ) : (
-          <div className="panel empty-state compact-empty">
+          <div className="panel empty-state compact-empty schedule-session-card">
             <p>No scheduled workouts for {selectedDay}.</p>
           </div>
         )}

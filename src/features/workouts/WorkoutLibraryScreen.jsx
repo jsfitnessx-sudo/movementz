@@ -4584,19 +4584,18 @@ export function WorkoutLibraryScreen({
 
                     {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
 
-                    {isExpanded ? (
-                      hasExerciseDetails ? (
-                        <div className="workout-exercise-summary">
-                          {exercises.map((exercise) => (
-                            <div key={exercise.id || `${workout.id}-${exercise.position}`}>
-                              <strong>{exercise.exercise_name}</strong>
-                              <span>{formatExerciseTarget(exercise, workout.workout_type)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="compact-help">Loading details...</p>
-                      )
+                    {hasExerciseDetails ? (
+                      <div className="workout-exercise-summary prototype-exercise-preview">
+                        {(isExpanded ? exercises : exercises.slice(0, 4)).map((exercise) => (
+                          <div key={exercise.id || `${workout.id}-${exercise.position}`}>
+                            <strong>{exercise.exercise_name}</strong>
+                            <span>{formatExerciseTarget(exercise, workout.workout_type)}</span>
+                          </div>
+                        ))}
+                        {!isExpanded && exercises.length > 4 ? (
+                          <p className="compact-help">+ {exercises.length - 4} more exercises</p>
+                        ) : null}
+                      </div>
                     ) : null}
 
                     <div className="library-actions">

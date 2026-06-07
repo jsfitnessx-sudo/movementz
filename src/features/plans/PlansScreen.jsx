@@ -32,10 +32,21 @@ function formatPlanType(plan) {
   return `${plan.block_weeks || 4} week block`;
 }
 
+function formatPlanExerciseTarget(exercise, workoutType = "strength") {
+  if (workoutType === "hiit") {
+    const targetValue = exercise.target_value || exercise.rep_min || 0;
+    const targetType = exercise.target_type || "reps";
+    return `${targetValue} ${targetType}`;
+  }
+
+  return `${exercise.sets || 0} sets${exercise.rep_min || exercise.rep_max ? ` x ${exercise.rep_min || "?"}-${exercise.rep_max || "?"} reps` : ""}`;
+}
+
 export function PlansScreen({ role = "normal_user", user }) {
   const [plans, setPlans] = useState([]);
   const [assignedPlans, setAssignedPlans] = useState([]);
   const [planLibraryView, setPlanLibraryView] = useState("library");
+  const [expandedAssignedPlanIds, setExpandedAssignedPlanIds] = useState(new Set());
   const [workoutLibrary, setWorkoutLibrary] = useState([]);
   const [clients, setClients] = useState([]);
   const [builder, setBuilder] = useState(createBuilder);
@@ -404,6 +415,15 @@ export function PlansScreen({ role = "normal_user", user }) {
       if (ids.has(clientId)) ids.delete(clientId);
       else ids.add(clientId);
       return { ...current, selectedClientIds: Array.from(ids) };
+    });
+  }
+
+  function toggleAssignedPlan(planId) {
+    setExpandedAssignedPlanIds((current) => {
+      const next = new Set(current);
+      if (next.has(planId)) next.delete(planId);
+      else next.add(planId);
+      return next;
     });
   }
 
@@ -938,41 +958,57 @@ export function PlansScreen({ role = "normal_user", user }) {
             {assignedPlans.map((assignment) => {
               const plan = assignment.plan || {};
               const workouts = plan.training_plan_workouts || [];
+              const isOpen = expandedAssignedPlanIds.has(assignment.assignment_id);
               const assignedDate = assignment.assigned_at
                 ? new Date(assignment.assigned_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })
                 : "";
 
               return (
-                <article className="workout-card plan-card assigned-library-card" key={assignment.assignment_id}>
-                  <div className="workout-card-head">
-                    <div>
-                      <p className="eyebrow">Coach assigned</p>
-                      <h2>{plan.name || "Assigned plan"}</h2>
-                      <p>{formatPlanType(plan)}</p>
-                    </div>
-                    <span className="status-pill active">Active</span>
+                <article className="workout-card plan-card assigned-library-card prototype-plan-card" key={assignment.assignment_id}>
+                  <div className="coach-assigned-banner">
+                    <strong>Coach Assigned</strong>
+                    <span>Complete sessions from here.</span>
                   </div>
-                  <div className="workout-card-meta">
-                    <span>{workouts.length} workouts</span>
-                    <span>{assignedDate ? `Assigned ${assignedDate}` : "Assigned"}</span>
+                  <div className="prototype-plan-summary">
+                    <h2>{plan.name || "Assigned plan"}</h2>
+                    <p>{formatPlanType(plan)}{assignedDate ? ` - assigned ${assignedDate}` : ""}</p>
+                    <div className="workout-card-meta">
+                      <span>{workouts.length} workouts</span>
+                      <span>Active</span>
+                    </div>
+                    <button className="primary-action compact" onClick={() => toggleAssignedPlan(assignment.assignment_id)} type="button">
+                      {isOpen ? "Hide" : "Open"}
+                    </button>
                   </div>
                   {plan.instructions ? <p className="workout-notes">{plan.instructions}</p> : null}
-                  {workouts.length ? (
-                    <div className="workout-exercise-summary">
+                  {isOpen && workouts.length ? (
+                    <div className="assigned-plan-workout-list">
                       {workouts.map((workout) => (
-                        <div className="assigned-plan-workout-row" key={workout.id || `${assignment.assignment_id}-${workout.position}`}>
-                          <span>
-                            <strong>{workout.name}</strong>
-                            <em>{workout.summary || workout.workout_type || "Workout"}</em>
-                          </span>
-                          <button
-                            className="primary-action compact filled"
-                            onClick={() => startPlanWorkout(workout, { assigned: true, planId: plan.id })}
-                            type="button"
-                          >
-                            Start
-                          </button>
-                        </div>
+                        <section className="assigned-plan-workout-block" key={workout.id || `${assignment.assignment_id}-${workout.position}`}>
+                          <div className="assigned-plan-workout-head">
+                            <div>
+                              <strong>{workout.name}</strong>
+                              <em>{workout.scheduled_days?.length ? workout.scheduled_days.join(", ") : workout.summary || workout.workout_type || "Workout"}</em>
+                            </div>
+                            <button
+                              className="primary-action compact filled"
+                              onClick={() => startPlanWorkout(workout, { assigned: true, planId: plan.id })}
+                              type="button"
+                            >
+                              ▶ Start
+                            </button>
+                          </div>
+                          {workout.exercises?.length ? (
+                            <div className="assigned-exercise-list">
+                              {workout.exercises.map((exercise) => (
+                                <div key={exercise.id || `${workout.id}-${exercise.position}`}>
+                                  <span>{exercise.exercise_name}</span>
+                                  <em>{formatPlanExerciseTarget(exercise, workout.workout_type)}</em>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </section>
                       ))}
                     </div>
                   ) : null}
@@ -1035,6 +1071,9 @@ export function PlansScreen({ role = "normal_user", user }) {
                 <span>{plan.training_plan_workouts?.length || 0} workouts</span>
                 <span>{plan.training_plan_assignments?.length || 0} clients</span>
               </div>
+              <button className="primary-action compact" onClick={() => openPlanDetails(plan)} type="button">
+                Open
+              </button>
             </article>
           ))}
         </div>

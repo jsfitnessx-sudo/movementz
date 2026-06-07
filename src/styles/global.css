@@ -2629,6 +2629,169 @@ button {
   white-space: nowrap;
 }
 
+.today-heading {
+  justify-items: center;
+  text-align: center;
+}
+
+.today-heading h1 span {
+  color: var(--teal);
+}
+
+.prototype-day-tabs {
+  display: flex;
+  overflow-x: auto;
+  border: 0;
+  background: transparent;
+  padding: 0 2px 2px;
+}
+
+.prototype-day-tabs button {
+  min-width: 72px;
+  border-color: color-mix(in srgb, var(--teal) 38%, var(--line));
+  border-radius: 999px;
+}
+
+.prototype-schedule-list {
+  display: grid;
+  gap: 12px;
+}
+
+.today-coach-line {
+  text-align: center;
+}
+
+.schedule-session-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--teal) 34%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 82%, #071017);
+  text-align: center;
+}
+
+.schedule-plan-name {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.schedule-select-look {
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--muted) 38%, var(--line));
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 9px 12px;
+  text-align: left;
+}
+
+.schedule-session-main {
+  display: grid;
+  gap: 6px;
+}
+
+.schedule-session-main h3 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.schedule-session-main span {
+  color: var(--muted);
+}
+
+.schedule-start {
+  min-height: 46px;
+  font-size: 17px;
+}
+
+.coach-assigned-banner {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--gold) 8%, transparent);
+  text-align: center;
+}
+
+.coach-assigned-banner strong {
+  color: var(--gold);
+}
+
+.coach-assigned-banner span {
+  color: var(--muted);
+}
+
+.prototype-plan-summary {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.prototype-plan-summary h2 {
+  margin: 0;
+}
+
+.assigned-plan-workout-list,
+.assigned-exercise-list {
+  display: grid;
+  gap: 10px;
+}
+
+.assigned-plan-workout-block {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.assigned-plan-workout-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.assigned-plan-workout-head div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.assigned-plan-workout-head em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.assigned-exercise-list {
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--muted) 24%, transparent);
+}
+
+.assigned-exercise-list div,
+.prototype-exercise-preview div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.assigned-exercise-list span,
+.prototype-exercise-preview strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assigned-exercise-list em,
+.prototype-exercise-preview span {
+  color: var(--muted);
+  font-style: normal;
+}
+
 .plan-workout-card em {
   color: var(--gold);
   font-size: 12px;
