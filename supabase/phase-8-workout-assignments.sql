@@ -17,36 +17,13 @@ create table if not exists public.coach_workout_assignments (
 alter table public.coach_workout_assignments enable row level security;
 
 drop policy if exists "Coaches manage linked workout assignments" on public.coach_workout_assignments;
-create policy "Coaches manage linked workout assignments"
+drop policy if exists "Coaches manage own workout assignments" on public.coach_workout_assignments;
+create policy "Coaches manage own workout assignments"
 on public.coach_workout_assignments
 for all
 to authenticated
-using (
-  coach_id = auth.uid()
-  and exists (
-    select 1
-    from public.coach_clients cc
-    where cc.coach_id = auth.uid()
-      and cc.client_id = coach_workout_assignments.client_id
-      and cc.status = 'active'
-  )
-)
-with check (
-  coach_id = auth.uid()
-  and exists (
-    select 1
-    from public.coach_clients cc
-    where cc.coach_id = auth.uid()
-      and cc.client_id = coach_workout_assignments.client_id
-      and cc.status = 'active'
-  )
-  and exists (
-    select 1
-    from public.workout_templates wt
-    where wt.id = coach_workout_assignments.workout_template_id
-      and wt.owner_id = auth.uid()
-  )
-);
+using (coach_id = auth.uid())
+with check (coach_id = auth.uid());
 
 drop policy if exists "Clients view own workout assignments" on public.coach_workout_assignments;
 create policy "Clients view own workout assignments"
