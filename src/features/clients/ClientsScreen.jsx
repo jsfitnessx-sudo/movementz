@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 const progressPhotoBucket = "progress-photos";
+const clientTrackerSelect = "id,goal_name,goal_type,start_weight_kg,goal_weight_kg,maintenance_calories,target_calories,duration_weeks,start_date,status";
 
 function clientName(client) {
   return client?.client_name || client?.full_name || client?.email || "Client";
@@ -22,6 +23,8 @@ export function ClientsScreen({ profile, user }) {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [clientPhotos, setClientPhotos] = useState([]);
   const [clientPhotoCount, setClientPhotoCount] = useState(0);
+  const [clientTracker, setClientTracker] = useState(null);
+  const [clientCheckinCount, setClientCheckinCount] = useState(0);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [inviteUrl, setInviteUrl] = useState("");
@@ -105,6 +108,39 @@ export function ClientsScreen({ profile, user }) {
     setLoadingPhotos(false);
   }, [selectedClient?.client_id, user.id]);
 
+  const loadClientTracker = useCallback(async () => {
+    const clientId = selectedClient?.client_id;
+    if (!clientId || !supabase || user.id === "demo-user") {
+      setClientTracker(null);
+      setClientCheckinCount(0);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("goal_trackers")
+      .select(clientTrackerSelect)
+      .eq("user_id", clientId)
+      .eq("status", "active")
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      setClientTracker(null);
+      setClientCheckinCount(0);
+      return;
+    }
+
+    setClientTracker(data);
+
+    const { count } = await supabase
+      .from("goal_tracker_checkins")
+      .select("id", { count: "exact", head: true })
+      .eq("tracker_id", data.id);
+
+    setClientCheckinCount(count || 0);
+  }, [selectedClient?.client_id, user.id]);
+
   useEffect(() => {
     let alive = true;
 
@@ -128,6 +164,18 @@ export function ClientsScreen({ profile, user }) {
       alive = false;
     };
   }, [loadClientPhotos]);
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.resolve().then(() => {
+      if (alive) loadClientTracker();
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [loadClientTracker]);
 
   async function searchUsers(event) {
     event.preventDefault();
@@ -317,7 +365,7 @@ export function ClientsScreen({ profile, user }) {
             </div>
             <div>
               <span>Check-ins</span>
-              <strong>0</strong>
+              <strong>{clientCheckinCount}</strong>
             </div>
             <div>
               <span>Photos</span>
@@ -355,10 +403,19 @@ export function ClientsScreen({ profile, user }) {
             <div className="client-section-title">
               <div>
                 <p className="eyebrow">Tracker</p>
-                <span>Weekly measurements and check-in data will appear here once tracker periods are built.</span>
+                <span>Weekly measurements and check-in data from this client.</span>
               </div>
             </div>
-            <p className="compact-help">No active tracker yet.</p>
+            {clientTracker ? (
+              <div className="client-tracker-summary">
+                <strong>{clientTracker.goal_name}</strong>
+                <span>{clientTracker.duration_weeks} weeks - {clientCheckinCount} check-ins logged</span>
+                <span>Start {clientTracker.start_weight_kg || "-"}kg - Goal {clientTracker.goal_weight_kg || "-"}kg</span>
+                <span>Maintenance {clientTracker.maintenance_calories || "-"} cal - Target {clientTracker.target_calories || "-"} cal</span>
+              </div>
+            ) : (
+              <p className="compact-help">No active tracker yet.</p>
+            )}
           </section>
         </section>
       ) : null}

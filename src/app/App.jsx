@@ -341,7 +341,7 @@ export function App() {
       ) : activeTab === "messages" && (role === "coach" || role === "client") ? (
         <MessagesScreen role={role} user={user} />
       ) : activeTab === "progress" ? (
-        <ProgressPhotosScreen role={role} user={user} />
+        <ProgressPhotosScreen profile={profile} role={role} user={user} />
       ) : activeTab === "requests" && role === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : (

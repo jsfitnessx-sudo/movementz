@@ -5,6 +5,112 @@ const poses = ["front", "side", "back"];
 const bucketName = "progress-photos";
 const maxImageBytes = 900 * 1024;
 const maxThumbBytes = 90 * 1024;
+const goalTypes = [
+  { value: "lose_weight", label: "Lose weight", detail: "Target fat loss and scale weight drop" },
+  { value: "gain_muscle", label: "Gain muscle", detail: "Build size with a calorie surplus" },
+  { value: "recomp", label: "Recomp", detail: "Lose fat while gaining or keeping muscle" },
+  { value: "get_fit", label: "Get fit", detail: "Improve consistency, fitness and body composition" }
+];
+const activityLevels = [
+  { value: "sedentary", label: "Sedentary", multiplier: 1.2 },
+  { value: "light", label: "Light activity", multiplier: 1.375 },
+  { value: "moderate", label: "Moderately active", multiplier: 1.55 },
+  { value: "very", label: "Very active", multiplier: 1.725 },
+  { value: "athlete", label: "Athlete", multiplier: 1.9 }
+];
+const deficitStyles = [
+  { value: "conservative", label: "Conservative", calories: 250 },
+  { value: "moderate", label: "Moderate", calories: 500 },
+  { value: "aggressive", label: "Aggressive", calories: 750 }
+];
+const trackerDurations = [4, 6, 8, 10, 12];
+const measurementFields = [
+  ["neck_cm", "Neck cm"],
+  ["chest_cm", "Chest cm"],
+  ["waist_cm", "Waist cm"],
+  ["hips_cm", "Hips cm"],
+  ["left_bicep_cm", "Left bicep cm"],
+  ["right_bicep_cm", "Right bicep cm"],
+  ["left_thigh_cm", "Left thigh cm"],
+  ["right_thigh_cm", "Right thigh cm"]
+];
+const trackerSelect =
+  "id,user_id,goal_name,goal_type,gender,age,height_cm,activity_level,start_weight_kg,goal_weight_kg,deficit_style,maintenance_calories,target_calories,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,duration_weeks,start_date,status,created_at";
+
+function blankTrackerForm(profile) {
+  return {
+    goal_name: "Body Transformation",
+    goal_type: "lose_weight",
+    gender: profile?.gender || "",
+    age: profile?.age ?? "",
+    height_cm: "",
+    activity_level: "moderate",
+    start_weight_kg: "",
+    goal_weight_kg: "",
+    deficit_style: "moderate",
+    body_fat_percent: "",
+    fat_kg: "",
+    muscle_kg: "",
+    neck_cm: "",
+    chest_cm: "",
+    waist_cm: "",
+    hips_cm: "",
+    left_bicep_cm: "",
+    right_bicep_cm: "",
+    left_thigh_cm: "",
+    right_thigh_cm: "",
+    duration_weeks: 8,
+    start_date: new Date().toISOString().slice(0, 10)
+  };
+}
+
+function numericOrNull(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function calculateCalories(form) {
+  const weight = numericOrNull(form.start_weight_kg);
+  const height = numericOrNull(form.height_cm);
+  const age = numericOrNull(form.age);
+  const gender = form.gender;
+  if (!weight || !height || !age || !gender) return null;
+
+  const genderOffset = gender === "female" ? -161 : 5;
+  const bmr = Math.round(10 * weight + 6.25 * height - 5 * age + genderOffset);
+  const activity = activityLevels.find((level) => level.value === form.activity_level) || activityLevels[2];
+  const maintenance = Math.round(bmr * activity.multiplier);
+  const deficit = deficitStyles.find((style) => style.value === form.deficit_style)?.calories || 500;
+  const target =
+    form.goal_type === "gain_muscle"
+      ? maintenance + Math.max(200, Math.round(deficit / 2))
+      : form.goal_type === "get_fit" || form.goal_type === "recomp"
+        ? maintenance
+        : maintenance - deficit;
+
+  return { bmr, maintenance, target };
+}
+
+function formatTrackerDate(value) {
+  if (!value) return "";
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
+function buildWeekRows(tracker, checkins) {
+  if (!tracker) return [];
+  return Array.from({ length: tracker.duration_weeks || 0 }, (_, index) => {
+    const weekNumber = index + 1;
+    const checkin = checkins.find((row) => row.week_number === weekNumber);
+    const dueDate = new Date(`${tracker.start_date}T00:00:00`);
+    dueDate.setDate(dueDate.getDate() + index * 7);
+    return {
+      weekNumber,
+      checkin,
+      dueDate: dueDate.toISOString().slice(0, 10)
+    };
+  });
+}
 
 function labelPose(pose) {
   return pose.slice(0, 1).toUpperCase() + pose.slice(1);
@@ -98,7 +204,7 @@ function formatProgressPhotoError(error) {
   return `${message}. Run supabase/phase-12-progress-photos.sql in Supabase.`;
 }
 
-export function ProgressPhotosScreen({ role = "normal_user", user }) {
+export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [photos, setPhotos] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -106,8 +212,16 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
   const [note, setNote] = useState("");
   const [beforeId, setBeforeId] = useState("");
   const [afterId, setAfterId] = useState("");
+  const [progressView, setProgressView] = useState("hub");
+  const [tracker, setTracker] = useState(null);
+  const [checkins, setCheckins] = useState([]);
+  const [trackerForm, setTrackerForm] = useState(() => blankTrackerForm(profile));
+  const [checkinForm, setCheckinForm] = useState({});
+  const [editingWeek, setEditingWeek] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
+  const [loadingTracker, setLoadingTracker] = useState(Boolean(supabase));
   const [uploading, setUploading] = useState(false);
+  const [savingTracker, setSavingTracker] = useState(false);
   const [message, setMessage] = useState("");
   const fileInputRef = useRef(null);
 
@@ -120,6 +234,18 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
 
   const beforePhoto = useMemo(() => photos.find((photo) => photo.id === beforeId), [beforeId, photos]);
   const afterPhoto = useMemo(() => photos.find((photo) => photo.id === afterId), [afterId, photos]);
+  const calorieEstimate = useMemo(() => calculateCalories(trackerForm), [trackerForm]);
+  const weekRows = useMemo(() => buildWeekRows(tracker, checkins), [checkins, tracker]);
+  const latestCheckin = useMemo(() => [...checkins].sort((a, b) => b.week_number - a.week_number)[0], [checkins]);
+  const currentWeight = latestCheckin?.weight_kg ?? tracker?.start_weight_kg ?? null;
+  const weightChange = currentWeight && tracker?.start_weight_kg ? Number(currentWeight) - Number(tracker.start_weight_kg) : null;
+  const goalProgress = useMemo(() => {
+    if (!tracker?.start_weight_kg || !tracker?.goal_weight_kg || currentWeight === null) return null;
+    const total = Number(tracker.goal_weight_kg) - Number(tracker.start_weight_kg);
+    const done = Number(currentWeight) - Number(tracker.start_weight_kg);
+    if (!total) return null;
+    return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+  }, [currentWeight, tracker]);
 
   const loadClients = useCallback(async () => {
     if (role !== "coach" || !supabase || user.id === "demo-user") {
@@ -190,6 +316,55 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
     setAfterId((current) => current || signedPhotos[0]?.id || "");
   }, [signPhotoUrls, targetUserId, user.id]);
 
+  const loadTracker = useCallback(async () => {
+    if (!targetUserId || !supabase || user.id === "demo-user") {
+      setTracker(null);
+      setCheckins([]);
+      setLoadingTracker(false);
+      return;
+    }
+
+    setLoadingTracker(true);
+
+    const { data, error } = await supabase
+      .from("goal_trackers")
+      .select(trackerSelect)
+      .eq("user_id", targetUserId)
+      .eq("status", "active")
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      setTracker(null);
+      setCheckins([]);
+      setLoadingTracker(false);
+      setMessage(`${error.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
+      return;
+    }
+
+    setTracker(data || null);
+    if (!data) {
+      setCheckins([]);
+      setLoadingTracker(false);
+      return;
+    }
+
+    const { data: checkinRows, error: checkinError } = await supabase
+      .from("goal_tracker_checkins")
+      .select("id,tracker_id,user_id,week_number,checkin_date,weight_kg,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,energy,mood,notes,created_at")
+      .eq("tracker_id", data.id)
+      .order("week_number", { ascending: true });
+
+    if (checkinError) {
+      setCheckins([]);
+      setMessage(`${checkinError.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
+    } else {
+      setCheckins(checkinRows || []);
+    }
+    setLoadingTracker(false);
+  }, [targetUserId, user.id]);
+
   useEffect(() => {
     let alive = true;
     Promise.resolve().then(() => {
@@ -209,6 +384,130 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
       alive = false;
     };
   }, [loadPhotos]);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.resolve().then(() => {
+      if (alive) loadTracker();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [loadTracker]);
+
+  function updateTrackerForm(field, value) {
+    setTrackerForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateCheckinForm(field, value) {
+    setCheckinForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function startTracker(event) {
+    event.preventDefault();
+    if (!supabase || user.id === "demo-user") return;
+
+    const calories = calculateCalories(trackerForm);
+    const payload = {
+      user_id: user.id,
+      goal_name: trackerForm.goal_name.trim() || "Body Transformation",
+      goal_type: trackerForm.goal_type,
+      gender: trackerForm.gender || null,
+      age: numericOrNull(trackerForm.age),
+      height_cm: numericOrNull(trackerForm.height_cm),
+      activity_level: trackerForm.activity_level,
+      start_weight_kg: numericOrNull(trackerForm.start_weight_kg),
+      goal_weight_kg: numericOrNull(trackerForm.goal_weight_kg),
+      deficit_style: trackerForm.deficit_style,
+      maintenance_calories: calories?.maintenance || null,
+      target_calories: calories?.target || null,
+      body_fat_percent: numericOrNull(trackerForm.body_fat_percent),
+      fat_kg: numericOrNull(trackerForm.fat_kg),
+      muscle_kg: numericOrNull(trackerForm.muscle_kg),
+      duration_weeks: Number(trackerForm.duration_weeks),
+      start_date: trackerForm.start_date
+    };
+    measurementFields.forEach(([field]) => {
+      payload[field] = numericOrNull(trackerForm[field]);
+    });
+
+    setSavingTracker(true);
+    setMessage("");
+    const { data, error } = await supabase.from("goal_trackers").insert(payload).select(trackerSelect).single();
+    setSavingTracker(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
+      return;
+    }
+
+    setTracker(data);
+    setCheckins([]);
+    setProgressView("tracker");
+    setMessage("Goal tracker started.");
+  }
+
+  function openWeekLog(week) {
+    const source = week.checkin || {};
+    setEditingWeek(week.weekNumber);
+    setCheckinForm({
+      checkin_date: source.checkin_date || new Date().toISOString().slice(0, 10),
+      weight_kg: source.weight_kg ?? "",
+      body_fat_percent: source.body_fat_percent ?? "",
+      fat_kg: source.fat_kg ?? "",
+      muscle_kg: source.muscle_kg ?? "",
+      neck_cm: source.neck_cm ?? "",
+      chest_cm: source.chest_cm ?? "",
+      waist_cm: source.waist_cm ?? "",
+      hips_cm: source.hips_cm ?? "",
+      left_bicep_cm: source.left_bicep_cm ?? "",
+      right_bicep_cm: source.right_bicep_cm ?? "",
+      left_thigh_cm: source.left_thigh_cm ?? "",
+      right_thigh_cm: source.right_thigh_cm ?? "",
+      energy: source.energy ?? "",
+      mood: source.mood ?? "",
+      notes: source.notes ?? ""
+    });
+  }
+
+  async function saveWeekCheckin(event) {
+    event.preventDefault();
+    if (!tracker || !editingWeek || !supabase || user.id === "demo-user") return;
+
+    const payload = {
+      tracker_id: tracker.id,
+      user_id: user.id,
+      week_number: editingWeek,
+      checkin_date: checkinForm.checkin_date || new Date().toISOString().slice(0, 10),
+      weight_kg: numericOrNull(checkinForm.weight_kg),
+      body_fat_percent: numericOrNull(checkinForm.body_fat_percent),
+      fat_kg: numericOrNull(checkinForm.fat_kg),
+      muscle_kg: numericOrNull(checkinForm.muscle_kg),
+      energy: numericOrNull(checkinForm.energy),
+      mood: numericOrNull(checkinForm.mood),
+      notes: checkinForm.notes?.trim() || null
+    };
+    measurementFields.forEach(([field]) => {
+      payload[field] = numericOrNull(checkinForm[field]);
+    });
+
+    setSavingTracker(true);
+    setMessage("");
+    const { error } = await supabase
+      .from("goal_tracker_checkins")
+      .upsert(payload, { onConflict: "tracker_id,week_number" });
+    setSavingTracker(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
+      return;
+    }
+
+    setEditingWeek(null);
+    setCheckinForm({});
+    setMessage(`Week ${payload.week_number} check-in saved.`);
+    await loadTracker();
+  }
 
   async function uploadPhoto(event) {
     const file = event.target.files?.[0];
@@ -271,6 +570,82 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
     await loadPhotos();
   }
 
+  if (role !== "coach" && progressView === "setup") {
+    return (
+      <TrackerSetupScreen
+        calorieEstimate={calorieEstimate}
+        form={trackerForm}
+        onBack={() => setProgressView("hub")}
+        onSubmit={startTracker}
+        onUpdate={updateTrackerForm}
+        saving={savingTracker}
+      />
+    );
+  }
+
+  if (role !== "coach" && tracker && progressView !== "photos") {
+    return (
+      <TrackerDashboardScreen
+        checkinForm={checkinForm}
+        checkins={checkins}
+        currentWeight={currentWeight}
+        editingWeek={editingWeek}
+        goalProgress={goalProgress}
+        loading={loadingTracker}
+        message={message}
+        onBack={() => setProgressView("hub")}
+        onCancelWeek={() => setEditingWeek(null)}
+        onOpenPhotos={() => setProgressView("photos")}
+        onOpenWeek={openWeekLog}
+        onSaveWeek={saveWeekCheckin}
+        onUpdateCheckin={updateCheckinForm}
+        saving={savingTracker}
+        tracker={tracker}
+        weekRows={weekRows}
+        weightChange={weightChange}
+      />
+    );
+  }
+
+  if (role !== "coach" && progressView === "hub") {
+    return (
+      <section className="screen-stack progress-screen">
+        <div className="screen-heading progress-heading centered">
+          <div>
+            <h1>Progress <span>Hub</span></h1>
+            <p>View your records, photos and body tracking. Start a goal tracker only when you want a focused tracking block.</p>
+          </div>
+        </div>
+
+        {message ? <p className={message.includes("saved") || message.includes("started") ? "form-message success" : "form-message error"}>{message}</p> : null}
+        {loadingTracker ? <p className="form-message success">Loading progress tracker...</p> : null}
+
+        <div className="progress-hub-grid">
+          <button className="progress-hub-card teal" onClick={() => setProgressView(tracker ? "tracker" : "setup")} type="button">
+            <span>Goal tracker</span>
+            <strong>{tracker ? tracker.goal_name : "Start tracker"}</strong>
+            <em>{tracker ? `${tracker.duration_weeks} week ${tracker.goal_type.replace("_", " ")}` : "Optional body, weight and measurement tracking block."}</em>
+          </button>
+          <button className="progress-hub-card gold" type="button">
+            <span>Progress records</span>
+            <strong>0 PRs</strong>
+            <em>Strength records and best volume will appear here.</em>
+          </button>
+          <button className="progress-hub-card blue" onClick={() => setProgressView("photos")} type="button">
+            <span>Progress photos</span>
+            <strong>{photos.length} photos</strong>
+            <em>Private photos and compare mode.</em>
+          </button>
+          <div className="progress-hub-card">
+            <span>Latest</span>
+            <strong>{latestCheckin ? `Week ${latestCheckin.week_number}` : "No records yet"}</strong>
+            <em>{latestCheckin ? `${latestCheckin.weight_kg || "-"}kg logged` : "Complete workouts or tracker logs to populate this section."}</em>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="screen-stack progress-screen">
       <div className="screen-heading progress-heading">
@@ -279,6 +654,9 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
           <h1>Progress <span>Photos</span></h1>
           <p>Private front, side and back photos so you can compare changes over time.</p>
         </div>
+        {role !== "coach" ? (
+          <button className="primary-action compact" onClick={() => setProgressView("hub")} type="button">Back</button>
+        ) : null}
       </div>
 
       {role === "coach" ? (
@@ -396,4 +774,290 @@ function PhotoCompareCard({ label, photo }) {
       </div>
     </article>
   );
+}
+
+function TrackerSetupScreen({ calorieEstimate, form, onBack, onSubmit, onUpdate, saving }) {
+  return (
+    <section className="screen-stack tracker-screen">
+      <div className="screen-heading progress-heading">
+        <div>
+          <p className="eyebrow">Set up tracker</p>
+          <h1>Goal <span>Tracker</span></h1>
+          <p>Set your starting point once, then log weekly progress through the block.</p>
+        </div>
+        <button className="primary-action compact" onClick={onBack} type="button">Back</button>
+      </div>
+
+      <form className="panel tracker-setup-form" onSubmit={onSubmit}>
+        <label className="form-field full">
+          Goal name
+          <input value={form.goal_name} onChange={(event) => onUpdate("goal_name", event.target.value)} />
+        </label>
+
+        <div className="tracker-option-grid">
+          {goalTypes.map((type) => (
+            <button className={form.goal_type === type.value ? "active" : ""} key={type.value} onClick={() => onUpdate("goal_type", type.value)} type="button">
+              <strong>{type.label}</strong>
+              <span>{type.detail}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="tracker-field-grid">
+          <label className="form-field">
+            Age
+            <input inputMode="decimal" value={form.age} onChange={(event) => onUpdate("age", event.target.value)} />
+          </label>
+          <label className="form-field">
+            Height cm
+            <input inputMode="decimal" value={form.height_cm} onChange={(event) => onUpdate("height_cm", event.target.value)} />
+          </label>
+          <label className="form-field">
+            Gender
+            <select value={form.gender} onChange={(event) => onUpdate("gender", event.target.value)}>
+              <option value="">Select</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </label>
+          <label className="form-field">
+            Activity
+            <select value={form.activity_level} onChange={(event) => onUpdate("activity_level", event.target.value)}>
+              {activityLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
+            </select>
+          </label>
+          <label className="form-field">
+            Current weight kg
+            <input inputMode="decimal" value={form.start_weight_kg} onChange={(event) => onUpdate("start_weight_kg", event.target.value)} />
+          </label>
+          <label className="form-field">
+            Goal weight kg
+            <input inputMode="decimal" value={form.goal_weight_kg} onChange={(event) => onUpdate("goal_weight_kg", event.target.value)} />
+          </label>
+        </div>
+
+        <div className="tracker-option-grid three">
+          {deficitStyles.map((style) => (
+            <button className={form.deficit_style === style.value ? "active" : ""} key={style.value} onClick={() => onUpdate("deficit_style", style.value)} type="button">
+              <strong>{style.label}</strong>
+              <span>{style.calories} cal/day</span>
+            </button>
+          ))}
+        </div>
+
+        <section className="tracker-estimate-card">
+          <p className="eyebrow">Calorie estimate</p>
+          {calorieEstimate ? (
+            <div className="tracker-mini-grid">
+              <div><span>BMR</span><strong>{calorieEstimate.bmr}</strong></div>
+              <div><span>Maintenance</span><strong>{calorieEstimate.maintenance}</strong></div>
+              <div><span>Target</span><strong>{calorieEstimate.target}</strong></div>
+            </div>
+          ) : (
+            <p>Add height, weight, age and gender to calculate BMR, maintenance calories and target calories.</p>
+          )}
+        </section>
+
+        <section className="tracker-estimate-card">
+          <p className="eyebrow">Initial photos</p>
+          <p>Upload front, side and back photos from the Progress Photos section after starting this tracker.</p>
+        </section>
+
+        <section className="tracker-estimate-card">
+          <p className="eyebrow">Optional body scan info</p>
+          <div className="tracker-field-grid three">
+            <label className="form-field">Body fat %<input inputMode="decimal" value={form.body_fat_percent} onChange={(event) => onUpdate("body_fat_percent", event.target.value)} /></label>
+            <label className="form-field">Fat kg<input inputMode="decimal" value={form.fat_kg} onChange={(event) => onUpdate("fat_kg", event.target.value)} /></label>
+            <label className="form-field">Muscle kg<input inputMode="decimal" value={form.muscle_kg} onChange={(event) => onUpdate("muscle_kg", event.target.value)} /></label>
+          </div>
+        </section>
+
+        <section className="tracker-estimate-card">
+          <p className="eyebrow">Starting measurements</p>
+          <div className="tracker-field-grid">
+            {measurementFields.map(([field, label]) => (
+              <label className="form-field" key={field}>{label}<input inputMode="decimal" value={form[field]} onChange={(event) => onUpdate(field, event.target.value)} /></label>
+            ))}
+          </div>
+        </section>
+
+        <div className="tracker-field-grid">
+          <label className="form-field">
+            Tracking duration
+            <select value={form.duration_weeks} onChange={(event) => onUpdate("duration_weeks", event.target.value)}>
+              {trackerDurations.map((weeks) => <option key={weeks} value={weeks}>{weeks} weeks</option>)}
+            </select>
+          </label>
+          <label className="form-field">
+            Start date
+            <input type="date" value={form.start_date} onChange={(event) => onUpdate("start_date", event.target.value)} />
+          </label>
+        </div>
+
+        <button className="primary-action filled" disabled={saving} type="submit">
+          {saving ? "Starting..." : "Start Goal Tracker"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function TrackerDashboardScreen({
+  checkinForm,
+  checkins,
+  currentWeight,
+  editingWeek,
+  goalProgress,
+  loading,
+  message,
+  onBack,
+  onCancelWeek,
+  onOpenPhotos,
+  onOpenWeek,
+  onSaveWeek,
+  onUpdateCheckin,
+  saving,
+  tracker,
+  weekRows,
+  weightChange
+}) {
+  const checkinPercent = tracker?.duration_weeks ? Math.round((checkins.length / tracker.duration_weeks) * 100) : 0;
+  const activeWeek = weekRows.find((week) => week.weekNumber === editingWeek);
+  const measurementChange = latestMeasurementChange(tracker, checkins);
+
+  return (
+    <section className="screen-stack tracker-screen">
+      <div className="screen-heading progress-heading">
+        <div>
+          <p className="eyebrow">{tracker.goal_name} - {goalTypes.find((type) => type.value === tracker.goal_type)?.label || "Tracker"}</p>
+          <h1>Progress <span>Tracker</span></h1>
+          <p>{formatTrackerDate(tracker.start_date)} - {tracker.duration_weeks} weeks</p>
+        </div>
+        <button className="primary-action compact" onClick={onBack} type="button">Hub</button>
+      </div>
+
+      {message ? <p className={message.includes("saved") || message.includes("started") ? "form-message success" : "form-message error"}>{message}</p> : null}
+      {loading ? <p className="form-message success">Loading tracker...</p> : null}
+
+      <div className="tracker-summary-grid">
+        <TrackerStat label="Check-ins" value={`${checkinPercent}%`} />
+        <TrackerStat label="Current kg" value={currentWeight ?? "-"} />
+        <TrackerStat label="Weight change" value={weightChange === null ? "-" : `${weightChange > 0 ? "+" : ""}${weightChange.toFixed(1)}kg`} tone="gold" />
+        <TrackerStat label="Maintenance cal" value={tracker.maintenance_calories || "-"} />
+        <TrackerStat label="Target cal" value={tracker.target_calories || "-"} tone="gold" />
+        <TrackerStat label="Goal progress" value={goalProgress === null ? "-" : `${goalProgress}%`} />
+      </div>
+
+      <p className="compact-help centered">
+        Maintenance uses Mifflin-St Jeor BMR x activity level and recalculates from your tracker starting weight ({tracker.start_weight_kg || "-"}kg).
+      </p>
+
+      <div className="tracker-summary-grid two">
+        <TrackerStat label="Fat mass change" value={measurementChange.fat} />
+        <TrackerStat label="Muscle mass change" value={measurementChange.muscle} />
+      </div>
+
+      <section className="tracker-estimate-card tracker-charts-card">
+        <div className="client-section-title">
+          <div>
+            <p className="eyebrow">Progress charts</p>
+            <span>Open detailed tracker and lift progression graphs.</span>
+          </div>
+          <button className="primary-action compact" type="button">Open</button>
+        </div>
+        <div className="tracker-chart-placeholder">
+          <span style={{ width: `${Math.max(8, checkinPercent)}%` }} />
+        </div>
+      </section>
+
+      <section className="tracker-estimate-card">
+        <p className="eyebrow">Measurement change from start</p>
+        {measurementChange.cm.length ? (
+          <div className="tracker-change-list">
+            {measurementChange.cm.map((item) => <span key={item.label}>{item.label}: {item.value}</span>)}
+          </div>
+        ) : (
+          <p>Add starting measurements and at least one weekly check-in to see centimetre changes here.</p>
+        )}
+      </section>
+
+      {activeWeek ? (
+        <form className="panel tracker-checkin-form" onSubmit={onSaveWeek}>
+          <div className="client-section-title">
+            <div>
+              <p className="eyebrow">Week {activeWeek.weekNumber}</p>
+              <span>{formatTrackerDate(activeWeek.dueDate)}</span>
+            </div>
+            <button className="primary-action compact" onClick={onCancelWeek} type="button">Cancel</button>
+          </div>
+          <div className="tracker-field-grid">
+            <label className="form-field">Date<input type="date" value={checkinForm.checkin_date || ""} onChange={(event) => onUpdateCheckin("checkin_date", event.target.value)} /></label>
+            <label className="form-field">Weight kg<input inputMode="decimal" value={checkinForm.weight_kg || ""} onChange={(event) => onUpdateCheckin("weight_kg", event.target.value)} /></label>
+            <label className="form-field">Energy 1-5<input inputMode="numeric" value={checkinForm.energy || ""} onChange={(event) => onUpdateCheckin("energy", event.target.value)} /></label>
+            <label className="form-field">Mood 1-5<input inputMode="numeric" value={checkinForm.mood || ""} onChange={(event) => onUpdateCheckin("mood", event.target.value)} /></label>
+          </div>
+          <div className="tracker-field-grid three">
+            <label className="form-field">Body fat %<input inputMode="decimal" value={checkinForm.body_fat_percent || ""} onChange={(event) => onUpdateCheckin("body_fat_percent", event.target.value)} /></label>
+            <label className="form-field">Fat kg<input inputMode="decimal" value={checkinForm.fat_kg || ""} onChange={(event) => onUpdateCheckin("fat_kg", event.target.value)} /></label>
+            <label className="form-field">Muscle kg<input inputMode="decimal" value={checkinForm.muscle_kg || ""} onChange={(event) => onUpdateCheckin("muscle_kg", event.target.value)} /></label>
+          </div>
+          <div className="tracker-field-grid">
+            {measurementFields.map(([field, label]) => (
+              <label className="form-field" key={field}>{label}<input inputMode="decimal" value={checkinForm[field] || ""} onChange={(event) => onUpdateCheckin(field, event.target.value)} /></label>
+            ))}
+          </div>
+          <label className="form-field full">
+            Notes
+            <textarea value={checkinForm.notes || ""} onChange={(event) => onUpdateCheckin("notes", event.target.value)} />
+          </label>
+          <button className="primary-action filled" disabled={saving} type="submit">{saving ? "Saving..." : "Save week check-in"}</button>
+        </form>
+      ) : (
+        <button className="primary-action filled" onClick={() => onOpenWeek(weekRows.find((week) => !week.checkin) || weekRows[0])} type="button">
+          Log / Edit This Week
+        </button>
+      )}
+
+      <button className="primary-action" onClick={onOpenPhotos} type="button">Open Progress Photos</button>
+
+      <section className="tracker-estimate-card">
+        <p className="eyebrow">Weekly measurements</p>
+        <div className="tracker-week-list">
+          {weekRows.map((week) => (
+            <button className={week.checkin ? "logged" : ""} key={week.weekNumber} onClick={() => onOpenWeek(week)} type="button">
+              <strong>Week {week.weekNumber}</strong>
+              <span>{formatTrackerDate(week.dueDate)}</span>
+              <em>{week.checkin ? "Logged" : "Tap to log"}</em>
+            </button>
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function TrackerStat({ label, tone = "teal", value }) {
+  return (
+    <div className={`tracker-stat ${tone}`}>
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function latestMeasurementChange(tracker, checkins) {
+  const latest = [...checkins].reverse().find((row) => row.weight_kg || row.fat_kg || row.muscle_kg || row.waist_cm);
+  if (!tracker || !latest) return { fat: "-", muscle: "-", cm: [] };
+  const delta = (start, end, suffix = "") => {
+    if (start === null || start === undefined || end === null || end === undefined) return "-";
+    const value = Number(end) - Number(start);
+    return `${value > 0 ? "+" : ""}${value.toFixed(1)}${suffix}`;
+  };
+  return {
+    fat: delta(tracker.fat_kg, latest.fat_kg, "kg"),
+    muscle: delta(tracker.muscle_kg, latest.muscle_kg, "kg"),
+    cm: measurementFields
+      .map(([field, label]) => ({ label: label.replace(" cm", ""), value: delta(tracker[field], latest[field], "cm") }))
+      .filter((item) => item.value !== "-")
+  };
 }

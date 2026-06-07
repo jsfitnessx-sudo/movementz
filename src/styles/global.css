@@ -1585,6 +1585,248 @@ button {
   color: var(--teal);
 }
 
+.progress-heading.centered,
+.centered {
+  text-align: center;
+}
+
+.progress-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.progress-hub-card {
+  display: grid;
+  gap: 6px;
+  min-height: 96px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 14px;
+  text-align: left;
+}
+
+.progress-hub-card span {
+  color: var(--teal);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.progress-hub-card strong {
+  font-size: 20px;
+}
+
+.progress-hub-card em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.progress-hub-card.gold {
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+}
+
+.progress-hub-card.gold span,
+.progress-hub-card.gold strong {
+  color: var(--gold);
+}
+
+.progress-hub-card.blue strong {
+  color: var(--blue);
+}
+
+.tracker-screen {
+  gap: 12px;
+}
+
+.tracker-setup-form,
+.tracker-checkin-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.tracker-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tracker-field-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.form-field.full {
+  grid-column: 1 / -1;
+}
+
+.form-field textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.tracker-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tracker-option-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tracker-option-grid button {
+  display: grid;
+  gap: 4px;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+}
+
+.tracker-option-grid button.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 15%, var(--field));
+}
+
+.tracker-option-grid strong {
+  color: inherit;
+  font-size: 13px;
+}
+
+.tracker-option-grid span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tracker-estimate-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.tracker-estimate-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tracker-mini-grid,
+.tracker-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tracker-summary-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tracker-mini-grid div,
+.tracker-stat {
+  display: grid;
+  gap: 4px;
+  min-height: 62px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  padding: 10px;
+  text-align: center;
+}
+
+.tracker-mini-grid span,
+.tracker-stat span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracker-mini-grid strong,
+.tracker-stat strong {
+  color: var(--teal);
+  font-size: 20px;
+}
+
+.tracker-stat.gold strong {
+  color: var(--gold);
+}
+
+.tracker-chart-placeholder {
+  overflow: hidden;
+  height: 12px;
+  border-radius: 999px;
+  background: #223747;
+}
+
+.tracker-chart-placeholder span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal);
+}
+
+.tracker-change-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tracker-change-list span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.tracker-week-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tracker-week-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 10px;
+  text-align: left;
+}
+
+.tracker-week-list button.logged {
+  border-color: color-mix(in srgb, var(--teal) 50%, var(--line));
+}
+
+.tracker-week-list span,
+.tracker-week-list em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.tracker-week-list em {
+  color: var(--teal);
+  font-weight: 900;
+}
+
 .progress-client-select {
   display: grid;
   gap: 7px;
@@ -1778,6 +2020,21 @@ button {
 
   .progress-count-card {
     padding: 14px 8px;
+  }
+
+  .progress-hub-grid,
+  .tracker-field-grid,
+  .tracker-field-grid.three,
+  .tracker-option-grid,
+  .tracker-option-grid.three,
+  .tracker-mini-grid,
+  .tracker-summary-grid,
+  .tracker-summary-grid.two {
+    grid-template-columns: 1fr;
+  }
+
+  .tracker-week-list button {
+    grid-template-columns: 1fr auto;
   }
 
   .progress-compare-grid,
@@ -3572,6 +3829,25 @@ button {
   text-transform: uppercase;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.client-tracker-summary {
+  display: grid;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--gold) 7%, var(--field));
+  padding: 10px;
+}
+
+.client-tracker-summary strong {
+  color: var(--gold);
+  font-size: 15px;
+}
+
+.client-tracker-summary span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 @media (max-width: 720px) {
