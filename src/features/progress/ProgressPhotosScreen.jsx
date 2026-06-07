@@ -3,8 +3,8 @@ import { supabase } from "../../lib/supabase/client.js";
 
 const poses = ["front", "side", "back"];
 const bucketName = "progress-photos";
-const maxImageBytes = 2 * 1024 * 1024;
-const maxThumbBytes = 120 * 1024;
+const maxImageBytes = 900 * 1024;
+const maxThumbBytes = 90 * 1024;
 
 function labelPose(pose) {
   return pose.slice(0, 1).toUpperCase() + pose.slice(1);
@@ -26,39 +26,69 @@ async function canvasToBlob(canvas, type, quality) {
   });
 }
 
-async function compressImage(file, maxWidth, quality, maxBytes) {
+function imageExtension(blob) {
+  if (blob.type === "image/png") return "png";
+  if (blob.type === "image/webp") return "webp";
+  return "jpg";
+}
+
+function drawCompressedCanvas(image, maxLongEdge) {
+  const longestEdge = Math.max(image.width, image.height);
+  const scale = Math.min(1, maxLongEdge / longestEdge);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#061018";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+async function encodeSmallest(canvas, quality) {
+  const blobs = await Promise.all([
+    canvasToBlob(canvas, "image/jpeg", quality),
+    canvasToBlob(canvas, "image/webp", quality)
+  ]);
+
+  return blobs.filter(Boolean).sort((left, right) => left.size - right.size)[0] || null;
+}
+
+async function compressImage(file, maxLongEdge, quality, maxBytes) {
   const imageUrl = URL.createObjectURL(file);
   const image = new Image();
   try {
     image.src = imageUrl;
     await image.decode();
 
-    let nextWidth = maxWidth;
-    let nextQuality = quality;
-    let result = null;
+    const edgeSteps = [maxLongEdge, 1280, 1120, 960, 840, 720, 640, 560, 480, 420, 360];
+    const qualitySteps = [quality, 0.68, 0.6, 0.52, 0.44, 0.36, 0.3, 0.24];
+    let smallestResult = null;
 
-    for (let attempt = 0; attempt < 14; attempt += 1) {
-      const scale = Math.min(1, nextWidth / image.width);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-
-      const context = canvas.getContext("2d");
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-      result = await canvasToBlob(canvas, "image/webp", nextQuality);
-      if (!result) result = await canvasToBlob(canvas, "image/jpeg", nextQuality);
-      if (result && result.size <= maxBytes) return result;
-
-      nextWidth = Math.max(320, Math.round(nextWidth * 0.78));
-      nextQuality = Math.max(0.26, nextQuality - 0.07);
+    for (const edge of edgeSteps) {
+      const canvas = drawCompressedCanvas(image, edge);
+      for (const nextQuality of qualitySteps) {
+        const result = await encodeSmallest(canvas, nextQuality);
+        if (!result) continue;
+        if (!smallestResult || result.size < smallestResult.size) smallestResult = result;
+        if (result.size <= maxBytes) return result;
+      }
     }
 
-    if (!result) throw new Error("Could not compress this photo.");
+    if (!smallestResult) throw new Error("Could not compress this photo.");
+    if (smallestResult.size <= maxBytes * 1.15) return smallestResult;
     throw new Error("This photo is unusually large. Try a different photo or crop it first.");
   } finally {
     URL.revokeObjectURL(imageUrl);
   }
+}
+
+async function uploadStorageObject(path, blob) {
+  return supabase.storage.from(bucketName).upload(path, blob, {
+    contentType: blob.type || "image/jpeg",
+    upsert: false
+  });
 }
 
 function formatProgressPhotoError(error) {
@@ -189,25 +219,24 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
     setMessage("");
 
     try {
-      const [imageBlob, thumbnailBlob] = await Promise.all([
+      let [imageBlob, thumbnailBlob] = await Promise.all([
         compressImage(file, 1400, 0.72, maxImageBytes),
         compressImage(file, 360, 0.56, maxThumbBytes)
       ]);
 
       const stamp = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const imagePath = `${user.id}/${stamp}-${pose}.webp`;
-      const thumbnailPath = `${user.id}/${stamp}-${pose}-thumb.webp`;
+      let imagePath = `${user.id}/${stamp}-${pose}.${imageExtension(imageBlob)}`;
+      const thumbnailPath = `${user.id}/${stamp}-${pose}-thumb.${imageExtension(thumbnailBlob)}`;
 
-      const imageUpload = await supabase.storage.from(bucketName).upload(imagePath, imageBlob, {
-        contentType: imageBlob.type || "image/webp",
-        upsert: false
-      });
+      let imageUpload = await uploadStorageObject(imagePath, imageBlob);
+      if (imageUpload.error && /size|exceed|large/i.test(imageUpload.error.message || "")) {
+        imageBlob = await compressImage(file, 960, 0.58, 650 * 1024);
+        imagePath = `${user.id}/${stamp}-${pose}-small.${imageExtension(imageBlob)}`;
+        imageUpload = await uploadStorageObject(imagePath, imageBlob);
+      }
       if (imageUpload.error) throw imageUpload.error;
 
-      const thumbUpload = await supabase.storage.from(bucketName).upload(thumbnailPath, thumbnailBlob, {
-        contentType: thumbnailBlob.type || "image/webp",
-        upsert: false
-      });
+      const thumbUpload = await uploadStorageObject(thumbnailPath, thumbnailBlob);
       if (thumbUpload.error) throw thumbUpload.error;
 
       const { error } = await supabase.from("progress_photos").insert({
