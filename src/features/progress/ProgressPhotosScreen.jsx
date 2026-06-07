@@ -3,7 +3,7 @@ import { supabase } from "../../lib/supabase/client.js";
 
 const poses = ["front", "side", "back"];
 const bucketName = "progress-photos";
-const maxImageBytes = 700 * 1024;
+const maxImageBytes = 2 * 1024 * 1024;
 const maxThumbBytes = 120 * 1024;
 
 function labelPose(pose) {
@@ -190,7 +190,7 @@ export function ProgressPhotosScreen({ role = "normal_user", user }) {
 
     try {
       const [imageBlob, thumbnailBlob] = await Promise.all([
-        compressImage(file, 960, 0.62, maxImageBytes),
+        compressImage(file, 1400, 0.72, maxImageBytes),
         compressImage(file, 360, 0.56, maxThumbBytes)
       ]);
 
