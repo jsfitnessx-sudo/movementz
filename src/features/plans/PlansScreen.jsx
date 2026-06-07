@@ -41,6 +41,7 @@ export function PlansScreen({ user }) {
   const [showImport, setShowImport] = useState(false);
   const [openPlanMenu, setOpenPlanMenu] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [editingPlanId, setEditingPlanId] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -134,26 +135,27 @@ export function PlansScreen({ user }) {
 
   function startBuilder() {
     setBuilder(createBuilder());
+    setEditingPlanId(null);
     setShowImport(false);
     setMessage("");
     setMode("builder");
   }
 
-  async function openPlanDetails(plan) {
-    setOpenPlanMenu(null);
-    setMessage("");
-
+  async function fetchPlanDetail(plan) {
     if (!supabase || user.id === "demo-user") {
-      setSelectedPlan(plan);
-      setMode("detail");
-      return;
+      return {
+        ...plan,
+        instructions: plan.instructions || "",
+        training_plan_workouts: plan.training_plan_workouts || [],
+        training_plan_assignments: plan.training_plan_assignments || []
+      };
     }
 
     setLoadingDetail(true);
     const { data, error } = await supabase
       .from("training_plans")
       .select(
-        "id,name,plan_type,block_weeks,instructions,created_at,training_plan_workouts(id,position,name,workout_type,source_type,summary,scheduled_days),training_plan_assignments(id,client_id,profiles!training_plan_assignments_client_id_fkey(id,full_name,email))"
+        "id,name,plan_type,block_weeks,instructions,created_at,training_plan_workouts(id,workout_template_id,position,name,workout_type,source_type,summary,scheduled_days),training_plan_assignments(id,client_id,profiles!training_plan_assignments_client_id_fkey(id,full_name,email))"
       )
       .eq("owner_id", user.id)
       .eq("id", plan.id)
@@ -161,15 +163,91 @@ export function PlansScreen({ user }) {
     setLoadingDetail(false);
 
     if (error) {
-      setMessage(error.message);
-      return;
+      throw error;
     }
 
-    setSelectedPlan({
+    return {
       ...data,
-      training_plan_workouts: (data.training_plan_workouts || []).sort((a, b) => a.position - b.position)
-    });
-    setMode("detail");
+      training_plan_workouts: (data.training_plan_workouts || []).sort((a, b) => a.position - b.position),
+      training_plan_assignments: data.training_plan_assignments || []
+    };
+  }
+
+  function planToBuilder(plan, overrides = {}) {
+    const workouts = (plan.training_plan_workouts || []).map((workout) => ({
+      id: `plan-${workout.id}`,
+      plan_workout_id: workout.id,
+      workout_template_id: workout.workout_template_id,
+      name: workout.name,
+      workout_type: workout.workout_type,
+      source_type: workout.source_type || "imported",
+      summary: workout.summary,
+      scheduled_days: workout.scheduled_days || []
+    }));
+
+    return {
+      name: plan.name || "",
+      planType: plan.plan_type || "block",
+      blockWeeks: plan.block_weeks || 4,
+      step: 2,
+      scheduleEnabled: workouts.some((workout) => workout.scheduled_days.length),
+      workouts,
+      selectedClientIds: (plan.training_plan_assignments || [])
+        .map((assignment) => (typeof assignment === "string" ? assignment : assignment.client_id))
+        .filter(Boolean),
+      instructions: plan.instructions || "",
+      ...overrides
+    };
+  }
+
+  async function openPlanDetails(plan) {
+    setOpenPlanMenu(null);
+    setMessage("");
+
+    try {
+      const detail = await fetchPlanDetail(plan);
+      setSelectedPlan(detail);
+      setMode("detail");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function editPlan(plan) {
+    setOpenPlanMenu(null);
+    setMessage("");
+
+    try {
+      const detail = await fetchPlanDetail(plan);
+      setBuilder(planToBuilder(detail));
+      setEditingPlanId(detail.id);
+      setShowImport(false);
+      setSelectedPlan(null);
+      setMode("builder");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function duplicatePlan(plan) {
+    setOpenPlanMenu(null);
+    setMessage("");
+
+    try {
+      const detail = await fetchPlanDetail(plan);
+      setBuilder(
+        planToBuilder(detail, {
+          name: `${detail.name} Copy`,
+          selectedClientIds: []
+        })
+      );
+      setEditingPlanId(null);
+      setShowImport(false);
+      setSelectedPlan(null);
+      setMode("builder");
+    } catch (error) {
+      setMessage(error.message);
+    }
   }
 
   async function deletePlan(planId) {
@@ -278,17 +356,23 @@ export function PlansScreen({ user }) {
     }
 
     if (!supabase || user.id === "demo-user") {
-      setPlans((current) => [
-        {
-          id: `demo-plan-${Date.now()}`,
+      setPlans((current) => {
+        const savedPlan = {
+          id: editingPlanId || `demo-plan-${Date.now()}`,
           name: builder.name.trim(),
           plan_type: builder.planType,
           block_weeks: builder.planType === "block" ? builder.blockWeeks : null,
           training_plan_workouts: builder.workouts,
           training_plan_assignments: builder.selectedClientIds
-        },
-        ...current
-      ]);
+        };
+
+        if (editingPlanId) {
+          return current.map((plan) => (plan.id === editingPlanId ? savedPlan : plan));
+        }
+
+        return [savedPlan, ...current];
+      });
+      setEditingPlanId(null);
       setMode("list");
       return;
     }
@@ -296,33 +380,68 @@ export function PlansScreen({ user }) {
     setSaving(true);
     setMessage("");
 
-    const { data: plan, error: planError } = await supabase
-      .from("training_plans")
-      .insert({
-        owner_id: user.id,
-        name: builder.name.trim(),
-        plan_type: builder.planType,
-        block_weeks: builder.planType === "block" ? builder.blockWeeks : null,
-        instructions: builder.instructions || null
-      })
-      .select("id")
-      .single();
+    const planPayload = {
+      owner_id: user.id,
+      name: builder.name.trim(),
+      plan_type: builder.planType,
+      block_weeks: builder.planType === "block" ? builder.blockWeeks : null,
+      instructions: builder.instructions || null
+    };
+    let planId = editingPlanId;
 
-    if (planError) {
-      setMessage(`${planError.message}. Run supabase/phase-6-training-plans.sql in Supabase first.`);
-      setSaving(false);
-      return;
+    if (editingPlanId) {
+      const { error: updateError } = await supabase
+        .from("training_plans")
+        .update({
+          name: planPayload.name,
+          plan_type: planPayload.plan_type,
+          block_weeks: planPayload.block_weeks,
+          instructions: planPayload.instructions,
+          updated_at: new Date().toISOString()
+        })
+        .eq("owner_id", user.id)
+        .eq("id", editingPlanId);
+
+      if (updateError) {
+        setMessage(`${updateError.message}. Run supabase/phase-6-training-plans.sql in Supabase first.`);
+        setSaving(false);
+        return;
+      }
+
+      const { error: workoutDeleteError } = await supabase.from("training_plan_workouts").delete().eq("plan_id", editingPlanId);
+      if (workoutDeleteError) {
+        setMessage(workoutDeleteError.message);
+        setSaving(false);
+        return;
+      }
+
+      const { error: assignmentDeleteError } = await supabase.from("training_plan_assignments").delete().eq("plan_id", editingPlanId);
+      if (assignmentDeleteError) {
+        setMessage(assignmentDeleteError.message);
+        setSaving(false);
+        return;
+      }
+    } else {
+      const { data: plan, error: planError } = await supabase.from("training_plans").insert(planPayload).select("id").single();
+
+      if (planError) {
+        setMessage(`${planError.message}. Run supabase/phase-6-training-plans.sql in Supabase first.`);
+        setSaving(false);
+        return;
+      }
+
+      planId = plan.id;
     }
 
-    if (builder.workouts.length) {
+    if (builder.workouts.length && planId) {
       const { error: workoutError } = await supabase.from("training_plan_workouts").insert(
         builder.workouts.map((workout, index) => ({
-          plan_id: plan.id,
+          plan_id: planId,
           workout_template_id: workout.workout_template_id,
           position: index + 1,
           name: workout.name,
           workout_type: workout.workout_type,
-          source_type: workout.source_type,
+          source_type: workout.source_type || "imported",
           summary: workout.summary,
           scheduled_days: builder.scheduleEnabled ? workout.scheduled_days || [] : []
         }))
@@ -335,10 +454,10 @@ export function PlansScreen({ user }) {
       }
     }
 
-    if (builder.selectedClientIds.length) {
+    if (builder.selectedClientIds.length && planId) {
       const { error: assignmentError } = await supabase.from("training_plan_assignments").insert(
         builder.selectedClientIds.map((clientId) => ({
-          plan_id: plan.id,
+          plan_id: planId,
           client_id: clientId,
           assigned_by: user.id
         }))
@@ -353,6 +472,15 @@ export function PlansScreen({ user }) {
 
     await loadPlans();
     setSaving(false);
+    setEditingPlanId(null);
+    setMode("list");
+  }
+
+  function closeBuilder() {
+    setBuilder(createBuilder());
+    setEditingPlanId(null);
+    setShowImport(false);
+    setMessage("");
     setMode("list");
   }
 
@@ -374,10 +502,10 @@ export function PlansScreen({ user }) {
         <div className="screen-heading library-heading">
           <div>
             <p className="eyebrow">Plan builder</p>
-            <h1>{builder.step === 1 ? "Build plan" : "Plan workouts"}</h1>
+            <h1>{editingPlanId ? "Edit plan" : builder.step === 1 ? "Build plan" : "Plan workouts"}</h1>
             <p>{builder.step === 1 ? "Set the plan shell first, then add workouts." : "Add workouts, schedule them, and assign clients."}</p>
           </div>
-          <button className="primary-action compact" onClick={() => setMode("list")} type="button">
+          <button className="primary-action compact" onClick={closeBuilder} type="button">
             Close
           </button>
         </div>
@@ -552,11 +680,11 @@ export function PlansScreen({ user }) {
             </div>
 
             <div className="form-footer-actions">
-              <button className="primary-action" onClick={() => setMode("list")} type="button">
+              <button className="primary-action" onClick={closeBuilder} type="button">
                 Cancel
               </button>
               <button className="primary-action filled" disabled={saving} onClick={savePlan} type="button">
-                {saving ? "Saving..." : "Save Plan"}
+                {saving ? "Saving..." : editingPlanId ? "Update Plan" : "Save Plan"}
               </button>
             </div>
           </div>
@@ -577,16 +705,21 @@ export function PlansScreen({ user }) {
             <h1>{selectedPlan.name}</h1>
             <p>{formatPlanType(selectedPlan)}</p>
           </div>
-          <button
-            className="primary-action compact"
-            onClick={() => {
-              setSelectedPlan(null);
-              setMode("list");
-            }}
-            type="button"
-          >
-            Back
-          </button>
+          <div className="inline-actions">
+            <button className="primary-action compact filled" onClick={() => editPlan(selectedPlan)} type="button">
+              Edit
+            </button>
+            <button
+              className="primary-action compact"
+              onClick={() => {
+                setSelectedPlan(null);
+                setMode("list");
+              }}
+              type="button"
+            >
+              Back
+            </button>
+          </div>
         </div>
 
         {message ? <p className="form-message error">{message}</p> : null}
@@ -705,6 +838,12 @@ export function PlansScreen({ user }) {
                   </button>
                   {openPlanMenu === plan.id ? (
                     <div className="session-menu plan-action-menu" role="menu">
+                      <button onClick={() => editPlan(plan)} type="button">
+                        Edit
+                      </button>
+                      <button onClick={() => duplicatePlan(plan)} type="button">
+                        Duplicate
+                      </button>
                       <button onClick={() => openPlanDetails(plan)} type="button">
                         Details
                       </button>

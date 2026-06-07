@@ -560,6 +560,13 @@ button {
   gap: 12px;
 }
 
+.inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .workout-editor {
   display: grid;
   gap: 16px;
