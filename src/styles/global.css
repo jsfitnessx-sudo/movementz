@@ -1268,6 +1268,151 @@ button {
   font-weight: 800;
 }
 
+.prototype-workout-card,
+.my-plan-card {
+  gap: 12px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--panel) 88%, #061116);
+}
+
+.prototype-workout-head {
+  align-items: start;
+}
+
+.prototype-workout-head h2,
+.my-plan-card h2 {
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.prototype-workout-card .status-pill {
+  justify-self: end;
+}
+
+.prototype-exercise-preview {
+  gap: 0;
+}
+
+.prototype-exercise-preview div {
+  min-height: 36px;
+  padding: 9px 0;
+}
+
+.prototype-exercise-preview strong {
+  font-size: 14px;
+}
+
+.prototype-exercise-preview span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.prototype-workout-actions {
+  grid-template-columns: minmax(0, 160px) auto;
+}
+
+.prototype-workout-actions .primary-action.filled {
+  min-height: 42px;
+}
+
+.plan-card-menu-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.my-plan-card .prototype-plan-summary {
+  text-align: center;
+}
+
+.my-plan-card .prototype-plan-summary strong {
+  color: var(--teal);
+  font-size: 14px;
+}
+
+.my-plan-card .workout-card-meta {
+  justify-content: center;
+}
+
+.plan-progress-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--blue) 20%, #071018);
+}
+
+.plan-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--teal);
+}
+
+.archive-section {
+  display: grid;
+  gap: 10px;
+}
+
+.archive-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0 12px;
+  font-weight: 850;
+}
+
+.archive-toggle em {
+  min-width: 26px;
+  border: 1px solid color-mix(in srgb, var(--teal) 60%, transparent);
+  border-radius: 999px;
+  color: var(--teal);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.archive-list {
+  display: grid;
+  gap: 8px;
+}
+
+.archive-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 84%, #061116);
+}
+
+.archive-card div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.archive-card strong {
+  font-size: 15px;
+}
+
+.archive-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.archive-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .empty-state {
   display: grid;
   justify-items: start;

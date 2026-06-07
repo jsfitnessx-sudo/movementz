@@ -382,6 +382,11 @@ function formatExerciseTarget(exercise, workoutType = "strength") {
   }`;
 }
 
+function formatShortDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 function createDefaultSetup() {
   return {
     name: "",
@@ -432,8 +437,10 @@ export function WorkoutLibraryScreen({
   user
 }) {
   const [workouts, setWorkouts] = useState([]);
+  const [archivedWorkouts, setArchivedWorkouts] = useState([]);
   const [assignedWorkouts, setAssignedWorkouts] = useState([]);
   const [libraryView, setLibraryView] = useState("library");
+  const [showArchivedWorkouts, setShowArchivedWorkouts] = useState(false);
   const [recentSessions, setRecentSessions] = useState([]);
   const [coachClients, setCoachClients] = useState([]);
   const [coachClientsError, setCoachClientsError] = useState("");
@@ -563,6 +570,24 @@ export function WorkoutLibraryScreen({
       setWorkouts(data || []);
     }
     setLoading(false);
+  }, [user.id]);
+
+  const loadArchivedWorkouts = useCallback(async () => {
+    if (!supabase || user.id === "demo-user") {
+      setArchivedWorkouts([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("workout_templates")
+      .select("id,name,notes,status,workout_type,hiit_timer_type,hiit_rounds,archived_at,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
+      .eq("owner_id", user.id)
+      .eq("status", "archived")
+      .order("archived_at", { ascending: false })
+      .order("position", { referencedTable: "workout_template_exercises", ascending: true })
+      .limit(30);
+
+    if (!error) setArchivedWorkouts(data || []);
   }, [user.id]);
 
   const loadRecentSessions = useCallback(async () => {
@@ -832,6 +857,7 @@ export function WorkoutLibraryScreen({
   useEffect(() => {
     const load = Promise.resolve().then(async () => {
       await loadWorkouts();
+      await loadArchivedWorkouts();
       await loadRecentSessions();
       await loadCustomExerciseOptions();
       await loadCoachClients();
@@ -840,7 +866,7 @@ export function WorkoutLibraryScreen({
     return () => {
       void load;
     };
-  }, [loadAssignedWorkouts, loadCoachClients, loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
+  }, [loadArchivedWorkouts, loadAssignedWorkouts, loadCoachClients, loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
 
   useEffect(() => {
     if (!supabase || user.id === "demo-user" || mode !== "editor") return undefined;
@@ -1777,6 +1803,7 @@ export function WorkoutLibraryScreen({
 
     if (!supabase || user.id === "demo-user") {
       setWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
+      setArchivedWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
       return;
     }
 
@@ -1788,7 +1815,8 @@ export function WorkoutLibraryScreen({
     if (error) {
       setMessage(error.message);
     } else {
-      await loadWorkouts();
+      setWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
+      setArchivedWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
     }
   }
 
@@ -1813,6 +1841,31 @@ export function WorkoutLibraryScreen({
     }
 
     setWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
+    await loadArchivedWorkouts();
+  }
+
+  async function restoreWorkout(workoutId) {
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      const restoredWorkout = archivedWorkouts.find((workout) => workout.id === workoutId);
+      setArchivedWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
+      if (restoredWorkout) setWorkouts((current) => [{ ...restoredWorkout, status: "active", archived_at: null }, ...current]);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("workout_templates")
+      .update({ status: "active", archived_at: null, updated_at: new Date().toISOString() })
+      .eq("owner_id", user.id)
+      .eq("id", workoutId);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    await Promise.all([loadWorkouts(), loadArchivedWorkouts()]);
   }
 
   function openAssignWorkout(workout) {
@@ -4561,8 +4614,8 @@ export function WorkoutLibraryScreen({
                 const isExpanded = expandedWorkoutIds.has(workout.id);
 
                 return (
-                  <article className="workout-card" key={workout.id}>
-                    <div className="workout-card-head">
+                  <article className="workout-card prototype-workout-card" key={workout.id}>
+                    <div className="workout-card-head prototype-workout-head">
                       <div>
                         <p className="eyebrow">{formatHiitTimerLabel(workout)}</p>
                         <h2>{workout.name}</h2>
@@ -4598,7 +4651,7 @@ export function WorkoutLibraryScreen({
                       </div>
                     ) : null}
 
-                    <div className="library-actions">
+                    <div className="library-actions prototype-workout-actions">
                       <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
                         Start
                       </button>
@@ -4675,6 +4728,39 @@ export function WorkoutLibraryScreen({
           )}
         </>
       )}
+
+      {libraryView === "library" ? (
+        <section className="archive-section">
+          <button className="archive-toggle" onClick={() => setShowArchivedWorkouts((current) => !current)} type="button">
+            <span>Archived workouts</span>
+            <em>{archivedWorkouts.length}</em>
+          </button>
+          {showArchivedWorkouts ? (
+            archivedWorkouts.length ? (
+              <div className="archive-list">
+                {archivedWorkouts.map((workout) => (
+                  <article className="archive-card" key={workout.id}>
+                    <div>
+                      <strong>{workout.name}</strong>
+                      <span>Archived {formatShortDate(workout.archived_at)} - {workoutSummary(workout)}</span>
+                    </div>
+                    <div className="archive-actions">
+                      <button className="primary-action compact" onClick={() => restoreWorkout(workout.id)} type="button">
+                        Restore
+                      </button>
+                      <button className="danger-link" onClick={() => deleteWorkout(workout.id)} type="button">
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="compact-help">No archived workouts.</p>
+            )
+          ) : null}
+        </section>
+      ) : null}
 
       {libraryView === "library" ? (
       <div className="history-section">

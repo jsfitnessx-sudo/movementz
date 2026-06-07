@@ -32,6 +32,39 @@ function formatPlanType(plan) {
   return `${plan.block_weeks || 4} week block`;
 }
 
+function formatShortDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function getPlanWindow(plan) {
+  if (plan.plan_type === "no_plan") {
+    return {
+      dateRange: "No timeframe",
+      daysLeft: null,
+      progress: 0,
+      weekLabel: "Plan only"
+    };
+  }
+
+  const createdAt = plan.created_at ? new Date(plan.created_at) : new Date();
+  const totalDays = Math.max(1, (plan.block_weeks || 4) * 7);
+  const endAt = new Date(createdAt);
+  endAt.setDate(endAt.getDate() + totalDays);
+
+  const now = new Date();
+  const daysElapsed = Math.max(0, Math.floor((now - createdAt) / 86400000));
+  const daysLeft = Math.max(0, Math.ceil((endAt - now) / 86400000));
+  const weekNumber = Math.min(plan.block_weeks || 4, Math.max(1, Math.floor(daysElapsed / 7) + 1));
+
+  return {
+    dateRange: `${formatShortDate(createdAt)} -> ${formatShortDate(endAt)}`,
+    daysLeft,
+    progress: Math.min(100, Math.max(8, (daysElapsed / totalDays) * 100)),
+    weekLabel: `Week ${weekNumber} of ${plan.block_weeks || 4}`
+  };
+}
+
 function formatPlanExerciseTarget(exercise, workoutType = "strength") {
   if (workoutType === "hiit") {
     const targetValue = exercise.target_value || exercise.rep_min || 0;
@@ -44,8 +77,10 @@ function formatPlanExerciseTarget(exercise, workoutType = "strength") {
 
 export function PlansScreen({ role = "normal_user", user }) {
   const [plans, setPlans] = useState([]);
+  const [archivedPlans, setArchivedPlans] = useState([]);
   const [assignedPlans, setAssignedPlans] = useState([]);
   const [planLibraryView, setPlanLibraryView] = useState("library");
+  const [showArchivedPlans, setShowArchivedPlans] = useState(false);
   const [expandedAssignedPlanIds, setExpandedAssignedPlanIds] = useState(new Set());
   const [workoutLibrary, setWorkoutLibrary] = useState([]);
   const [clients, setClients] = useState([]);
@@ -90,6 +125,23 @@ export function PlansScreen({ role = "normal_user", user }) {
     }
 
     setPlans(data || []);
+  }, [user.id]);
+
+  const loadArchivedPlans = useCallback(async () => {
+    if (!supabase || user.id === "demo-user") {
+      setArchivedPlans([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("training_plans")
+      .select("id,name,status,plan_type,block_weeks,created_at,archived_at,training_plan_workouts(id),training_plan_assignments(id)")
+      .eq("owner_id", user.id)
+      .eq("status", "archived")
+      .order("archived_at", { ascending: false })
+      .limit(30);
+
+    if (!error) setArchivedPlans(data || []);
   }, [user.id]);
 
   const loadWorkoutLibrary = useCallback(async () => {
@@ -153,6 +205,7 @@ export function PlansScreen({ role = "normal_user", user }) {
     Promise.resolve().then(() => {
       if (!alive) return;
       loadPlans();
+      loadArchivedPlans();
       loadWorkoutLibrary();
       loadClients();
       loadAssignedPlans();
@@ -161,7 +214,7 @@ export function PlansScreen({ role = "normal_user", user }) {
     return () => {
       alive = false;
     };
-  }, [loadAssignedPlans, loadClients, loadPlans, loadWorkoutLibrary]);
+  }, [loadArchivedPlans, loadAssignedPlans, loadClients, loadPlans, loadWorkoutLibrary]);
 
   function startBuilder() {
     setBuilder(createBuilder());
@@ -303,6 +356,7 @@ export function PlansScreen({ role = "normal_user", user }) {
 
     if (!supabase || user.id === "demo-user") {
       setPlans((current) => current.filter((plan) => plan.id !== planId));
+      setArchivedPlans((current) => current.filter((plan) => plan.id !== planId));
       return;
     }
 
@@ -313,6 +367,7 @@ export function PlansScreen({ role = "normal_user", user }) {
     }
 
     setPlans((current) => current.filter((plan) => plan.id !== planId));
+    setArchivedPlans((current) => current.filter((plan) => plan.id !== planId));
   }
 
   async function archivePlan(planId) {
@@ -336,6 +391,31 @@ export function PlansScreen({ role = "normal_user", user }) {
     }
 
     setPlans((current) => current.filter((plan) => plan.id !== planId));
+    await loadArchivedPlans();
+  }
+
+  async function restorePlan(planId) {
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      const restoredPlan = archivedPlans.find((plan) => plan.id === planId);
+      setArchivedPlans((current) => current.filter((plan) => plan.id !== planId));
+      if (restoredPlan) setPlans((current) => [{ ...restoredPlan, status: "active", archived_at: null }, ...current]);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("training_plans")
+      .update({ status: "active", archived_at: null, updated_at: new Date().toISOString() })
+      .eq("owner_id", user.id)
+      .eq("id", planId);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    await Promise.all([loadPlans(), loadArchivedPlans()]);
   }
 
   function continueBuilder() {
@@ -1023,65 +1103,112 @@ export function PlansScreen({ role = "normal_user", user }) {
         )
       ) : plans.length ? (
         <div className="plan-library-list">
-          {plans.map((plan) => (
-            <article className="workout-card plan-card" key={plan.id}>
-              <div className="workout-card-head">
-                <div>
-                  <p className="eyebrow">Plan</p>
-                  <h2>{plan.name}</h2>
-                  <p>{formatPlanType(plan)}</p>
-                </div>
-                <div className="session-menu-wrap">
-                  <button
-                    aria-expanded={openPlanMenu === plan.id}
-                    aria-label={`${plan.name} options`}
-                    className="icon-action"
-                    onClick={() => setOpenPlanMenu((current) => (current === plan.id ? null : plan.id))}
-                    type="button"
-                  >
-                    ...
-                  </button>
-                  {openPlanMenu === plan.id ? (
-                    <div className="session-menu plan-action-menu" role="menu">
-                      <button onClick={() => editPlan(plan)} type="button">
-                        Edit
-                      </button>
-                      {role === "coach" ? (
-                        <button onClick={() => assignPlan(plan)} type="button">
-                          Assign
+          {plans.map((plan) => {
+            const planWindow = getPlanWindow(plan);
+            const workoutCount = plan.training_plan_workouts?.length || 0;
+            const clientCount = plan.training_plan_assignments?.length || 0;
+
+            return (
+              <article className="workout-card plan-card prototype-plan-card my-plan-card" key={plan.id}>
+                <div className="plan-card-menu-row">
+                  <span className="status-pill">{plan.status || "Active"}</span>
+                  <div className="session-menu-wrap">
+                    <button
+                      aria-expanded={openPlanMenu === plan.id}
+                      aria-label={`${plan.name} options`}
+                      className="icon-action"
+                      onClick={() => setOpenPlanMenu((current) => (current === plan.id ? null : plan.id))}
+                      type="button"
+                    >
+                      ...
+                    </button>
+                    {openPlanMenu === plan.id ? (
+                      <div className="session-menu plan-action-menu" role="menu">
+                        <button onClick={() => editPlan(plan)} type="button">
+                          Edit
                         </button>
-                      ) : null}
-                      <button onClick={() => duplicatePlan(plan)} type="button">
-                        Duplicate
-                      </button>
-                      <button onClick={() => openPlanDetails(plan)} type="button">
-                        Details
-                      </button>
-                      <button onClick={() => archivePlan(plan.id)} type="button">
-                        Archive
-                      </button>
-                      <button className="danger-text" onClick={() => deletePlan(plan.id)} type="button">
-                        Delete
-                      </button>
-                    </div>
-                  ) : null}
+                        {role === "coach" ? (
+                          <button onClick={() => assignPlan(plan)} type="button">
+                            Assign
+                          </button>
+                        ) : null}
+                        <button onClick={() => duplicatePlan(plan)} type="button">
+                          Duplicate
+                        </button>
+                        <button onClick={() => openPlanDetails(plan)} type="button">
+                          Details
+                        </button>
+                        <button onClick={() => archivePlan(plan.id)} type="button">
+                          Archive
+                        </button>
+                        <button className="danger-text" onClick={() => deletePlan(plan.id)} type="button">
+                          Delete
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-              <div className="workout-card-meta">
-                <span>{plan.training_plan_workouts?.length || 0} workouts</span>
-                <span>{plan.training_plan_assignments?.length || 0} clients</span>
-              </div>
-              <button className="primary-action compact" onClick={() => openPlanDetails(plan)} type="button">
-                Open
-              </button>
-            </article>
-          ))}
+
+                <div className="prototype-plan-summary">
+                  <h2>{plan.name}</h2>
+                  <strong>{planWindow.daysLeft === null ? planWindow.weekLabel : `${planWindow.weekLabel} - ${planWindow.daysLeft} days left`}</strong>
+                  <p>{planWindow.dateRange}</p>
+                  <div className="workout-card-meta">
+                    <span>{formatPlanType(plan)}</span>
+                    <span>{workoutCount} workouts</span>
+                    <span>{clientCount} clients</span>
+                  </div>
+                </div>
+
+                <div className="plan-progress-track" aria-hidden="true">
+                  <span style={{ width: `${planWindow.progress}%` }} />
+                </div>
+
+                <button className="primary-action compact" onClick={() => openPlanDetails(plan)} type="button">
+                  Open
+                </button>
+              </article>
+            );
+          })}
         </div>
       ) : (
         <div className="panel empty-state">
           <p>No plans yet. Create your first plan from the workout library.</p>
         </div>
       )}
+
+      {role !== "client" || planLibraryView === "library" ? (
+        <section className="archive-section">
+          <button className="archive-toggle" onClick={() => setShowArchivedPlans((current) => !current)} type="button">
+            <span>Archived plans</span>
+            <em>{archivedPlans.length}</em>
+          </button>
+          {showArchivedPlans ? (
+            archivedPlans.length ? (
+              <div className="archive-list">
+                {archivedPlans.map((plan) => (
+                  <article className="archive-card" key={plan.id}>
+                    <div>
+                      <strong>{plan.name}</strong>
+                      <span>Archived {formatShortDate(plan.archived_at)} - {formatPlanType(plan)}</span>
+                    </div>
+                    <div className="archive-actions">
+                      <button className="primary-action compact" onClick={() => restorePlan(plan.id)} type="button">
+                        Restore
+                      </button>
+                      <button className="danger-link" onClick={() => deletePlan(plan.id)} type="button">
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="compact-help">No archived plans.</p>
+            )
+          ) : null}
+        </section>
+      ) : null}
     </section>
   );
 }
