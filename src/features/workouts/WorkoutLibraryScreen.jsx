@@ -1004,6 +1004,15 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
   async function loadWorkoutDetails(workout) {
     if (!supabase || user.id === "demo-user") return workout;
 
+    if (workout.assignment_id || workout.isAssignedWorkout) {
+      return {
+        ...workout,
+        workout_template_exercises: (workout.workout_template_exercises || []).sort(
+          (a, b) => (Number(a.position) || 0) - (Number(b.position) || 0)
+        )
+      };
+    }
+
     setLoading(true);
     setMessage("");
 
@@ -4388,6 +4397,11 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
           <div className="workout-card-list">
             {assignedWorkouts.map((assignment) => {
               const workout = assignment.workout || {};
+              const assignedWorkout = {
+                ...workout,
+                assignment_id: assignment.assignment_id,
+                isAssignedWorkout: true
+              };
               const exercises = workout.workout_template_exercises || [];
               const muscleSummary = [...new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean))];
               const assignedDate = assignment.assigned_at
@@ -4409,7 +4423,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
                     <span>{assignedDate ? `Assigned ${assignedDate}` : "Assigned"}</span>
                   </div>
                   {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
-                  <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
+                  <button className="primary-action filled" onClick={() => startSession(assignedWorkout)} type="button">
                     Start
                   </button>
                 </article>
