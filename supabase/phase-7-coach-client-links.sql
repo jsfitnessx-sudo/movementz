@@ -37,8 +37,8 @@ grant execute on function public.search_users_for_client_invite(text) to authent
 create or replace function public.link_client_to_coach(target_client_id uuid)
 returns table (
   link_id uuid,
-  client_id uuid,
-  status text
+  linked_client_id uuid,
+  link_status text
 )
 language plpgsql
 security definer
@@ -81,7 +81,7 @@ begin
 
   insert into public.coach_clients (coach_id, client_id, status)
   values (auth.uid(), target_client_id, 'active')
-  on conflict (coach_id, client_id)
+  on conflict on constraint coach_clients_coach_id_client_id_key
   do update set status = 'active'
   returning * into created_link;
 
@@ -194,7 +194,7 @@ begin
 
   insert into public.coach_clients (coach_id, client_id, status)
   values (invite_row.inviter_id, auth.uid(), 'active')
-  on conflict (coach_id, client_id)
+  on conflict on constraint coach_clients_coach_id_client_id_key
   do update set status = 'active'
   returning * into created_link;
 
