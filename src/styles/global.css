@@ -2571,7 +2571,7 @@ button {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #101810;
+  background: #0b151d;
 }
 
 .plan-workout-card {
@@ -3289,22 +3289,119 @@ button {
   }
 
   .plan-type-grid,
-  .plan-builder-actions,
   .plan-inline-form,
   .form-footer-actions {
     grid-template-columns: 1fr;
   }
 
+  .plans-screen {
+    gap: 12px;
+  }
+
+  .plans-screen .library-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .plans-screen .library-heading .primary-action {
+    width: auto;
+    min-height: 42px;
+    padding: 0 16px;
+  }
+
+  .plans-screen .screen-heading h1 {
+    font-size: 28px;
+  }
+
+  .plans-screen .screen-heading p {
+    font-size: 13px;
+  }
+
+  .plan-builder-panel {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .plan-builder-panel label {
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .plan-builder-panel input,
+  .plan-builder-panel select,
+  .plan-builder-panel textarea {
+    min-height: 42px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+
+  .plan-type-grid,
+  .plan-builder-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .plan-choice {
+    min-height: 58px;
+    padding: 8px;
+  }
+
+  .plan-choice strong {
+    font-size: 15px;
+  }
+
+  .plan-choice span {
+    font-size: 10px;
+  }
+
   .block-period-picker > div {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .block-period-picker .chip {
+    min-height: 36px;
+    padding: 0 4px;
+    font-size: 12px;
   }
 
   .plan-builder-summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .plan-builder-summary h2 {
+    font-size: 16px;
+  }
+
+  .plan-builder-summary p {
+    font-size: 12px;
+  }
+
+  .plan-workouts-panel,
+  .coach-assignment-panel {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .plans-screen .section-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .plans-screen .section-row h2 {
+    font-size: 18px;
+  }
+
+  .plan-builder-actions .primary-action {
+    min-height: 44px;
+    font-size: 14px;
   }
 
   .plan-workout-card {
     grid-template-columns: 1fr;
+    padding: 10px;
   }
 
   .weekday-picker button {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
+import { WorkoutLibraryScreen } from "../workouts/WorkoutLibraryScreen.jsx";
 
 const blockPeriods = [4, 6, 8, 10, 12, 16];
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -38,9 +39,6 @@ export function PlansScreen({ user }) {
   const [builder, setBuilder] = useState(createBuilder);
   const [mode, setMode] = useState("list");
   const [showImport, setShowImport] = useState(false);
-  const [showNewWorkout, setShowNewWorkout] = useState(false);
-  const [newWorkoutName, setNewWorkoutName] = useState("");
-  const [newWorkoutType, setNewWorkoutType] = useState("strength");
   const [openPlanMenu, setOpenPlanMenu] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -137,8 +135,6 @@ export function PlansScreen({ user }) {
   function startBuilder() {
     setBuilder(createBuilder());
     setShowImport(false);
-    setShowNewWorkout(false);
-    setNewWorkoutName("");
     setMessage("");
     setMode("builder");
   }
@@ -225,31 +221,25 @@ export function PlansScreen({ user }) {
     }));
   }
 
-  function addNewPlanWorkout() {
-    if (!newWorkoutName.trim()) {
-      setMessage("Add a workout name first.");
-      return;
-    }
-
+  async function addCreatedWorkoutToPlan(workout) {
     setBuilder((current) => ({
       ...current,
       workouts: [
         ...current.workouts,
         {
-          id: `new-${Date.now()}`,
-          workout_template_id: null,
-          name: newWorkoutName.trim(),
-          workout_type: newWorkoutType,
-          source_type: "new",
-          summary: newWorkoutType === "hiit" ? "New HIIT workout" : "New strength workout",
+          id: `created-${workout.id}`,
+          workout_template_id: workout.id,
+          name: workout.name,
+          workout_type: workout.workout_type,
+          source_type: "imported",
+          summary: workoutSummary(workout),
           scheduled_days: []
         }
       ]
     }));
-    setNewWorkoutName("");
-    setNewWorkoutType("strength");
-    setShowNewWorkout(false);
+    await loadWorkoutLibrary();
     setMessage("");
+    setMode("builder");
   }
 
   function removePlanWorkout(id) {
@@ -366,6 +356,18 @@ export function PlansScreen({ user }) {
     setMode("list");
   }
 
+  if (mode === "workout-builder") {
+    return (
+      <WorkoutLibraryScreen
+        embedded
+        initialMode="setup"
+        onClose={() => setMode("builder")}
+        onWorkoutSaved={addCreatedWorkoutToPlan}
+        user={user}
+      />
+    );
+  }
+
   if (mode === "builder") {
     return (
       <section className="screen-stack plans-screen">
@@ -449,30 +451,13 @@ export function PlansScreen({ user }) {
             </div>
 
             <div className="plan-builder-actions">
-              <button className="primary-action filled" onClick={() => setShowNewWorkout((current) => !current)} type="button">
+              <button className="primary-action filled" onClick={() => setMode("workout-builder")} type="button">
                 + New Workout
               </button>
               <button className="primary-action" onClick={() => setShowImport((current) => !current)} type="button">
                 Import Workouts
               </button>
             </div>
-
-            {showNewWorkout ? (
-              <div className="plan-inline-form">
-                <input
-                  onChange={(event) => setNewWorkoutName(event.target.value)}
-                  placeholder="Workout name"
-                  value={newWorkoutName}
-                />
-                <select onChange={(event) => setNewWorkoutType(event.target.value)} value={newWorkoutType}>
-                  <option value="strength">Strength</option>
-                  <option value="hiit">HIIT</option>
-                </select>
-                <button className="primary-action compact filled" onClick={addNewPlanWorkout} type="button">
-                  Add
-                </button>
-              </div>
-            ) : null}
 
             {showImport ? (
               <div className="import-workout-list">

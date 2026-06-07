@@ -413,10 +413,10 @@ function createEmptyForm() {
   };
 }
 
-export function WorkoutLibraryScreen({ user }) {
+export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", onClose, onWorkoutSaved, user }) {
   const [workouts, setWorkouts] = useState([]);
   const [recentSessions, setRecentSessions] = useState([]);
-  const [mode, setMode] = useState("list");
+  const [mode, setMode] = useState(initialMode);
   const [editingId, setEditingId] = useState(null);
   const [setup, setSetup] = useState(createDefaultSetup);
   const [form, setForm] = useState(createEmptyForm);
@@ -1068,6 +1068,15 @@ export function WorkoutLibraryScreen({ user }) {
     setMode("setup");
   }
 
+  function closeBuilder() {
+    if (embedded && onClose) {
+      onClose();
+      return;
+    }
+
+    setMode("list");
+  }
+
   function buildExercisesFromSetup() {
     if (!setup.name.trim()) {
       setMessage("Give this workout a name first.");
@@ -1528,6 +1537,10 @@ export function WorkoutLibraryScreen({ user }) {
           ? current.map((workout) => (workout.id === editingId ? demoWorkout : workout))
           : [demoWorkout, ...current]
       );
+      if (onWorkoutSaved) {
+        onWorkoutSaved(demoWorkout);
+        return;
+      }
       setMode("list");
       return;
     }
@@ -1628,6 +1641,27 @@ export function WorkoutLibraryScreen({ user }) {
     setSaving(false);
     if (!customRequestResult.failed) {
       setMessage(customRequestResult.created ? "Workout saved. Custom exercise sent for review." : "");
+    }
+    if (onWorkoutSaved) {
+      onWorkoutSaved({
+        id: templateId,
+        name: cleanName,
+        notes: form.notes,
+        workout_type: form.workout_type,
+        hiit_timer_type: form.hiit_timer_type,
+        hiit_rounds: form.hiit_rounds,
+        hiit_work_seconds: form.hiit_work_seconds,
+        hiit_rest_seconds: form.hiit_rest_seconds,
+        hiit_station_rest_seconds: form.hiit_station_rest_seconds,
+        hiit_countdown_seconds: form.hiit_countdown_seconds,
+        hiit_goal_seconds: form.hiit_goal_seconds,
+        hiit_focus_area: form.hiit_focus_area,
+        workout_template_exercises: cleanExercises.map((exercise) => ({
+          ...exercise,
+          id: `${templateId}-${exercise.position}`
+        }))
+      });
+      return;
     }
     setMode("list");
   }
@@ -3438,7 +3472,7 @@ export function WorkoutLibraryScreen({ user }) {
 
         <div className="workout-editor panel">
           <div className="library-toolbar">
-            <button className="primary-action" onClick={() => setMode("list")} type="button">
+            <button className="primary-action" onClick={closeBuilder} type="button">
               Close
             </button>
           </div>
