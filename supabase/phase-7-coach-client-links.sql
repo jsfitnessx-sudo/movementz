@@ -34,6 +34,7 @@ $$;
 
 grant execute on function public.search_users_for_client_invite(text) to authenticated;
 
+drop function if exists public.link_client_to_coach(uuid);
 create or replace function public.link_client_to_coach(target_client_id uuid)
 returns table (
   link_id uuid,
