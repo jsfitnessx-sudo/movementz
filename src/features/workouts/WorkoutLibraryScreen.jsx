@@ -422,7 +422,15 @@ function createEmptyForm() {
   };
 }
 
-export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", onClose, onWorkoutSaved, role = "normal_user", user }) {
+export function WorkoutLibraryScreen({
+  autoStartWorkout = null,
+  embedded = false,
+  initialMode = "list",
+  onClose,
+  onWorkoutSaved,
+  role = "normal_user",
+  user
+}) {
   const [workouts, setWorkouts] = useState([]);
   const [assignedWorkouts, setAssignedWorkouts] = useState([]);
   const [libraryView, setLibraryView] = useState("library");
@@ -465,6 +473,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
   const [assigning, setAssigning] = useState(false);
   const [openBuilderExerciseMenu, setOpenBuilderExerciseMenu] = useState(null);
   const sessionInputRefs = useRef({});
+  const autoStartedWorkoutRef = useRef("");
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1008,6 +1017,25 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
       return {
         ...workout,
         workout_template_exercises: (workout.workout_template_exercises || []).sort(
+          (a, b) => (Number(a.position) || 0) - (Number(b.position) || 0)
+        )
+      };
+    }
+
+    if (workout.isAssignedPlanWorkout && role === "client") {
+      const { data, error } = await supabase.rpc("get_my_assigned_plan_workout", {
+        p_workout_template_id: workout.id
+      });
+
+      if (error || !data) {
+        setMessage(`${error?.message || "Could not load this assigned plan workout."} Run supabase/phase-9-client-assignment-library.sql in Supabase.`);
+        return null;
+      }
+
+      return {
+        ...data,
+        isAssignedPlanWorkout: true,
+        workout_template_exercises: (data.workout_template_exercises || []).sort(
           (a, b) => (Number(a.position) || 0) - (Number(b.position) || 0)
         )
       };
@@ -2053,6 +2081,18 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     setSessionFeedback({ rating: 0, comment: "" });
     setMode("session");
   }
+
+  useEffect(() => {
+    if (!autoStartWorkout) return;
+
+    const startKey = autoStartWorkout.autoStartKey || `${autoStartWorkout.id || "workout"}-${autoStartWorkout.name || ""}`;
+    if (autoStartedWorkoutRef.current === startKey) return;
+
+    autoStartedWorkoutRef.current = startKey;
+    Promise.resolve().then(() => startSession(autoStartWorkout));
+  // startSession is intentionally guarded by autoStartedWorkoutRef so the handoff only runs once per requested workout.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStartWorkout]);
 
   function toggleHiitTimer() {
     setHiitInterval((current) => (current ? { ...current, running: !current.running } : current));

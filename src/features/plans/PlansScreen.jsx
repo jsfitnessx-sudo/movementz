@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 import { WorkoutLibraryScreen } from "../workouts/WorkoutLibraryScreen.jsx";
 
@@ -43,11 +43,13 @@ export function PlansScreen({ role = "normal_user", user }) {
   const [showImport, setShowImport] = useState(false);
   const [openPlanMenu, setOpenPlanMenu] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [activePlanWorkout, setActivePlanWorkout] = useState(null);
   const [editingPlanId, setEditingPlanId] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const planStartCounterRef = useRef(0);
 
   const importedWorkoutIds = useMemo(
     () => new Set(builder.workouts.map((workout) => workout.workout_template_id).filter(Boolean)),
@@ -95,17 +97,12 @@ export function PlansScreen({ role = "normal_user", user }) {
   }, [user.id]);
 
   const loadClients = useCallback(async () => {
-    if (!supabase || user.id === "demo-user") {
+    if (role !== "coach" || !supabase || user.id === "demo-user") {
       setClients([]);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("coach_clients")
-      .select("client_id,profiles!coach_clients_client_id_fkey(id,full_name,email)")
-      .eq("coach_id", user.id)
-      .eq("status", "active")
-      .limit(80);
+    const { data, error } = await supabase.rpc("get_my_coach_clients");
 
     if (error) {
       setClients([]);
@@ -113,12 +110,12 @@ export function PlansScreen({ role = "normal_user", user }) {
     }
 
     setClients(
-      (data || []).map((link) => ({
+      (data || []).filter((link) => link.status === "active").map((link) => ({
         id: link.client_id,
-        name: link.profiles?.full_name || link.profiles?.email || "Client"
+        name: link.client_name || link.client_email || "Client"
       }))
     );
-  }, [user.id]);
+  }, [role, user.id]);
 
   const loadAssignedPlans = useCallback(async () => {
     if (role !== "client" || !supabase || user.id === "demo-user") {
@@ -234,6 +231,22 @@ export function PlansScreen({ role = "normal_user", user }) {
   }
 
   async function editPlan(plan) {
+    setOpenPlanMenu(null);
+    setMessage("");
+
+    try {
+      const detail = await fetchPlanDetail(plan);
+      setBuilder(planToBuilder(detail));
+      setEditingPlanId(detail.id);
+      setShowImport(false);
+      setSelectedPlan(null);
+      setMode("builder");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function assignPlan(plan) {
     setOpenPlanMenu(null);
     setMessage("");
 
@@ -367,6 +380,24 @@ export function PlansScreen({ role = "normal_user", user }) {
       else ids.add(clientId);
       return { ...current, selectedClientIds: Array.from(ids) };
     });
+  }
+
+  function startPlanWorkout(workout, options = {}) {
+    if (!workout.workout_template_id) {
+      setMessage("This plan workout is missing its source workout. Re-import it from the workout library.");
+      return;
+    }
+
+    planStartCounterRef.current += 1;
+    setMessage("");
+    setActivePlanWorkout({
+      id: workout.workout_template_id,
+      name: workout.name,
+      workout_type: workout.workout_type,
+      isAssignedPlanWorkout: Boolean(options.assigned),
+      autoStartKey: `${options.planId || "plan"}-${workout.id || workout.workout_template_id}-${planStartCounterRef.current}`
+    });
+    setMode("plan-workout-session");
   }
 
   async function savePlan() {
@@ -511,6 +542,21 @@ export function PlansScreen({ role = "normal_user", user }) {
         initialMode="setup"
         onClose={() => setMode("builder")}
         onWorkoutSaved={addCreatedWorkoutToPlan}
+        user={user}
+      />
+    );
+  }
+
+  if (mode === "plan-workout-session" && activePlanWorkout) {
+    return (
+      <WorkoutLibraryScreen
+        autoStartWorkout={activePlanWorkout}
+        embedded
+        onClose={() => {
+          setActivePlanWorkout(null);
+          setMode(selectedPlan ? "detail" : "list");
+        }}
+        role={role}
         user={user}
       />
     );
@@ -778,7 +824,7 @@ export function PlansScreen({ role = "normal_user", user }) {
             <span className="status-pill">{planWorkouts.length} saved</span>
           </div>
 
-          {planWorkouts.length ? (
+              {planWorkouts.length ? (
             <div className="plan-workout-list">
               {planWorkouts.map((workout) => (
                 <article className="plan-workout-card" key={workout.id}>
@@ -791,7 +837,12 @@ export function PlansScreen({ role = "normal_user", user }) {
                       <em>No schedule</em>
                     )}
                   </div>
-                  <span className="status-pill">{workout.source_type}</span>
+                  <div className="plan-workout-actions">
+                    <span className="status-pill">{workout.source_type}</span>
+                    <button className="primary-action compact filled" onClick={() => startPlanWorkout(workout, { planId: selectedPlan.id })} type="button">
+                      Start
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
@@ -884,9 +935,18 @@ export function PlansScreen({ role = "normal_user", user }) {
                   {workouts.length ? (
                     <div className="workout-exercise-summary">
                       {workouts.map((workout) => (
-                        <div key={workout.id || `${assignment.assignment_id}-${workout.position}`}>
-                          <strong>{workout.name}</strong>
-                          <span>{workout.summary || workout.workout_type || "Workout"}</span>
+                        <div className="assigned-plan-workout-row" key={workout.id || `${assignment.assignment_id}-${workout.position}`}>
+                          <span>
+                            <strong>{workout.name}</strong>
+                            <em>{workout.summary || workout.workout_type || "Workout"}</em>
+                          </span>
+                          <button
+                            className="primary-action compact filled"
+                            onClick={() => startPlanWorkout(workout, { assigned: true, planId: plan.id })}
+                            type="button"
+                          >
+                            Start
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -925,6 +985,11 @@ export function PlansScreen({ role = "normal_user", user }) {
                       <button onClick={() => editPlan(plan)} type="button">
                         Edit
                       </button>
+                      {role === "coach" ? (
+                        <button onClick={() => assignPlan(plan)} type="button">
+                          Assign
+                        </button>
+                      ) : null}
                       <button onClick={() => duplicatePlan(plan)} type="button">
                         Duplicate
                       </button>

@@ -2601,6 +2601,34 @@ button {
   font-size: 12px;
 }
 
+.plan-workout-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.assigned-plan-workout-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.assigned-plan-workout-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.assigned-plan-workout-row em {
+  overflow: hidden;
+  color: var(--muted);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .plan-workout-card em {
   color: var(--gold);
   font-size: 12px;
