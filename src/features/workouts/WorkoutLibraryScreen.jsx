@@ -534,7 +534,7 @@ export function WorkoutLibraryScreen({ user }) {
 
     const { data, error } = await supabase
       .from("session_logs")
-      .select("id,name,completed_at,duration_seconds,total_exercises,completed_sets,total_volume_kg,rating")
+      .select("id,name,workout_type,completed_at,duration_seconds,total_exercises,completed_sets,total_volume_kg,rating")
       .eq("owner_id", user.id)
       .eq("status", "completed")
       .order("completed_at", { ascending: false })
@@ -583,7 +583,7 @@ export function WorkoutLibraryScreen({ user }) {
     const { data, error } = await supabase
       .from("session_logs")
       .select(
-        "id,name,completed_at,duration_seconds,total_exercises,completed_sets,total_volume_kg,rating,comment,session_log_exercises(id,position,exercise_name,original_exercise_name,muscle_group,target_sets,target_rep_min,target_rep_max,skipped,substituted,session_log_sets(id,set_number,kg,reps,completed))"
+        "id,name,workout_type,completed_at,duration_seconds,total_exercises,completed_sets,total_volume_kg,rating,comment,session_log_exercises(id,position,exercise_name,original_exercise_name,muscle_group,target_sets,target_rep_min,target_rep_max,target_type,target_value,split_duration_seconds,completed_at_seconds,skipped,substituted,session_log_sets(id,set_number,kg,reps,completed))"
       )
       .eq("owner_id", user.id)
       .eq("status", "completed")
@@ -1907,6 +1907,29 @@ export function WorkoutLibraryScreen({ user }) {
       }
 
       sessionId = sessionLog.id;
+
+      if (splits.length) {
+        const workoutExercises = activeWorkout.workout_template_exercises || [];
+        const splitRows = splits.map((split, index) => {
+          const exercise = workoutExercises[split.exerciseIndex] || {};
+          return {
+            session_id: sessionId,
+            workout_template_exercise_id: exercise.id || null,
+            position: index + 1,
+            exercise_name: split.exerciseName || exercise.exercise_name || `Station ${index + 1}`,
+            muscle_group: exercise.muscle_group || activeWorkout.hiit_focus_area || null,
+            target_type: exercise.target_type || null,
+            target_value: exercise.target_value === "" || exercise.target_value == null ? null : Number(exercise.target_value),
+            split_duration_seconds: Number(split.durationSeconds) || 0,
+            completed_at_seconds: Number(split.completedAtSeconds) || null
+          };
+        });
+
+        const { error: splitError } = await supabase.from("session_log_exercises").insert(splitRows);
+        if (splitError) {
+          setMessage(`${splitError.message}. Run supabase/phase-5-for-time-session-splits.sql in Supabase first.`);
+        }
+      }
     }
 
     setCompletedSession({
@@ -3224,6 +3247,10 @@ export function WorkoutLibraryScreen({ user }) {
       hour: "numeric",
       minute: "2-digit"
     });
+    const isHiitSession = selectedSession.workout_type === "hiit";
+    const splitExercises = (selectedSession.session_log_exercises || []).filter(
+      (exercise) => exercise.split_duration_seconds !== null && exercise.split_duration_seconds !== undefined
+    );
 
     return (
       <section className="screen-stack workout-library">
@@ -3260,12 +3287,18 @@ export function WorkoutLibraryScreen({ user }) {
               <strong>{selectedSession.total_exercises || 0}</strong>
             </div>
             <div>
-              <span>Sets done</span>
+              <span>{isHiitSession ? "Splits" : "Sets done"}</span>
               <strong>{selectedSession.completed_sets || 0}</strong>
             </div>
             <div>
-              <span>Volume</span>
-              <strong>{Math.round(selectedSession.total_volume_kg || 0).toLocaleString()}kg</strong>
+              <span>{isHiitSession ? "Result" : "Volume"}</span>
+              <strong>
+                {isHiitSession
+                  ? splitExercises.length
+                    ? "For Time"
+                    : "HIIT"
+                  : `${Math.round(selectedSession.total_volume_kg || 0).toLocaleString()}kg`}
+              </strong>
             </div>
           </div>
 
@@ -3278,6 +3311,7 @@ export function WorkoutLibraryScreen({ user }) {
         <div className="session-detail-list">
           {(selectedSession.session_log_exercises || []).map((exercise) => {
             const completedSets = (exercise.session_log_sets || []).filter((set) => set.completed);
+            const hasSplit = exercise.split_duration_seconds !== null && exercise.split_duration_seconds !== undefined;
 
             return (
               <article
@@ -3288,12 +3322,7 @@ export function WorkoutLibraryScreen({ user }) {
                   <div>
                     <p className="eyebrow">{exercise.muscle_group || "Strength"}</p>
                     <h2>{exercise.exercise_name}</h2>
-                    <p>
-                      Target: {exercise.target_sets || 0} sets
-                      {exercise.target_rep_min || exercise.target_rep_max
-                        ? ` x ${exercise.target_rep_min || "?"}-${exercise.target_rep_max || "?"} reps`
-                        : ""}
-                    </p>
+                    <p>Target: {hasSplit ? formatExerciseTarget(exercise, "hiit") : formatExerciseTarget(exercise)}</p>
                   </div>
                   {exercise.substituted ? <span className="status-pill">Swapped</span> : null}
                   {exercise.skipped ? <span className="status-pill danger-pill">Skipped</span> : null}
@@ -3303,7 +3332,20 @@ export function WorkoutLibraryScreen({ user }) {
                   <p className="compact-help">Original: {exercise.original_exercise_name}</p>
                 ) : null}
 
-                {completedSets.length ? (
+                {hasSplit ? (
+                  <div className="logged-set-list">
+                    <div>
+                      <span>Split</span>
+                      <strong>{formatClock(exercise.split_duration_seconds)}</strong>
+                    </div>
+                    {exercise.completed_at_seconds !== null && exercise.completed_at_seconds !== undefined ? (
+                      <div>
+                        <span>Elapsed</span>
+                        <strong>{formatClock(exercise.completed_at_seconds)}</strong>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : completedSets.length ? (
                   <div className="logged-set-list">
                     {completedSets.map((set) => (
                       <div key={set.id || set.set_number}>
@@ -4081,6 +4123,7 @@ export function WorkoutLibraryScreen({ user }) {
                 day: "numeric",
                 month: "short"
               });
+              const isHiitSession = session.workout_type === "hiit";
 
               return (
                 <button
@@ -4099,9 +4142,13 @@ export function WorkoutLibraryScreen({ user }) {
                   </div>
                   <div className="session-history-stats">
                     <strong>{session.completed_sets}</strong>
-                    <span>sets</span>
-                    <strong>{Math.round(session.total_volume_kg || 0).toLocaleString()}kg</strong>
-                    <span>volume</span>
+                    <span>{isHiitSession ? "splits" : "sets"}</span>
+                    <strong>
+                      {isHiitSession
+                        ? formatShortDuration(session.duration_seconds || 0)
+                        : `${Math.round(session.total_volume_kg || 0).toLocaleString()}kg`}
+                    </strong>
+                    <span>{isHiitSession ? "time" : "volume"}</span>
                     {session.rating ? <span>{session.rating}/5</span> : null}
                   </div>
                 </button>
