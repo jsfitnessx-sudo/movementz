@@ -1581,6 +1581,211 @@ button {
   resize: vertical;
 }
 
+.progress-heading h1 span {
+  color: var(--teal);
+}
+
+.progress-client-select {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.progress-client-select select,
+.progress-compare-selects select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.progress-upload-card,
+.progress-compare-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--teal) 36%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 88%, #061116);
+}
+
+.progress-upload-card .eyebrow,
+.progress-compare-card .eyebrow {
+  text-align: center;
+}
+
+.progress-pose-tabs,
+.progress-compare-selects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.progress-pose-tabs button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.progress-pose-tabs button.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 14%, var(--field));
+  color: var(--teal);
+}
+
+.progress-upload-card textarea {
+  width: 100%;
+  min-height: 86px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 12px;
+  font-size: 16px;
+  resize: vertical;
+}
+
+.progress-upload-button {
+  min-height: 52px;
+  font-size: 17px;
+}
+
+.progress-count-grid,
+.progress-photo-grid,
+.progress-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.progress-count-card {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 18px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.progress-count-card strong {
+  color: var(--teal);
+  font-size: 28px;
+}
+
+.progress-count-card:nth-child(2) strong {
+  color: var(--blue);
+}
+
+.progress-count-card:nth-child(3) strong {
+  color: var(--gold);
+}
+
+.progress-count-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.progress-compare-selects {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.progress-compare-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.progress-compare-photo,
+.progress-photo-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.progress-compare-photo img,
+.progress-photo-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: #091017;
+}
+
+.progress-compare-photo div {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  text-align: center;
+}
+
+.progress-compare-photo strong,
+.progress-photo-card strong {
+  color: var(--teal);
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.progress-compare-photo span,
+.progress-photo-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.progress-photo-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.progress-photo-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.progress-photo-card img {
+  border-radius: 10px;
+}
+
+.progress-photo-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.progress-photo-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .progress-count-grid {
+    gap: 8px;
+  }
+
+  .progress-count-card {
+    padding: 14px 8px;
+  }
+
+  .progress-compare-grid,
+  .progress-photo-grid {
+    gap: 8px;
+  }
+}
+
 .empty-state {
   display: grid;
   justify-items: start;
