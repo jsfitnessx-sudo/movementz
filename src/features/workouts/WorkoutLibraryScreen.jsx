@@ -338,6 +338,13 @@ function formatShortDuration(totalSeconds = 0) {
   return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
+function formatSplitDelta(currentSeconds, previousSeconds) {
+  if (previousSeconds === null || previousSeconds === undefined) return "";
+  const delta = (Number(currentSeconds) || 0) - (Number(previousSeconds) || 0);
+  if (delta === 0) return "same as previous";
+  return `${formatClock(Math.abs(delta))} ${delta < 0 ? "ahead" : "behind"}`;
+}
+
 function secondsFromParts(minutes, seconds) {
   return (Number(minutes) || 0) * 60 + (Number(seconds) || 0);
 }
@@ -1004,22 +1011,52 @@ export function WorkoutLibraryScreen({ user }) {
     return previousSetsByExercise;
   }
 
-  async function loadBestPreviousDuration(workoutTemplateId) {
-    if (!supabase || user.id === "demo-user" || !workoutTemplateId) return null;
+  async function loadForTimePacing(workoutTemplateId) {
+    if (!supabase || user.id === "demo-user" || !workoutTemplateId) {
+      return { latestSplitsByPosition: {}, bestDurationSeconds: null };
+    }
 
     const { data, error } = await supabase
       .from("session_logs")
-      .select("duration_seconds")
+      .select(
+        "duration_seconds,completed_at,session_log_exercises(position,exercise_name,split_duration_seconds,completed_at_seconds)"
+      )
       .eq("owner_id", user.id)
       .eq("workout_template_id", workoutTemplateId)
       .eq("status", "completed")
       .eq("workout_type", "hiit")
-      .order("duration_seconds", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order("completed_at", { ascending: false })
+      .limit(6);
 
-    if (error) return null;
-    return data?.duration_seconds ?? null;
+    if (error) {
+      return { latestSplitsByPosition: {}, bestDurationSeconds: null };
+    }
+
+    const sessions = data || [];
+    const latestWithSplits = sessions.find((session) =>
+      (session.session_log_exercises || []).some(
+        (exercise) => exercise.split_duration_seconds !== null && exercise.split_duration_seconds !== undefined
+      )
+    );
+    const bestDurationSeconds = sessions.length
+      ? Math.min(...sessions.map((session) => Number(session.duration_seconds) || Number.POSITIVE_INFINITY))
+      : null;
+
+    const latestSplitsByPosition = {};
+    for (const split of latestWithSplits?.session_log_exercises || []) {
+      if (split.split_duration_seconds === null || split.split_duration_seconds === undefined) continue;
+      latestSplitsByPosition[split.position] = {
+        exerciseName: split.exercise_name,
+        durationSeconds: Number(split.split_duration_seconds) || 0,
+        completedAtSeconds: Number(split.completed_at_seconds) || null
+      };
+    }
+
+    return {
+      latestSplitsByPosition,
+      bestDurationSeconds:
+        bestDurationSeconds === Number.POSITIVE_INFINITY || bestDurationSeconds === null ? null : bestDurationSeconds
+    };
   }
 
   function startNewWorkout() {
@@ -1736,10 +1773,15 @@ export function WorkoutLibraryScreen({ user }) {
       }
 
       if (detailedWorkout.hiit_timer_type === "for_time") {
+        const forTimePacing = await loadForTimePacing(detailedWorkout.id);
         setActiveWorkout({
           ...detailedWorkout,
           startedAt: new Date().toISOString(),
-          workout_template_exercises: workoutExercises
+          previousBestDurationSeconds: forTimePacing.bestDurationSeconds,
+          workout_template_exercises: workoutExercises.map((exercise) => ({
+            ...exercise,
+            previousSplit: forTimePacing.latestSplitsByPosition[exercise.position]
+          }))
         });
         setHiitForTime({
           running: false,
@@ -1870,7 +1912,7 @@ export function WorkoutLibraryScreen({ user }) {
       hiitForTime.elapsedSeconds,
       splits.reduce((sum, split) => sum + (Number(split.durationSeconds) || 0), 0)
     );
-    const previousBestDurationSeconds = await loadBestPreviousDuration(activeWorkout.id);
+    const previousBestDurationSeconds = activeWorkout.previousBestDurationSeconds ?? null;
     const isPbTime = previousBestDurationSeconds === null || durationSeconds < previousBestDurationSeconds;
     const pbLabel =
       previousBestDurationSeconds === null
@@ -2716,6 +2758,7 @@ export function WorkoutLibraryScreen({ user }) {
     const isCountdown = hiitForTime.phase === "countdown";
     const isReady = hiitForTime.phase === "ready";
     const canCompleteStation = hiitForTime.phase === "active" && !isComplete;
+    const currentPreviousSplit = currentExercise?.previousSplit;
 
     return (
       <>
@@ -2795,6 +2838,15 @@ export function WorkoutLibraryScreen({ user }) {
                 <p className="eyebrow">{isCountdown ? "Get ready" : "Current station"}</p>
                 <h2>{currentExercise.exercise_name}</h2>
                 <p>Target: {formatExerciseTarget(currentExercise, "hiit")}</p>
+                {currentPreviousSplit ? (
+                  <div className="for-time-previous">
+                    <span>Previous split</span>
+                    <strong>{formatClock(currentPreviousSplit.durationSeconds)}</strong>
+                    {currentPreviousSplit.completedAtSeconds ? (
+                      <em>at {formatClock(currentPreviousSplit.completedAtSeconds)}</em>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               <button className="primary-action compact demo-action" onClick={() => showDemo(currentExercise.exercise_name)} type="button">
                 Demo
@@ -2804,15 +2856,21 @@ export function WorkoutLibraryScreen({ user }) {
 
           {hiitForTime.completedStations.length > 0 ? (
             <div className="for-time-split-list" aria-label="Completed station splits">
-              {hiitForTime.completedStations.map((station, index) => (
-                <article className="for-time-split" key={`${station.exerciseIndex}-${station.completedAtSeconds}`}>
-                  <div>
-                    <span>Split {index + 1}</span>
-                    <strong>{station.exerciseName}</strong>
-                  </div>
-                  <strong>{formatClock(station.durationSeconds)}</strong>
-                </article>
-              ))}
+              {hiitForTime.completedStations.map((station, index) => {
+                const previousSplit = exercises[station.exerciseIndex]?.previousSplit;
+                return (
+                  <article className="for-time-split" key={`${station.exerciseIndex}-${station.completedAtSeconds}`}>
+                    <div>
+                      <span>Split {index + 1}</span>
+                      <strong>{station.exerciseName}</strong>
+                      {previousSplit ? (
+                        <em>{formatSplitDelta(station.durationSeconds, previousSplit.durationSeconds)}</em>
+                      ) : null}
+                    </div>
+                    <strong>{formatClock(station.durationSeconds)}</strong>
+                  </article>
+                );
+              })}
             </div>
           ) : null}
 

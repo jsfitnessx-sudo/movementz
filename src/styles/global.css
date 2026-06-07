@@ -1730,6 +1730,33 @@ button {
   color: var(--muted);
 }
 
+.for-time-previous {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--teal) 8%, #121d27);
+}
+
+.for-time-previous span,
+.for-time-previous em {
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.for-time-previous strong {
+  color: var(--teal);
+  font-size: 13px;
+}
+
 .hiit-station.complete {
   border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
   background: color-mix(in srgb, var(--teal) 8%, #121d27);
@@ -1768,6 +1795,15 @@ button {
 
 .for-time-split strong {
   color: var(--text);
+}
+
+.for-time-split em {
+  display: block;
+  margin-top: 3px;
+  color: var(--teal);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 850;
 }
 
 .station-complete-action {
