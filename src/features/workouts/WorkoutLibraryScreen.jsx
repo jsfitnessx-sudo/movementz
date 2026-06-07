@@ -577,13 +577,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     setLoadingCoachClients(true);
     setCoachClientsError("");
 
-    const { data, error } = await supabase
-      .from("coach_clients")
-      .select("client_id,profiles!coach_clients_client_id_fkey(id,full_name,email)")
-      .eq("coach_id", user.id)
-      .in("status", ["active", "invited"])
-      .order("created_at", { ascending: false })
-      .limit(80);
+    const { data, error } = await supabase.rpc("get_my_coach_clients");
 
     setLoadingCoachClients(false);
 
@@ -594,10 +588,10 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     }
 
     setCoachClients(
-      (data || []).map((link) => ({
+      (data || []).filter((link) => link.status === "active").map((link) => ({
         id: link.client_id,
-        name: link.profiles?.full_name || link.profiles?.email || `Client ${String(link.client_id).slice(0, 8)}`,
-        email: link.profiles?.email || ""
+        name: link.client_name || link.client_email || `Client ${String(link.client_id).slice(0, 8)}`,
+        email: link.client_email || ""
       }))
     );
   }, [role, user.id]);

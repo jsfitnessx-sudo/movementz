@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
-function clientName(profile) {
-  return profile?.full_name || profile?.email || "Client";
+function clientName(client) {
+  return client?.client_name || client?.full_name || client?.email || "Client";
 }
 
 function buildInviteUrl(code) {
@@ -31,18 +31,12 @@ export function ClientsScreen({ profile, user }) {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("coach_clients")
-      .select("id,client_id,status,created_at,profiles!coach_clients_client_id_fkey(id,full_name,email,role)")
-      .eq("coach_id", user.id)
-      .in("status", ["active", "paused", "invited"])
-      .order("created_at", { ascending: false })
-      .limit(80);
+    const { data, error } = await supabase.rpc("get_my_coach_clients");
 
     setLoading(false);
 
     if (error) {
-      setMessage(`${error.message}. Run supabase/phase-1-auth-profiles.sql and supabase/phase-7-coach-client-links.sql in Supabase.`);
+      setMessage(`${error.message}. Run the latest supabase/phase-7-coach-client-links.sql in Supabase.`);
       setClients([]);
       return;
     }
@@ -117,7 +111,7 @@ export function ClientsScreen({ profile, user }) {
 
     setQuery("");
     setResults([]);
-    setMessage("Client linked. They will see the client app view when their profile reloads.");
+    setMessage("Client linked. They will now appear as an active client.");
     await loadClients();
   }
 
@@ -227,10 +221,10 @@ export function ClientsScreen({ profile, user }) {
       {clients.length ? (
         <div className="client-list">
           {clients.map((client) => (
-            <article className="client-row" key={client.id}>
+            <article className="client-row" key={client.link_id}>
               <div>
-                <strong>{clientName(client.profiles)}</strong>
-                <span>{client.profiles?.email}</span>
+                <strong>{clientName(client)}</strong>
+                <span>{client.client_email}</span>
               </div>
               <span className={client.status === "active" ? "status-pill active" : "status-pill"}>{client.status}</span>
             </article>

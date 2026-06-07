@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 const baseRoleOptions = [
@@ -42,11 +42,13 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
   const [coachForm, setCoachForm] = useState(blankCoachProfile);
   const [coachProfileExists, setCoachProfileExists] = useState(false);
   const [loadingCoach, setLoadingCoach] = useState(false);
+  const [coachLinks, setCoachLinks] = useState([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   const isCoach = profileForm.role === "coach";
+  const isClient = profileForm.role === "client";
   const roleOptions =
     profile?.role === "admin"
       ? [...baseRoleOptions, { value: "admin", label: "Admin" }]
@@ -59,6 +61,33 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
   useEffect(() => {
     Promise.resolve().then(() => setProfileForm(toProfileForm(profile, user)));
   }, [profile, user]);
+
+  const loadCoachStatus = useCallback(async () => {
+    if (!supabase || !user?.id || !isClient) {
+      setCoachLinks([]);
+      return;
+    }
+
+    const { data, error: coachStatusError } = await supabase.rpc("get_my_coach_status");
+    if (coachStatusError) {
+      setCoachLinks([]);
+      return;
+    }
+
+    setCoachLinks(data || []);
+  }, [isClient, user?.id]);
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      if (alive) await loadCoachStatus();
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [loadCoachStatus]);
 
   useEffect(() => {
     let alive = true;
@@ -276,6 +305,27 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
             </select>
           </label>
         </div>
+
+        {isClient ? (
+          <div className="form-section coach-status-panel">
+            <h3>Coach connection</h3>
+            {coachLinks.length ? (
+              coachLinks.map((coach) => (
+                <div className="client-row" key={coach.coach_id}>
+                  <div>
+                    <strong>{coach.coach_name}</strong>
+                    <span>{coach.coach_email}</span>
+                  </div>
+                  <span className={coach.status === "active" ? "status-pill active" : "status-pill"}>
+                    {coach.status}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="muted-note">No coach connected yet. Accept a coach invite to connect.</p>
+            )}
+          </div>
+        ) : null}
 
         {isCoach ? (
           <div className="form-section">

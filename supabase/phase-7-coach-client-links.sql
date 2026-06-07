@@ -12,23 +12,30 @@ language sql
 security definer
 set search_path = public
 as $$
-  select p.id, p.full_name, p.email, p.role
-  from public.profiles p
+  select
+    au.id,
+    coalesce(p.full_name, au.raw_user_meta_data->>'full_name', au.email) as full_name,
+    coalesce(p.email, au.email) as email,
+    coalesce(p.role, 'normal_user') as role
+  from auth.users au
+  left join public.profiles p on p.id = au.id
   where auth.uid() is not null
-    and p.id <> auth.uid()
+    and au.id <> auth.uid()
     and coalesce(trim(search_text), '') <> ''
     and (
-      p.email ilike '%' || trim(search_text) || '%'
+      au.email ilike '%' || trim(search_text) || '%'
+      or p.email ilike '%' || trim(search_text) || '%'
       or p.full_name ilike '%' || trim(search_text) || '%'
+      or coalesce(au.raw_user_meta_data->>'full_name', '') ilike '%' || trim(search_text) || '%'
     )
     and not exists (
       select 1
       from public.coach_clients cc
       where cc.coach_id = auth.uid()
-        and cc.client_id = p.id
+        and cc.client_id = au.id
         and cc.status in ('invited', 'active', 'paused')
     )
-  order by p.full_name nulls last, p.email nulls last
+  order by coalesce(p.full_name, au.raw_user_meta_data->>'full_name', au.email) nulls last
   limit 10;
 $$;
 
@@ -49,6 +56,7 @@ declare
   current_role text;
   has_coach_profile boolean;
   created_link public.coach_clients;
+  target_auth_user auth.users;
 begin
   if auth.uid() is null then
     raise exception 'You must be signed in.';
@@ -80,17 +88,37 @@ begin
     raise exception 'You cannot add yourself as a client.';
   end if;
 
+  select *
+  into target_auth_user
+  from auth.users
+  where id = target_client_id;
+
+  if target_auth_user.id is null then
+    raise exception 'Client user was not found.';
+  end if;
+
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    target_auth_user.id,
+    target_auth_user.email,
+    coalesce(target_auth_user.raw_user_meta_data->>'full_name', target_auth_user.email),
+    'client'
+  )
+  on conflict (id)
+  do update set
+    email = coalesce(public.profiles.email, excluded.email),
+    full_name = coalesce(public.profiles.full_name, excluded.full_name),
+    role = case
+      when public.profiles.role in ('admin', 'coach') then public.profiles.role
+      else 'client'
+    end,
+    updated_at = now();
+
   insert into public.coach_clients (coach_id, client_id, status)
   values (auth.uid(), target_client_id, 'active')
   on conflict on constraint coach_clients_coach_id_client_id_key
   do update set status = 'active'
   returning * into created_link;
-
-  update public.profiles
-  set role = 'client',
-      updated_at = now()
-  where id = target_client_id
-    and role = 'normal_user';
 
   return query select created_link.id, created_link.client_id, created_link.status;
 end;
@@ -147,6 +175,36 @@ $$;
 
 grant execute on function public.create_client_invite() to authenticated;
 
+create or replace function public.preview_client_invite(invite_code_input text)
+returns table (
+  invite_code text,
+  coach_id uuid,
+  coach_name text,
+  coach_email text
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    i.invite_code,
+    p.id as coach_id,
+    coalesce(p.full_name, p.email, 'Coach') as coach_name,
+    p.email as coach_email
+  from public.invites i
+  join public.profiles p on p.id = i.inviter_id
+  where auth.uid() is not null
+    and i.invite_code = upper(trim(invite_code_input))
+    and i.invite_type = 'client'
+    and i.used_at is null
+    and (i.expires_at is null or i.expires_at > now())
+    and i.inviter_id <> auth.uid()
+    and lower(p.role) in ('coach', 'admin')
+  limit 1;
+$$;
+
+grant execute on function public.preview_client_invite(text) to authenticated;
+
 create or replace function public.accept_client_invite(invite_code_input text)
 returns table (
   coach_id uuid,
@@ -161,6 +219,7 @@ declare
   invite_row public.invites;
   coach_profile public.profiles;
   created_link public.coach_clients;
+  current_auth_user auth.users;
 begin
   if auth.uid() is null then
     raise exception 'You must be signed in to accept an invite.';
@@ -193,17 +252,33 @@ begin
     raise exception 'This invite is not attached to an active coach.';
   end if;
 
+  select *
+  into current_auth_user
+  from auth.users
+  where id = auth.uid();
+
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    auth.uid(),
+    current_auth_user.email,
+    coalesce(current_auth_user.raw_user_meta_data->>'full_name', current_auth_user.email),
+    'client'
+  )
+  on conflict (id)
+  do update set
+    email = coalesce(public.profiles.email, excluded.email),
+    full_name = coalesce(public.profiles.full_name, excluded.full_name),
+    role = case
+      when public.profiles.role in ('admin', 'coach') then public.profiles.role
+      else 'client'
+    end,
+    updated_at = now();
+
   insert into public.coach_clients (coach_id, client_id, status)
   values (invite_row.inviter_id, auth.uid(), 'active')
   on conflict on constraint coach_clients_coach_id_client_id_key
   do update set status = 'active'
   returning * into created_link;
-
-  update public.profiles
-  set role = 'client',
-      updated_at = now()
-  where id = auth.uid()
-    and role = 'normal_user';
 
   update public.invites
   set used_by = auth.uid(),
@@ -219,3 +294,85 @@ end;
 $$;
 
 grant execute on function public.accept_client_invite(text) to authenticated;
+
+create or replace function public.decline_client_invite(invite_code_input text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in to decline an invite.';
+  end if;
+
+  update public.invites
+  set used_by = auth.uid(),
+      used_at = now()
+  where invite_code = upper(trim(invite_code_input))
+    and invite_type = 'client'
+    and used_at is null
+    and inviter_id <> auth.uid();
+end;
+$$;
+
+grant execute on function public.decline_client_invite(text) to authenticated;
+
+create or replace function public.get_my_coach_clients()
+returns table (
+  link_id uuid,
+  client_id uuid,
+  client_name text,
+  client_email text,
+  status text,
+  linked_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    cc.id as link_id,
+    cc.client_id,
+    coalesce(p.full_name, au.raw_user_meta_data->>'full_name', au.email, 'Client') as client_name,
+    coalesce(p.email, au.email) as client_email,
+    cc.status,
+    cc.created_at as linked_at
+  from public.coach_clients cc
+  left join public.profiles p on p.id = cc.client_id
+  left join auth.users au on au.id = cc.client_id
+  where cc.coach_id = auth.uid()
+    and cc.status in ('active', 'paused', 'invited')
+  order by cc.created_at desc
+  limit 100;
+$$;
+
+grant execute on function public.get_my_coach_clients() to authenticated;
+
+create or replace function public.get_my_coach_status()
+returns table (
+  coach_id uuid,
+  coach_name text,
+  coach_email text,
+  status text,
+  linked_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    cc.coach_id,
+    coalesce(p.full_name, p.email, 'Coach') as coach_name,
+    p.email as coach_email,
+    cc.status,
+    cc.created_at as linked_at
+  from public.coach_clients cc
+  left join public.profiles p on p.id = cc.coach_id
+  where cc.client_id = auth.uid()
+    and cc.status in ('active', 'paused', 'invited')
+  order by cc.created_at desc
+  limit 5;
+$$;
+
+grant execute on function public.get_my_coach_status() to authenticated;

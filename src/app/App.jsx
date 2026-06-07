@@ -89,35 +89,36 @@ export function App() {
   const [role, setRole] = useState(getInitialRole);
   const [pendingInviteCode, setPendingInviteCode] = useState(() => new URLSearchParams(window.location.search).get("invite") || "");
   const [claimedInviteCode, setClaimedInviteCode] = useState("");
+  const [pendingInvite, setPendingInvite] = useState(null);
+  const [handlingInvite, setHandlingInvite] = useState(false);
   const [appMessage, setAppMessage] = useState("");
   const tabs = useMemo(() => roleTabs[role] ?? roleTabs.normal_user, [role]);
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   const user = useMemo(() => buildUser(session, profile), [session, profile]);
 
-  const claimInviteIfNeeded = useCallback(
+  const previewInviteIfNeeded = useCallback(
     async (nextSession) => {
       const code = pendingInviteCode.trim();
       if (!code || claimedInviteCode === code || !supabase || !nextSession?.user?.id) return null;
 
-      const { data, error } = await supabase.rpc("accept_client_invite", {
+      const { data, error } = await supabase.rpc("preview_client_invite", {
         invite_code_input: code
       });
-
-      setClaimedInviteCode(code);
 
       if (error) {
         setAppMessage(`${error.message}.`);
         return null;
       }
 
-      const nextProfile = await loadProfile(nextSession.user);
-      setProfile(nextProfile);
-      setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
-      setActiveTab("home");
-      setPendingInviteCode("");
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setAppMessage(`Invite accepted. You are now linked to ${data?.[0]?.coach_name || "your coach"}.`);
-      return nextProfile;
+      if (!data?.length) {
+        setAppMessage("Invite link is invalid, already used, or expired.");
+        setClaimedInviteCode(code);
+        return null;
+      }
+
+      setPendingInvite(data[0]);
+      setAppMessage("");
+      return data[0];
     },
     [claimedInviteCode, pendingInviteCode]
   );
@@ -182,13 +183,13 @@ export function App() {
     let alive = true;
 
     Promise.resolve().then(async () => {
-      if (alive) await claimInviteIfNeeded(session);
+      if (alive) await previewInviteIfNeeded(session);
     });
 
     return () => {
       alive = false;
     };
-  }, [claimedInviteCode, claimInviteIfNeeded, pendingInviteCode, session]);
+  }, [claimedInviteCode, previewInviteIfNeeded, pendingInviteCode, session]);
 
   function handleDemoLogin(nextRole) {
     setRole(nextRole);
@@ -208,7 +209,53 @@ export function App() {
     setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
     setSession(nextSession);
     setActiveTab((roleTabs[nextProfile?.role || nextSession.user.user_metadata?.role] ?? roleTabs.normal_user)[0].id);
-    await claimInviteIfNeeded(nextSession);
+    await previewInviteIfNeeded(nextSession);
+  }
+
+  async function acceptPendingInvite() {
+    if (!pendingInviteCode || !session?.user || !supabase) return;
+
+    setHandlingInvite(true);
+    const { data, error } = await supabase.rpc("accept_client_invite", {
+      invite_code_input: pendingInviteCode
+    });
+    setHandlingInvite(false);
+
+    if (error) {
+      setAppMessage(error.message);
+      return;
+    }
+
+    const nextProfile = await loadProfile(session.user);
+    setProfile(nextProfile);
+    setRole(nextProfile?.role || session.user.user_metadata?.role || "normal_user");
+    setActiveTab("home");
+    setPendingInvite(null);
+    setClaimedInviteCode(pendingInviteCode);
+    setPendingInviteCode("");
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setAppMessage(`Coach confirmed: ${data?.[0]?.coach_name || "your coach"}.`);
+  }
+
+  async function declinePendingInvite() {
+    if (!pendingInviteCode || !supabase) return;
+
+    setHandlingInvite(true);
+    const { error } = await supabase.rpc("decline_client_invite", {
+      invite_code_input: pendingInviteCode
+    });
+    setHandlingInvite(false);
+
+    if (error) {
+      setAppMessage(error.message);
+      return;
+    }
+
+    setPendingInvite(null);
+    setClaimedInviteCode(pendingInviteCode);
+    setPendingInviteCode("");
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setAppMessage("Invite declined.");
   }
 
   async function handleSignOut() {
@@ -255,6 +302,23 @@ export function App() {
       user={user}
     >
       {appMessage ? <p className="form-message success">{appMessage}</p> : null}
+      {pendingInvite ? (
+        <div className="panel invite-confirm-panel">
+          <div>
+            <p className="eyebrow">Coach invite</p>
+            <h2>{pendingInvite.coach_name} invited you</h2>
+            <p>Confirm this coach before your account becomes their client.</p>
+          </div>
+          <div className="form-footer-actions">
+            <button className="primary-action" disabled={handlingInvite} onClick={declinePendingInvite} type="button">
+              Decline
+            </button>
+            <button className="primary-action filled" disabled={handlingInvite} onClick={acceptPendingInvite} type="button">
+              {handlingInvite ? "Confirming..." : "Accept Coach"}
+            </button>
+          </div>
+        </div>
+      ) : null}
       {activeTab === "home" ? (
         <HomeScreen onNavigate={setActiveTab} role={role} user={user} />
       ) : activeTab === "today" ? (

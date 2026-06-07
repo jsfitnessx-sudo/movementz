@@ -1,7 +1,30 @@
 import { StatCard } from "../../components/ui/StatCard.jsx";
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase/client.js";
 
 export function HomeScreen({ onNavigate, role, user }) {
   const isCoach = role === "coach";
+  const [coachClientCount, setCoachClientCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      if (!isCoach || !supabase || user.id === "demo-user") {
+        if (alive) setCoachClientCount(0);
+        return;
+      }
+
+      const { data } = await supabase.rpc("get_my_coach_clients");
+      if (alive) {
+        setCoachClientCount((data || []).filter((client) => client.status === "active").length);
+      }
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [isCoach, user.id]);
 
   if (isCoach) {
     return (
@@ -22,7 +45,7 @@ export function HomeScreen({ onNavigate, role, user }) {
         </div>
 
         <div className="stats-grid">
-          <StatCard label="Clients" value="0" tone="gold" />
+          <StatCard label="Clients" value={String(coachClientCount)} tone="gold" />
           <StatCard label="Client workouts today" value="0" tone="teal" />
           <StatCard label="Habit compliance" value="0%" tone="red" />
         </div>

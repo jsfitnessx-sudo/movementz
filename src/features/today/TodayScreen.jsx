@@ -19,6 +19,7 @@ function planSummary(plan) {
 export function TodayScreen({ role, user }) {
   const [assignedWorkouts, setAssignedWorkouts] = useState([]);
   const [assignedPlans, setAssignedPlans] = useState([]);
+  const [coachLinks, setCoachLinks] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [message, setMessage] = useState("");
 
@@ -26,6 +27,7 @@ export function TodayScreen({ role, user }) {
     if (!supabase || user.id === "demo-user") {
       setAssignedWorkouts([]);
       setAssignedPlans([]);
+      setCoachLinks([]);
       setLoading(false);
       return;
     }
@@ -33,7 +35,8 @@ export function TodayScreen({ role, user }) {
     setLoading(true);
     setMessage("");
 
-    const [workoutResult, planResult] = await Promise.all([
+    const [coachResult, workoutResult, planResult] = await Promise.all([
+      supabase.rpc("get_my_coach_status"),
       supabase
         .from("coach_workout_assignments")
         .select(
@@ -55,6 +58,13 @@ export function TodayScreen({ role, user }) {
     ]);
 
     setLoading(false);
+
+    if (coachResult.error) {
+      setMessage(`${coachResult.error.message}. Run the latest supabase/phase-7-coach-client-links.sql in Supabase.`);
+      setCoachLinks([]);
+    } else {
+      setCoachLinks(coachResult.data || []);
+    }
 
     if (workoutResult.error) {
       setMessage(`${workoutResult.error.message}. Run supabase/phase-8-workout-assignments.sql in Supabase.`);
@@ -108,6 +118,31 @@ export function TodayScreen({ role, user }) {
 
       {message ? <p className="form-message error">{message}</p> : null}
       {loading ? <p className="form-message success">Loading assigned work...</p> : null}
+
+      <div className="panel assignment-section coach-status-panel">
+        <div className="section-row">
+          <h2>Your coach</h2>
+          <span className={coachLinks[0]?.status === "active" ? "status-pill active" : "status-pill"}>
+            {coachLinks[0]?.status || "Not connected"}
+          </span>
+        </div>
+        {coachLinks.length ? (
+          <div className="assignment-card-list">
+            {coachLinks.map((coach) => (
+              <article className="assignment-card" key={coach.coach_id}>
+                <div>
+                  <p className="eyebrow">Coach</p>
+                  <h3>{coach.coach_name}</h3>
+                  <span>{coach.coach_email}</span>
+                </div>
+                <span className="status-pill active">Confirmed</span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="compact-help">No coach connected yet. Open an invite link from your coach to connect.</p>
+        )}
+      </div>
 
       <div className="panel assignment-section">
         <div className="section-row">
