@@ -32,8 +32,10 @@ function formatPlanType(plan) {
   return `${plan.block_weeks || 4} week block`;
 }
 
-export function PlansScreen({ user }) {
+export function PlansScreen({ role = "normal_user", user }) {
   const [plans, setPlans] = useState([]);
+  const [assignedPlans, setAssignedPlans] = useState([]);
+  const [planLibraryView, setPlanLibraryView] = useState("library");
   const [workoutLibrary, setWorkoutLibrary] = useState([]);
   const [clients, setClients] = useState([]);
   const [builder, setBuilder] = useState(createBuilder);
@@ -118,6 +120,23 @@ export function PlansScreen({ user }) {
     );
   }, [user.id]);
 
+  const loadAssignedPlans = useCallback(async () => {
+    if (role !== "client" || !supabase || user.id === "demo-user") {
+      setAssignedPlans([]);
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("get_my_assigned_plans");
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-9-client-assignment-library.sql in Supabase.`);
+      setAssignedPlans([]);
+      return;
+    }
+
+    setAssignedPlans(data || []);
+  }, [role, user.id]);
+
   useEffect(() => {
     let alive = true;
 
@@ -126,12 +145,13 @@ export function PlansScreen({ user }) {
       loadPlans();
       loadWorkoutLibrary();
       loadClients();
+      loadAssignedPlans();
     });
 
     return () => {
       alive = false;
     };
-  }, [loadClients, loadPlans, loadWorkoutLibrary]);
+  }, [loadAssignedPlans, loadClients, loadPlans, loadWorkoutLibrary]);
 
   function startBuilder() {
     setBuilder(createBuilder());
@@ -816,7 +836,71 @@ export function PlansScreen({ user }) {
       {loading ? <p className="form-message success">Loading plans...</p> : null}
       {loadingDetail ? <p className="form-message success">Loading plan...</p> : null}
 
-      {plans.length ? (
+      {role === "client" ? (
+        <div className="library-view-tabs" role="tablist" aria-label="Plan library view">
+          <button
+            className={planLibraryView === "library" ? "active" : ""}
+            onClick={() => setPlanLibraryView("library")}
+            type="button"
+          >
+            My Plans
+          </button>
+          <button
+            className={planLibraryView === "assigned" ? "active" : ""}
+            onClick={() => setPlanLibraryView("assigned")}
+            type="button"
+          >
+            Coach Assigned
+            <span>{assignedPlans.length}</span>
+          </button>
+        </div>
+      ) : null}
+
+      {role === "client" && planLibraryView === "assigned" ? (
+        assignedPlans.length ? (
+          <div className="plan-library-list">
+            {assignedPlans.map((assignment) => {
+              const plan = assignment.plan || {};
+              const workouts = plan.training_plan_workouts || [];
+              const assignedDate = assignment.assigned_at
+                ? new Date(assignment.assigned_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })
+                : "";
+
+              return (
+                <article className="workout-card plan-card assigned-library-card" key={assignment.assignment_id}>
+                  <div className="workout-card-head">
+                    <div>
+                      <p className="eyebrow">Coach assigned</p>
+                      <h2>{plan.name || "Assigned plan"}</h2>
+                      <p>{formatPlanType(plan)}</p>
+                    </div>
+                    <span className="status-pill active">Active</span>
+                  </div>
+                  <div className="workout-card-meta">
+                    <span>{workouts.length} workouts</span>
+                    <span>{assignedDate ? `Assigned ${assignedDate}` : "Assigned"}</span>
+                  </div>
+                  {plan.instructions ? <p className="workout-notes">{plan.instructions}</p> : null}
+                  {workouts.length ? (
+                    <div className="workout-exercise-summary">
+                      {workouts.map((workout) => (
+                        <div key={workout.id || `${assignment.assignment_id}-${workout.position}`}>
+                          <strong>{workout.name}</strong>
+                          <span>{workout.summary || workout.workout_type || "Workout"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="panel empty-state">
+            <p>No assigned plans yet. Coach-assigned plans will appear here.</p>
+          </div>
+        )
+      ) : plans.length ? (
         <div className="plan-library-list">
           {plans.map((plan) => (
             <article className="workout-card plan-card" key={plan.id}>

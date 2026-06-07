@@ -355,6 +355,15 @@ function formatHiitTimerLabel(workout) {
   return workout.hiit_timer_type === "for_time" ? "HIIT - For Time" : "HIIT - Interval";
 }
 
+function workoutSummary(workout) {
+  const exercises = workout?.workout_template_exercises || [];
+  if (workout?.workout_type === "hiit") {
+    return `${exercises.length} exercises - ${workout.hiit_rounds || 1} rounds`;
+  }
+  const totalSets = exercises.reduce((sum, exercise) => sum + (Number(exercise.sets) || 0), 0);
+  return `${exercises.length} exercises${totalSets ? ` - ${totalSets} total sets` : ""}`;
+}
+
 function formatHiitPhase(phase) {
   if (phase === "station-rest") return "Station rest";
   return phase;
@@ -415,6 +424,8 @@ function createEmptyForm() {
 
 export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", onClose, onWorkoutSaved, role = "normal_user", user }) {
   const [workouts, setWorkouts] = useState([]);
+  const [assignedWorkouts, setAssignedWorkouts] = useState([]);
+  const [libraryView, setLibraryView] = useState("library");
   const [recentSessions, setRecentSessions] = useState([]);
   const [coachClients, setCoachClients] = useState([]);
   const [coachClientsError, setCoachClientsError] = useState("");
@@ -566,6 +577,23 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
 
     setRecentSessions(data || []);
   }, [user.id]);
+
+  const loadAssignedWorkouts = useCallback(async () => {
+    if (role !== "client" || !supabase || user.id === "demo-user") {
+      setAssignedWorkouts([]);
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("get_my_assigned_workouts");
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-9-client-assignment-library.sql in Supabase.`);
+      setAssignedWorkouts([]);
+      return;
+    }
+
+    setAssignedWorkouts(data || []);
+  }, [role, user.id]);
 
   const loadCoachClients = useCallback(async () => {
     if (role !== "coach" || !supabase || user.id === "demo-user") {
@@ -797,11 +825,12 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
       await loadRecentSessions();
       await loadCustomExerciseOptions();
       await loadCoachClients();
+      await loadAssignedWorkouts();
     });
     return () => {
       void load;
     };
-  }, [loadCoachClients, loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
+  }, [loadAssignedWorkouts, loadCoachClients, loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
 
   useEffect(() => {
     if (!supabase || user.id === "demo-user" || mode !== "editor") return undefined;
@@ -4334,7 +4363,66 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
         </div>
       ) : null}
 
-      {loading ? (
+      {role === "client" ? (
+        <div className="library-view-tabs" role="tablist" aria-label="Workout library view">
+          <button
+            className={libraryView === "library" ? "active" : ""}
+            onClick={() => setLibraryView("library")}
+            type="button"
+          >
+            My Library
+          </button>
+          <button
+            className={libraryView === "assigned" ? "active" : ""}
+            onClick={() => setLibraryView("assigned")}
+            type="button"
+          >
+            Coach Assigned
+            <span>{assignedWorkouts.length}</span>
+          </button>
+        </div>
+      ) : null}
+
+      {role === "client" && libraryView === "assigned" ? (
+        assignedWorkouts.length ? (
+          <div className="workout-card-list">
+            {assignedWorkouts.map((assignment) => {
+              const workout = assignment.workout || {};
+              const exercises = workout.workout_template_exercises || [];
+              const muscleSummary = [...new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean))];
+              const assignedDate = assignment.assigned_at
+                ? new Date(assignment.assigned_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })
+                : "";
+
+              return (
+                <article className="workout-card assigned-library-card" key={assignment.assignment_id}>
+                  <div className="workout-card-head">
+                    <div>
+                      <p className="eyebrow">Coach assigned</p>
+                      <h2>{workout.name || "Assigned workout"}</h2>
+                      <p>{workoutSummary(workout)}</p>
+                    </div>
+                    <span className="status-pill active">Assigned</span>
+                  </div>
+                  <div className="workout-card-meta">
+                    <span>{muscleSummary.length ? muscleSummary.join(", ") : "Coach workout"}</span>
+                    <span>{assignedDate ? `Assigned ${assignedDate}` : "Assigned"}</span>
+                  </div>
+                  {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
+                  <button className="primary-action filled" onClick={() => startSession(workout)} type="button">
+                    Start
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="panel empty-state">
+            <h2>No assigned workouts yet</h2>
+            <p>Coach-assigned workouts will appear here after your coach assigns them.</p>
+          </div>
+        )
+      ) : loading ? (
         <div className="panel">
           <p>Loading workouts...</p>
         </div>
@@ -4505,6 +4593,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
         </>
       )}
 
+      {libraryView === "library" ? (
       <div className="history-section">
         <div className="section-row">
           <h2>Recent sessions</h2>
@@ -4558,6 +4647,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
           </div>
         )}
       </div>
+      ) : null}
     </section>
   );
 }

@@ -322,7 +322,7 @@ export function App() {
       {activeTab === "home" ? (
         <HomeScreen onNavigate={setActiveTab} role={role} user={user} />
       ) : activeTab === "today" ? (
-        <TodayScreen role={role} user={user} />
+        <TodayScreen onNavigate={setActiveTab} role={role} user={user} />
       ) : activeTab === "profile" ? (
         <ProfileScreen
           onProfileSaved={handleProfileSaved}
@@ -333,7 +333,7 @@ export function App() {
       ) : activeTab === "workouts" ? (
         <WorkoutLibraryScreen role={role} user={user} />
       ) : activeTab === "plans" ? (
-        <PlansScreen user={user} />
+        <PlansScreen role={role} user={user} />
       ) : activeTab === "clients" && role === "coach" ? (
         <ClientsScreen profile={profile} user={user} />
       ) : activeTab === "requests" && role === "admin" ? (
