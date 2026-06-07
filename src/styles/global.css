@@ -2594,6 +2594,22 @@ button {
   font-size: 12px;
 }
 
+.plan-workout-card em {
+  color: var(--gold);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.plan-detail-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.plan-action-menu {
+  width: min(190px, 62vw);
+}
+
 .weekday-picker {
   grid-column: 1 / -1;
   display: flex;

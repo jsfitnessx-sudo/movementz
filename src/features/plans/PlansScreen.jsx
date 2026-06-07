@@ -41,7 +41,10 @@ export function PlansScreen({ user }) {
   const [showNewWorkout, setShowNewWorkout] = useState(false);
   const [newWorkoutName, setNewWorkoutName] = useState("");
   const [newWorkoutType, setNewWorkoutType] = useState("strength");
+  const [openPlanMenu, setOpenPlanMenu] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -138,6 +141,58 @@ export function PlansScreen({ user }) {
     setNewWorkoutName("");
     setMessage("");
     setMode("builder");
+  }
+
+  async function openPlanDetails(plan) {
+    setOpenPlanMenu(null);
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      setSelectedPlan(plan);
+      setMode("detail");
+      return;
+    }
+
+    setLoadingDetail(true);
+    const { data, error } = await supabase
+      .from("training_plans")
+      .select(
+        "id,name,plan_type,block_weeks,instructions,created_at,training_plan_workouts(id,position,name,workout_type,source_type,summary,scheduled_days),training_plan_assignments(id,client_id,profiles!training_plan_assignments_client_id_fkey(id,full_name,email))"
+      )
+      .eq("owner_id", user.id)
+      .eq("id", plan.id)
+      .single();
+    setLoadingDetail(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setSelectedPlan({
+      ...data,
+      training_plan_workouts: (data.training_plan_workouts || []).sort((a, b) => a.position - b.position)
+    });
+    setMode("detail");
+  }
+
+  async function deletePlan(planId) {
+    setOpenPlanMenu(null);
+
+    if (!window.confirm("Delete this plan?")) return;
+
+    if (!supabase || user.id === "demo-user") {
+      setPlans((current) => current.filter((plan) => plan.id !== planId));
+      return;
+    }
+
+    const { error } = await supabase.from("training_plans").delete().eq("owner_id", user.id).eq("id", planId);
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setPlans((current) => current.filter((plan) => plan.id !== planId));
   }
 
   function continueBuilder() {
@@ -525,6 +580,107 @@ export function PlansScreen({ user }) {
     );
   }
 
+  if (mode === "detail" && selectedPlan) {
+    const assignedClients = selectedPlan.training_plan_assignments || [];
+    const planWorkouts = selectedPlan.training_plan_workouts || [];
+
+    return (
+      <section className="screen-stack plans-screen">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">Plan details</p>
+            <h1>{selectedPlan.name}</h1>
+            <p>{formatPlanType(selectedPlan)}</p>
+          </div>
+          <button
+            className="primary-action compact"
+            onClick={() => {
+              setSelectedPlan(null);
+              setMode("list");
+            }}
+            type="button"
+          >
+            Back
+          </button>
+        </div>
+
+        {message ? <p className="form-message error">{message}</p> : null}
+
+        <div className="panel plan-detail-panel">
+          <div className="completion-summary">
+            <div>
+              <span>Workouts</span>
+              <strong>{planWorkouts.length}</strong>
+            </div>
+            <div>
+              <span>Clients</span>
+              <strong>{assignedClients.length}</strong>
+            </div>
+            <div>
+              <span>Period</span>
+              <strong>{selectedPlan.plan_type === "block" ? `${selectedPlan.block_weeks || 4}w` : "None"}</strong>
+            </div>
+            <div>
+              <span>Type</span>
+              <strong>{selectedPlan.plan_type === "block" ? "Block" : "Plan"}</strong>
+            </div>
+          </div>
+
+          {selectedPlan.instructions ? (
+            <div className="session-feedback-summary">
+              <span>Instructions</span>
+              <p>{selectedPlan.instructions}</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="plan-workouts-panel">
+          <div className="section-row">
+            <h2>Plan workouts</h2>
+            <span className="status-pill">{planWorkouts.length} saved</span>
+          </div>
+
+          {planWorkouts.length ? (
+            <div className="plan-workout-list">
+              {planWorkouts.map((workout) => (
+                <article className="plan-workout-card" key={workout.id}>
+                  <div>
+                    <strong>{workout.name}</strong>
+                    <span>{workout.summary || workout.workout_type}</span>
+                    {workout.scheduled_days?.length ? (
+                      <em>{workout.scheduled_days.join(", ")}</em>
+                    ) : (
+                      <em>No schedule</em>
+                    )}
+                  </div>
+                  <span className="status-pill">{workout.source_type}</span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="compact-help">No workouts were added to this plan.</p>
+          )}
+        </div>
+
+        <div className="coach-assignment-panel">
+          <p className="eyebrow">Assigned clients</p>
+          {assignedClients.length ? (
+            assignedClients.map((assignment) => (
+              <div className="client-assignment active" key={assignment.id}>
+                <span>
+                  {assignment.profiles?.full_name || assignment.profiles?.email || "Client"}
+                </span>
+                <strong>Assigned</strong>
+              </div>
+            ))
+          ) : (
+            <p className="compact-help">No clients assigned yet.</p>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="screen-stack plans-screen">
       <div className="screen-heading library-heading">
@@ -540,6 +696,7 @@ export function PlansScreen({ user }) {
 
       {message ? <p className="form-message error">{message}</p> : null}
       {loading ? <p className="form-message success">Loading plans...</p> : null}
+      {loadingDetail ? <p className="form-message success">Loading plan...</p> : null}
 
       {plans.length ? (
         <div className="plan-library-list">
@@ -551,7 +708,27 @@ export function PlansScreen({ user }) {
                   <h2>{plan.name}</h2>
                   <p>{formatPlanType(plan)}</p>
                 </div>
-                <span className="status-pill">Template</span>
+                <div className="session-menu-wrap">
+                  <button
+                    aria-expanded={openPlanMenu === plan.id}
+                    aria-label={`${plan.name} options`}
+                    className="icon-action"
+                    onClick={() => setOpenPlanMenu((current) => (current === plan.id ? null : plan.id))}
+                    type="button"
+                  >
+                    ...
+                  </button>
+                  {openPlanMenu === plan.id ? (
+                    <div className="session-menu plan-action-menu" role="menu">
+                      <button onClick={() => openPlanDetails(plan)} type="button">
+                        Details
+                      </button>
+                      <button className="danger-text" onClick={() => deletePlan(plan.id)} type="button">
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="workout-card-meta">
                 <span>{plan.training_plan_workouts?.length || 0} workouts</span>
