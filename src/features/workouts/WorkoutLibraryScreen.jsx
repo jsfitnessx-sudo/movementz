@@ -448,6 +448,10 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
   const [openWorkoutMenu, setOpenWorkoutMenu] = useState(null);
   const [assignWorkout, setAssignWorkout] = useState(null);
   const [assignClientIds, setAssignClientIds] = useState([]);
+  const [assignSearch, setAssignSearch] = useState("");
+  const [assignSearchResults, setAssignSearchResults] = useState([]);
+  const [searchingAssignClients, setSearchingAssignClients] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const [openBuilderExerciseMenu, setOpenBuilderExerciseMenu] = useState(null);
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -1731,6 +1735,8 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     setOpenWorkoutMenu(null);
     setAssignWorkout(workout);
     setAssignClientIds([]);
+    setAssignSearch("");
+    setAssignSearchResults([]);
     setMessage("");
     void loadCoachClients();
   }
@@ -1743,11 +1749,9 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
     );
   }
 
-  async function saveWorkoutAssignments() {
-    if (!assignWorkout) return;
-
-    if (!assignClientIds.length) {
-      setMessage("Choose at least one client to assign this workout.");
+  async function assignWorkoutToClients(clientIds) {
+    if (!assignWorkout || !clientIds.length) {
+      setMessage("Choose a client first.");
       return;
     }
 
@@ -1756,8 +1760,9 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
       return;
     }
 
+    setAssigning(true);
     const { error } = await supabase.from("coach_workout_assignments").upsert(
-      assignClientIds.map((clientId) => ({
+      clientIds.map((clientId) => ({
         coach_id: user.id,
         client_id: clientId,
         workout_template_id: assignWorkout.id,
@@ -1765,15 +1770,69 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
       })),
       { onConflict: "coach_id,client_id,workout_template_id" }
     );
+    setAssigning(false);
 
     if (error) {
       setMessage(`${error.message}. Run supabase/phase-8-workout-assignments.sql in Supabase.`);
       return;
     }
 
-    setMessage(`Assigned ${assignWorkout.name} to ${assignClientIds.length} client${assignClientIds.length === 1 ? "" : "s"}.`);
+    setMessage(`Assigned ${assignWorkout.name} to ${clientIds.length} client${clientIds.length === 1 ? "" : "s"}.`);
     setAssignWorkout(null);
     setAssignClientIds([]);
+    setAssignSearch("");
+    setAssignSearchResults([]);
+  }
+
+  async function saveWorkoutAssignments() {
+    await assignWorkoutToClients(assignClientIds);
+  }
+
+  async function searchAssignClients(event) {
+    event.preventDefault();
+    const searchText = assignSearch.trim();
+    if (searchText.length < 2) {
+      setMessage("Search by at least 2 characters.");
+      return;
+    }
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Connect Supabase to search clients.");
+      return;
+    }
+
+    setSearchingAssignClients(true);
+    setAssignSearchResults([]);
+    const { data, error } = await supabase.rpc("search_users_for_client_invite", {
+      search_text: searchText
+    });
+    setSearchingAssignClients(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-7-coach-client-links.sql in Supabase.`);
+      return;
+    }
+
+    setAssignSearchResults(data || []);
+    if (!data?.length) setMessage("No matching users found.");
+  }
+
+  async function linkAndAssignClient(clientId) {
+    if (!supabase || user.id === "demo-user") return;
+
+    setAssigning(true);
+    const { error } = await supabase.rpc("link_client_to_coach", {
+      target_client_id: clientId
+    });
+    setAssigning(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    await assignWorkoutToClients([clientId]);
+    await loadCoachClients();
   }
 
   async function toggleWorkoutDetails(workout) {
@@ -4208,9 +4267,9 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
         <div className="panel assignment-panel">
           <div className="section-row">
             <div>
-              <p className="eyebrow">Assign workout</p>
+              <p className="eyebrow">Select client</p>
               <h2>{assignWorkout.name}</h2>
-              <p>Choose linked clients who should receive this workout.</p>
+              <p>Choose who should receive this workout.</p>
             </div>
             <button className="primary-action compact" onClick={() => setAssignWorkout(null)} type="button">
               Close
@@ -4220,6 +4279,7 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
           {coachClientsError ? <p className="form-message error">{coachClientsError}</p> : null}
           {coachClients.length ? (
             <div className="assignment-client-list">
+              <p className="compact-help">Linked clients</p>
               {coachClients.map((client) => (
                 <button
                   className={assignClientIds.includes(client.id) ? "client-assignment active" : "client-assignment"}
@@ -4233,10 +4293,49 @@ export function WorkoutLibraryScreen({ embedded = false, initialMode = "list", o
               ))}
             </div>
           ) : !loadingCoachClients && !coachClientsError ? (
-            <p className="compact-help">Link clients first from the Clients tab.</p>
+            <p className="compact-help">No linked clients found for this coach account. Search below to link and assign in one step.</p>
           ) : null}
-          <button className="primary-action filled" disabled={!coachClients.length || loadingCoachClients} onClick={saveWorkoutAssignments} type="button">
-            Assign Workout
+
+          <form className="assign-search-form" onSubmit={searchAssignClients}>
+            <input
+              onChange={(event) => setAssignSearch(event.target.value)}
+              placeholder="Search user email or name..."
+              value={assignSearch}
+            />
+            <button className="primary-action compact" disabled={searchingAssignClients} type="submit">
+              {searchingAssignClients ? "Searching..." : "Search"}
+            </button>
+          </form>
+
+          {assignSearchResults.length ? (
+            <div className="assignment-client-list">
+              <p className="compact-help">Search results</p>
+              {assignSearchResults.map((client) => (
+                <button
+                  className="client-assignment"
+                  disabled={assigning}
+                  key={client.id}
+                  onClick={() => linkAndAssignClient(client.id)}
+                  type="button"
+                >
+                  <span>{client.full_name || client.email || "Client"}</span>
+                  <strong>Assign</strong>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <button
+            className="primary-action filled"
+            disabled={!assignClientIds.length || loadingCoachClients || assigning}
+            onClick={saveWorkoutAssignments}
+            type="button"
+          >
+            {assignClientIds.length
+              ? assigning
+                ? "Assigning..."
+                : `Assign to ${assignClientIds.length} client${assignClientIds.length === 1 ? "" : "s"}`
+              : "Choose a client first"}
           </button>
         </div>
       ) : null}

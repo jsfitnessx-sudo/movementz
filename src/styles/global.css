@@ -2733,6 +2733,23 @@ button {
   gap: 8px;
 }
 
+.assign-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.assign-search-form input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 16px;
+}
+
 .assignment-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
