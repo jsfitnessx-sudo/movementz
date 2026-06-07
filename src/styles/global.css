@@ -918,9 +918,13 @@ button {
 
 .suggestion-picker {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: stretch;
+}
+
+.suggestion-picker .mini-actions {
+  display: none;
 }
 
 .muscle-label {
@@ -1231,6 +1235,10 @@ button {
 
 .workout-action-menu {
   width: min(220px, 68vw);
+}
+
+.exercise-action-menu {
+  width: min(240px, 70vw);
 }
 
 .workout-exercise-summary {
@@ -2736,7 +2744,7 @@ button {
   }
 
   .suggestion-picker {
-    grid-template-columns: minmax(0, 1fr) 72px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
   }
 
@@ -2747,9 +2755,7 @@ button {
   }
 
   .suggestion-picker .mini-actions {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    gap: 8px;
+    display: none;
   }
 
   .refresh-action {

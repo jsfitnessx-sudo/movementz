@@ -443,6 +443,7 @@ export function WorkoutLibraryScreen({ user }) {
   const [libraryMuscleFilter, setLibraryMuscleFilter] = useState("All");
   const [expandedWorkoutIds, setExpandedWorkoutIds] = useState(new Set());
   const [openWorkoutMenu, setOpenWorkoutMenu] = useState(null);
+  const [openBuilderExerciseMenu, setOpenBuilderExerciseMenu] = useState(null);
   const sessionInputRefs = useRef({});
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
@@ -3821,6 +3822,7 @@ export function WorkoutLibraryScreen({ user }) {
                     )
                   ]).slice(0, 5)
                 : [];
+              const isExerciseMenuOpen = openBuilderExerciseMenu === index;
 
               return (
                 <div className="exercise-editor" key={`${index}-${exercise.id || "new"}`}>
@@ -3829,15 +3831,51 @@ export function WorkoutLibraryScreen({ user }) {
                       <strong>Exercise {index + 1}</strong>
                       <p className="muscle-label">{exercise.muscle_group}</p>
                     </div>
-                    {exercise.exercise_name ? (
+                    <div className="session-menu-wrap">
                       <button
-                        className="primary-action compact demo-action"
-                        onClick={() => showDemo(exercise.exercise_name)}
+                        aria-expanded={isExerciseMenuOpen}
+                        aria-label={`More options for exercise ${index + 1}`}
+                        className="icon-action exercise-menu-button"
+                        onClick={() => setOpenBuilderExerciseMenu(isExerciseMenuOpen ? null : index)}
                         type="button"
                       >
-                        Demo
+                        ...
                       </button>
-                    ) : null}
+                      {isExerciseMenuOpen ? (
+                        <div className="session-menu exercise-action-menu" role="menu">
+                          {exercise.exercise_name ? (
+                            <button
+                              onClick={() => {
+                                setOpenBuilderExerciseMenu(null);
+                                showDemo(exercise.exercise_name);
+                              }}
+                              type="button"
+                            >
+                              Demo
+                            </button>
+                          ) : null}
+                          <button
+                            onClick={() => {
+                              setOpenBuilderExerciseMenu(null);
+                              refreshSuggestions(index);
+                            }}
+                            type="button"
+                          >
+                            Refresh suggestions
+                          </button>
+                          <button
+                            className="danger-text"
+                            onClick={() => {
+                              setOpenBuilderExerciseMenu(null);
+                              removeExercise(index);
+                            }}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
 
                   {exercise.exercise_name ? (
