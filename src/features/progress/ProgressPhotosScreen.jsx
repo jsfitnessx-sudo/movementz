@@ -210,6 +210,10 @@ function formatTrackerPhotoError(error) {
   return `${message}. Run supabase/phase-14-tracker-photos.sql in Supabase.`;
 }
 
+function isSuccessMessage(message) {
+  return /saved|started|updated|completed|archived|deleted|uploaded/i.test(message || "");
+}
+
 export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [photos, setPhotos] = useState([]);
   const [clients, setClients] = useState([]);
@@ -489,12 +493,6 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     event.preventDefault();
     if (!supabase || user.id === "demo-user") return;
 
-    const missingInitialPhotos = poses.filter((nextPose) => !initialPhotoFiles[nextPose]);
-    if (missingInitialPhotos.length) {
-      setMessage(`Add initial ${missingInitialPhotos.map(labelPose).join(", ")} photo${missingInitialPhotos.length > 1 ? "s" : ""} before starting the tracker.`);
-      return;
-    }
-
     const calories = calculateCalories(trackerForm);
     const payload = {
       user_id: user.id,
@@ -527,13 +525,15 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
 
       const initialPhotoIds = {};
       for (const nextPose of poses) {
-        initialPhotoIds[nextPose] = await uploadTrackerPhotoFile({
-          context: "tracker_initial",
-          file: initialPhotoFiles[nextPose],
-          nextPose,
-          note: `Initial ${labelPose(nextPose)} tracker photo`,
-          trackerId: data.id
-        });
+        if (initialPhotoFiles[nextPose]) {
+          initialPhotoIds[nextPose] = await uploadTrackerPhotoFile({
+            context: "tracker_initial",
+            file: initialPhotoFiles[nextPose],
+            nextPose,
+            note: `Initial ${labelPose(nextPose)} tracker photo`,
+            trackerId: data.id
+          });
+        }
       }
 
       const { data: updatedTracker, error: updateError } = await supabase
@@ -623,11 +623,6 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
         }
       }
 
-      const missingPhotos = poses.filter((nextPose) => !photoIds[nextPose]);
-      if (missingPhotos.length) {
-        throw new Error(`Add week ${editingWeek} ${missingPhotos.map(labelPose).join(", ")} photo${missingPhotos.length > 1 ? "s" : ""} before saving.`);
-      }
-
       const { error } = await supabase
         .from("goal_tracker_checkins")
         .upsert({ ...payload, photo_ids: photoIds }, { onConflict: "tracker_id,week_number" });
@@ -650,7 +645,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     if (!tracker || !supabase || user.id === "demo-user") return;
     const finalCheckin = checkins.find((row) => row.week_number === tracker.duration_weeks);
     if (!finalCheckin) {
-      setMessage(`Log week ${tracker.duration_weeks} with final photos before submitting final results.`);
+      setMessage(`Log week ${tracker.duration_weeks} before submitting final results.`);
       return;
     }
     if (!window.confirm("Submit final tracker results and finish this tracker?")) return;
@@ -678,6 +673,43 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     setCheckins([]);
     setProgressView("hub");
     setMessage("Tracker completed. Final summary saved.");
+  }
+
+  async function saveStartingMeasurements(form) {
+    if (!tracker || !supabase || user.id === "demo-user") return;
+
+    const nextTrackerShape = { ...tracker, ...form };
+    const calories = calculateCalories(nextTrackerShape);
+    const payload = {
+      start_weight_kg: numericOrNull(form.start_weight_kg),
+      body_fat_percent: numericOrNull(form.body_fat_percent),
+      fat_kg: numericOrNull(form.fat_kg),
+      muscle_kg: numericOrNull(form.muscle_kg),
+      maintenance_calories: calories?.maintenance || tracker.maintenance_calories || null,
+      target_calories: calories?.target || tracker.target_calories || null
+    };
+    measurementFields.forEach(([field]) => {
+      payload[field] = numericOrNull(form[field]);
+    });
+
+    setSavingTracker(true);
+    setMessage("");
+    const { data, error } = await supabase
+      .from("goal_trackers")
+      .update(payload)
+      .eq("id", tracker.id)
+      .eq("user_id", user.id)
+      .select(trackerSelect)
+      .single();
+    setSavingTracker(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setTracker(data);
+    setMessage("Starting measurements updated.");
   }
 
   async function archiveTracker() {
@@ -822,6 +854,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
         onOpenPhotos={() => setProgressView("photos")}
         onOpenWeek={openWeekLog}
         onPhotoChange={updateWeekPhotoFile}
+        onSaveStartingMeasurements={saveStartingMeasurements}
         onSaveWeek={saveWeekCheckin}
         onUpdateCheckin={updateCheckinForm}
         saving={savingTracker}
@@ -843,7 +876,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
           </div>
         </div>
 
-        {message ? <p className={message.includes("saved") || message.includes("started") ? "form-message success" : "form-message error"}>{message}</p> : null}
+        {message ? <p className={isSuccessMessage(message) ? "form-message success" : "form-message error"}>{message}</p> : null}
         {loadingTracker ? <p className="form-message success">Loading progress tracker...</p> : null}
 
         <div className="progress-hub-grid">
@@ -899,7 +932,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
         </label>
       ) : null}
 
-      {message ? <p className={message.includes("uploaded") ? "form-message success" : "form-message error"}>{message}</p> : null}
+      {message ? <p className={isSuccessMessage(message) ? "form-message success" : "form-message error"}>{message}</p> : null}
       {loading ? <p className="form-message success">Loading progress photos...</p> : null}
 
       {canUpload ? (
@@ -1096,7 +1129,7 @@ function TrackerSetupScreen({ calorieEstimate, form, initialPhotoFiles, onBack, 
               />
             ))}
           </div>
-          <p>Front, side and back photos are required for the tracker start point.</p>
+          <p>Add front, side and back photos now if you have them. You can still start and update them later.</p>
         </section>
 
         <section className="tracker-estimate-card">
@@ -1154,6 +1187,7 @@ function TrackerDashboardScreen({
   onOpenPhotos,
   onOpenWeek,
   onPhotoChange,
+  onSaveStartingMeasurements,
   onSaveWeek,
   onUpdateCheckin,
   saving,
@@ -1166,7 +1200,24 @@ function TrackerDashboardScreen({
   const activeWeek = weekRows.find((week) => week.weekNumber === editingWeek);
   const measurementChange = latestMeasurementChange(tracker, checkins);
   const [chartsOpen, setChartsOpen] = useState(false);
+  const [editingStart, setEditingStart] = useState(false);
+  const [startingForm, setStartingForm] = useState(() => trackerToStartingForm(tracker));
   const finalWeekLogged = weekRows.length > 0 && weekRows.every((week) => Boolean(week.checkin));
+
+  function updateStartingForm(field, value) {
+    setStartingForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleStartingEdit() {
+    if (!editingStart) setStartingForm(trackerToStartingForm(tracker));
+    setEditingStart(!editingStart);
+  }
+
+  async function submitStartingMeasurements(event) {
+    event.preventDefault();
+    await onSaveStartingMeasurements(startingForm);
+    setEditingStart(false);
+  }
 
   return (
     <section className="screen-stack tracker-screen">
@@ -1184,7 +1235,7 @@ function TrackerDashboardScreen({
         <button className="danger-link" disabled={saving} onClick={onDeleteTracker} type="button">Delete</button>
       </div>
 
-      {message ? <p className={message.includes("saved") || message.includes("started") ? "form-message success" : "form-message error"}>{message}</p> : null}
+      {message ? <p className={isSuccessMessage(message) ? "form-message success" : "form-message error"}>{message}</p> : null}
       {loading ? <p className="form-message success">Loading tracker...</p> : null}
 
       <div className="tracker-summary-grid">
@@ -1229,6 +1280,35 @@ function TrackerDashboardScreen({
           </div>
         ) : (
           <p>Add starting measurements and at least one weekly check-in to see centimetre changes here.</p>
+        )}
+      </section>
+
+      <section className="tracker-estimate-card tracker-start-card">
+        <div className="client-section-title">
+          <div>
+            <p className="eyebrow">Starting measurements</p>
+            <span>{formatTrackerDate(tracker.start_date)}</span>
+          </div>
+          <button className="primary-action compact" onClick={toggleStartingEdit} type="button">
+            {editingStart ? "Close" : "Edit"}
+          </button>
+        </div>
+        {editingStart ? (
+          <form className="tracker-baseline-form" onSubmit={submitStartingMeasurements}>
+            <div className="tracker-field-grid three">
+              <label className="form-field">Weight kg<input inputMode="decimal" value={startingForm.start_weight_kg} onChange={(event) => updateStartingForm("start_weight_kg", event.target.value)} /></label>
+              <label className="form-field">Body fat %<input inputMode="decimal" value={startingForm.body_fat_percent} onChange={(event) => updateStartingForm("body_fat_percent", event.target.value)} /></label>
+              <label className="form-field">Muscle kg<input inputMode="decimal" value={startingForm.muscle_kg} onChange={(event) => updateStartingForm("muscle_kg", event.target.value)} /></label>
+            </div>
+            <div className="tracker-field-grid">
+              {measurementFields.map(([field, label]) => (
+                <label className="form-field" key={field}>{label}<input inputMode="decimal" value={startingForm[field]} onChange={(event) => updateStartingForm(field, event.target.value)} /></label>
+              ))}
+            </div>
+            <button className="primary-action filled" disabled={saving} type="submit">{saving ? "Saving..." : "Save starting measurements"}</button>
+          </form>
+        ) : (
+          <BaselineSummary tracker={tracker} />
         )}
       </section>
 
@@ -1294,7 +1374,7 @@ function TrackerDashboardScreen({
           </button>
         </section>
       ) : (
-        <p className="compact-help centered">Final results unlock after week {tracker.duration_weeks} is logged with photos.</p>
+        <p className="compact-help centered">Final results unlock after week {tracker.duration_weeks} is logged.</p>
       )}
 
       <section className="tracker-estimate-card">
@@ -1324,9 +1404,43 @@ function TrackerPhotoInput({ file, hasExisting = false, label, onChange }) {
   return (
     <label className={`tracker-photo-input ${file || hasExisting ? "has-file" : ""}`}>
       <span>{label}</span>
-      <em>{file ? "Selected" : hasExisting ? "Saved" : "Required"}</em>
+      <em>{file ? "Selected" : hasExisting ? "Saved" : "Optional"}</em>
       <input accept="image/*" hidden onChange={(event) => onChange(event.target.files?.[0] || null)} type="file" />
     </label>
+  );
+}
+
+function trackerToStartingForm(tracker) {
+  const form = {
+    start_weight_kg: tracker?.start_weight_kg ?? "",
+    body_fat_percent: tracker?.body_fat_percent ?? "",
+    fat_kg: tracker?.fat_kg ?? "",
+    muscle_kg: tracker?.muscle_kg ?? ""
+  };
+  measurementFields.forEach(([field]) => {
+    form[field] = tracker?.[field] ?? "";
+  });
+  return form;
+}
+
+function BaselineSummary({ tracker }) {
+  const stats = [
+    ["Weight", tracker.start_weight_kg ? `${tracker.start_weight_kg}kg` : "-"],
+    ["Body fat", tracker.body_fat_percent ? `${tracker.body_fat_percent}%` : "-"],
+    ["Fat", tracker.fat_kg ? `${tracker.fat_kg}kg` : "-"],
+    ["Muscle", tracker.muscle_kg ? `${tracker.muscle_kg}kg` : "-"],
+    ...measurementFields.map(([field, label]) => [label.replace(" cm", ""), tracker[field] ? `${tracker[field]}cm` : "-"])
+  ];
+
+  return (
+    <div className="tracker-baseline-summary">
+      {stats.map(([label, value]) => (
+        <span key={label}>
+          <em>{label}</em>
+          <strong>{value}</strong>
+        </span>
+      ))}
+    </div>
   );
 }
 
