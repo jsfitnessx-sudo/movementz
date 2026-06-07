@@ -1646,8 +1646,8 @@ button {
 .tracker-setup-form,
 .tracker-checkin-form {
   display: grid;
-  gap: 12px;
-  padding: 14px;
+  gap: 10px;
+  padding: 12px;
 }
 
 .tracker-field-grid {
@@ -1665,8 +1665,36 @@ button {
 }
 
 .form-field textarea {
-  min-height: 92px;
+  min-height: 74px;
   resize: vertical;
+}
+
+.tracker-setup-form .form-field,
+.tracker-checkin-form .form-field {
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracker-setup-form input,
+.tracker-setup-form select,
+.tracker-setup-form textarea,
+.tracker-checkin-form input,
+.tracker-checkin-form select,
+.tracker-checkin-form textarea {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  color-scheme: dark;
 }
 
 .tracker-option-grid {
@@ -1682,12 +1710,12 @@ button {
 .tracker-option-grid button {
   display: grid;
   gap: 4px;
-  min-height: 64px;
+  min-height: 52px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--field);
   color: var(--text);
-  padding: 10px;
+  padding: 9px;
   text-align: left;
 }
 
@@ -1708,8 +1736,8 @@ button {
 
 .tracker-estimate-card {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--panel);
@@ -1736,11 +1764,11 @@ button {
 .tracker-stat {
   display: grid;
   gap: 4px;
-  min-height: 62px;
+  min-height: 54px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--field);
-  padding: 10px;
+  padding: 8px;
   text-align: center;
 }
 
@@ -1756,7 +1784,7 @@ button {
 .tracker-mini-grid strong,
 .tracker-stat strong {
   color: var(--teal);
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .tracker-stat.gold strong {
@@ -1809,6 +1837,61 @@ button {
   color: var(--text);
   padding: 10px;
   text-align: left;
+}
+
+.tracker-photo-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.tracker-photo-input {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.tracker-photo-input.has-file {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 12%, var(--field));
+  color: var(--teal);
+}
+
+.tracker-photo-input span {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.tracker-photo-input em {
+  color: var(--muted);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tracker-week-thumbs {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 4px;
+}
+
+.tracker-week-thumbs img {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  object-fit: cover;
 }
 
 .tracker-week-list button.logged {
@@ -2023,14 +2106,47 @@ button {
   }
 
   .progress-hub-grid,
+  .tracker-option-grid,
+  .tracker-option-grid.three {
+    grid-template-columns: 1fr;
+  }
+
   .tracker-field-grid,
   .tracker-field-grid.three,
-  .tracker-option-grid,
-  .tracker-option-grid.three,
   .tracker-mini-grid,
   .tracker-summary-grid,
   .tracker-summary-grid.two {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .tracker-screen .screen-heading h1 {
+    font-size: clamp(30px, 9vw, 40px);
+  }
+
+  .tracker-setup-form,
+  .tracker-checkin-form {
+    padding: 10px;
+  }
+
+  .tracker-summary-grid {
+    gap: 7px;
+  }
+
+  .tracker-stat {
+    min-height: 48px;
+  }
+
+  .tracker-stat strong {
+    font-size: 17px;
+  }
+
+  .tracker-stat span {
+    font-size: 8px;
+  }
+
+  .tracker-photo-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .tracker-week-list button {

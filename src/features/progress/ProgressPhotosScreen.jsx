@@ -35,7 +35,7 @@ const measurementFields = [
   ["right_thigh_cm", "Right thigh cm"]
 ];
 const trackerSelect =
-  "id,user_id,goal_name,goal_type,gender,age,height_cm,activity_level,start_weight_kg,goal_weight_kg,deficit_style,maintenance_calories,target_calories,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,duration_weeks,start_date,status,created_at";
+  "id,user_id,goal_name,goal_type,gender,age,height_cm,activity_level,start_weight_kg,goal_weight_kg,deficit_style,maintenance_calories,target_calories,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,duration_weeks,start_date,status,initial_photo_ids,created_at";
 
 function blankTrackerForm(profile) {
   return {
@@ -204,6 +204,12 @@ function formatProgressPhotoError(error) {
   return `${message}. Run supabase/phase-12-progress-photos.sql in Supabase.`;
 }
 
+function formatTrackerPhotoError(error) {
+  const message = error?.message || "Something went wrong.";
+  if (/compress|large|crop|photo/i.test(message)) return message;
+  return `${message}. Run supabase/phase-14-tracker-photos.sql in Supabase.`;
+}
+
 export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [photos, setPhotos] = useState([]);
   const [clients, setClients] = useState([]);
@@ -217,6 +223,8 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [checkins, setCheckins] = useState([]);
   const [trackerForm, setTrackerForm] = useState(() => blankTrackerForm(profile));
   const [checkinForm, setCheckinForm] = useState({});
+  const [initialPhotoFiles, setInitialPhotoFiles] = useState({});
+  const [weekPhotoFiles, setWeekPhotoFiles] = useState({});
   const [editingWeek, setEditingWeek] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingTracker, setLoadingTracker] = useState(Boolean(supabase));
@@ -316,6 +324,32 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     setAfterId((current) => current || signedPhotos[0]?.id || "");
   }, [signPhotoUrls, targetUserId, user.id]);
 
+  const signCheckinPhotoThumbs = useCallback(async (rows) => {
+    if (!supabase || !rows.length) return rows;
+    const photoIds = rows.flatMap((row) => poses.map((nextPose) => row.photo_ids?.[nextPose]).filter(Boolean));
+    if (!photoIds.length) return rows;
+
+    const { data, error } = await supabase
+      .from("progress_photos")
+      .select("id,pose,thumbnail_path,taken_at")
+      .in("id", photoIds);
+
+    if (error || !data?.length) return rows;
+
+    const signed = await Promise.all(
+      data.map(async (photo) => {
+        const { data: thumbData } = await supabase.storage.from(bucketName).createSignedUrl(photo.thumbnail_path, 60 * 60);
+        return { ...photo, thumbnail_url: thumbData?.signedUrl || "" };
+      })
+    );
+    const byId = Object.fromEntries(signed.map((photo) => [photo.id, photo]));
+
+    return rows.map((row) => ({
+      ...row,
+      photo_thumbnails: poses.map((nextPose) => byId[row.photo_ids?.[nextPose]]).filter(Boolean)
+    }));
+  }, []);
+
   const loadTracker = useCallback(async () => {
     if (!targetUserId || !supabase || user.id === "demo-user") {
       setTracker(null);
@@ -339,7 +373,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
       setTracker(null);
       setCheckins([]);
       setLoadingTracker(false);
-      setMessage(`${error.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
+      setMessage(`${error.message}. Run supabase/phase-13-goal-trackers.sql and supabase/phase-14-tracker-photos.sql in Supabase.`);
       return;
     }
 
@@ -352,18 +386,18 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
 
     const { data: checkinRows, error: checkinError } = await supabase
       .from("goal_tracker_checkins")
-      .select("id,tracker_id,user_id,week_number,checkin_date,weight_kg,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,energy,mood,notes,created_at")
+      .select("id,tracker_id,user_id,week_number,checkin_date,weight_kg,body_fat_percent,fat_kg,muscle_kg,neck_cm,chest_cm,waist_cm,hips_cm,left_bicep_cm,right_bicep_cm,left_thigh_cm,right_thigh_cm,energy,mood,notes,photo_ids,created_at")
       .eq("tracker_id", data.id)
       .order("week_number", { ascending: true });
 
     if (checkinError) {
       setCheckins([]);
-      setMessage(`${checkinError.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
+      setMessage(`${checkinError.message}. Run supabase/phase-13-goal-trackers.sql and supabase/phase-14-tracker-photos.sql in Supabase.`);
     } else {
-      setCheckins(checkinRows || []);
+      setCheckins(await signCheckinPhotoThumbs(checkinRows || []));
     }
     setLoadingTracker(false);
-  }, [targetUserId, user.id]);
+  }, [signCheckinPhotoThumbs, targetUserId, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -403,9 +437,63 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     setCheckinForm((current) => ({ ...current, [field]: value }));
   }
 
+  function updateInitialPhotoFile(nextPose, file) {
+    setInitialPhotoFiles((current) => ({ ...current, [nextPose]: file || null }));
+  }
+
+  function updateWeekPhotoFile(nextPose, file) {
+    setWeekPhotoFiles((current) => ({ ...current, [nextPose]: file || null }));
+  }
+
+  async function uploadTrackerPhotoFile({ context, file, note: photoNote, nextPose, trackerId, weekNumber = null }) {
+    let [imageBlob, thumbnailBlob] = await Promise.all([
+      compressImage(file, 1400, 0.72, maxImageBytes),
+      compressImage(file, 360, 0.56, maxThumbBytes)
+    ]);
+
+    const stamp = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    let imagePath = `${user.id}/${stamp}-${context}-${nextPose}.${imageExtension(imageBlob)}`;
+    const thumbnailPath = `${user.id}/${stamp}-${context}-${nextPose}-thumb.${imageExtension(thumbnailBlob)}`;
+
+    let imageUpload = await uploadStorageObject(imagePath, imageBlob);
+    if (imageUpload.error && /size|exceed|large/i.test(imageUpload.error.message || "")) {
+      imageBlob = await compressImage(file, 960, 0.58, 650 * 1024);
+      imagePath = `${user.id}/${stamp}-${context}-${nextPose}-small.${imageExtension(imageBlob)}`;
+      imageUpload = await uploadStorageObject(imagePath, imageBlob);
+    }
+    if (imageUpload.error) throw imageUpload.error;
+
+    const thumbUpload = await uploadStorageObject(thumbnailPath, thumbnailBlob);
+    if (thumbUpload.error) throw thumbUpload.error;
+
+    const { data, error } = await supabase
+      .from("progress_photos")
+      .insert({
+        user_id: user.id,
+        pose: nextPose,
+        note: photoNote,
+        image_path: imagePath,
+        thumbnail_path: thumbnailPath,
+        tracker_id: trackerId,
+        tracker_week_number: weekNumber,
+        photo_context: context
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    return data.id;
+  }
+
   async function startTracker(event) {
     event.preventDefault();
     if (!supabase || user.id === "demo-user") return;
+
+    const missingInitialPhotos = poses.filter((nextPose) => !initialPhotoFiles[nextPose]);
+    if (missingInitialPhotos.length) {
+      setMessage(`Add initial ${missingInitialPhotos.map(labelPose).join(", ")} photo${missingInitialPhotos.length > 1 ? "s" : ""} before starting the tracker.`);
+      return;
+    }
 
     const calories = calculateCalories(trackerForm);
     const payload = {
@@ -433,18 +521,41 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
 
     setSavingTracker(true);
     setMessage("");
-    const { data, error } = await supabase.from("goal_trackers").insert(payload).select(trackerSelect).single();
-    setSavingTracker(false);
+    try {
+      const { data, error } = await supabase.from("goal_trackers").insert(payload).select(trackerSelect).single();
+      if (error) throw error;
 
-    if (error) {
-      setMessage(`${error.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
-      return;
+      const initialPhotoIds = {};
+      for (const nextPose of poses) {
+        initialPhotoIds[nextPose] = await uploadTrackerPhotoFile({
+          context: "tracker_initial",
+          file: initialPhotoFiles[nextPose],
+          nextPose,
+          note: `Initial ${labelPose(nextPose)} tracker photo`,
+          trackerId: data.id
+        });
+      }
+
+      const { data: updatedTracker, error: updateError } = await supabase
+        .from("goal_trackers")
+        .update({ initial_photo_ids: initialPhotoIds })
+        .eq("id", data.id)
+        .eq("user_id", user.id)
+        .select(trackerSelect)
+        .single();
+      if (updateError) throw updateError;
+
+      setTracker(updatedTracker);
+      setCheckins([]);
+      setInitialPhotoFiles({});
+      setProgressView("tracker");
+      setMessage("Goal tracker started.");
+      await loadPhotos();
+    } catch (error) {
+      setMessage(formatTrackerPhotoError(error));
+    } finally {
+      setSavingTracker(false);
     }
-
-    setTracker(data);
-    setCheckins([]);
-    setProgressView("tracker");
-    setMessage("Goal tracker started.");
   }
 
   function openWeekLog(week) {
@@ -466,8 +577,10 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
       right_thigh_cm: source.right_thigh_cm ?? "",
       energy: source.energy ?? "",
       mood: source.mood ?? "",
-      notes: source.notes ?? ""
+      notes: source.notes ?? "",
+      photo_ids: source.photo_ids || {}
     });
+    setWeekPhotoFiles({});
   }
 
   async function saveWeekCheckin(event) {
@@ -493,20 +606,44 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
 
     setSavingTracker(true);
     setMessage("");
-    const { error } = await supabase
-      .from("goal_tracker_checkins")
-      .upsert(payload, { onConflict: "tracker_id,week_number" });
-    setSavingTracker(false);
+    try {
+      const existingPhotoIds = checkinForm.photo_ids || {};
+      const photoIds = { ...existingPhotoIds };
 
-    if (error) {
-      setMessage(`${error.message}. Run supabase/phase-13-goal-trackers.sql in Supabase.`);
-      return;
+      for (const nextPose of poses) {
+        if (weekPhotoFiles[nextPose]) {
+          photoIds[nextPose] = await uploadTrackerPhotoFile({
+            context: "tracker_week",
+            file: weekPhotoFiles[nextPose],
+            nextPose,
+            note: `Week ${editingWeek} ${labelPose(nextPose)} check-in photo`,
+            trackerId: tracker.id,
+            weekNumber: editingWeek
+          });
+        }
+      }
+
+      const missingPhotos = poses.filter((nextPose) => !photoIds[nextPose]);
+      if (missingPhotos.length) {
+        throw new Error(`Add week ${editingWeek} ${missingPhotos.map(labelPose).join(", ")} photo${missingPhotos.length > 1 ? "s" : ""} before saving.`);
+      }
+
+      const { error } = await supabase
+        .from("goal_tracker_checkins")
+        .upsert({ ...payload, photo_ids: photoIds }, { onConflict: "tracker_id,week_number" });
+      if (error) throw error;
+
+      setEditingWeek(null);
+      setCheckinForm({});
+      setWeekPhotoFiles({});
+      setMessage(`Week ${payload.week_number} check-in saved.`);
+      await loadTracker();
+      await loadPhotos();
+    } catch (error) {
+      setMessage(formatTrackerPhotoError(error));
+    } finally {
+      setSavingTracker(false);
     }
-
-    setEditingWeek(null);
-    setCheckinForm({});
-    setMessage(`Week ${payload.week_number} check-in saved.`);
-    await loadTracker();
   }
 
   async function uploadPhoto(event) {
@@ -575,7 +712,9 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
       <TrackerSetupScreen
         calorieEstimate={calorieEstimate}
         form={trackerForm}
+        initialPhotoFiles={initialPhotoFiles}
         onBack={() => setProgressView("hub")}
+        onPhotoChange={updateInitialPhotoFile}
         onSubmit={startTracker}
         onUpdate={updateTrackerForm}
         saving={savingTracker}
@@ -597,10 +736,12 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
         onCancelWeek={() => setEditingWeek(null)}
         onOpenPhotos={() => setProgressView("photos")}
         onOpenWeek={openWeekLog}
+        onPhotoChange={updateWeekPhotoFile}
         onSaveWeek={saveWeekCheckin}
         onUpdateCheckin={updateCheckinForm}
         saving={savingTracker}
         tracker={tracker}
+        weekPhotoFiles={weekPhotoFiles}
         weekRows={weekRows}
         weightChange={weightChange}
       />
@@ -776,7 +917,7 @@ function PhotoCompareCard({ label, photo }) {
   );
 }
 
-function TrackerSetupScreen({ calorieEstimate, form, onBack, onSubmit, onUpdate, saving }) {
+function TrackerSetupScreen({ calorieEstimate, form, initialPhotoFiles, onBack, onPhotoChange, onSubmit, onUpdate, saving }) {
   return (
     <section className="screen-stack tracker-screen">
       <div className="screen-heading progress-heading">
@@ -860,7 +1001,17 @@ function TrackerSetupScreen({ calorieEstimate, form, onBack, onSubmit, onUpdate,
 
         <section className="tracker-estimate-card">
           <p className="eyebrow">Initial photos</p>
-          <p>Upload front, side and back photos from the Progress Photos section after starting this tracker.</p>
+          <div className="tracker-photo-row">
+            {poses.map((nextPose) => (
+              <TrackerPhotoInput
+                file={initialPhotoFiles[nextPose]}
+                key={nextPose}
+                label={labelPose(nextPose)}
+                onChange={(file) => onPhotoChange(nextPose, file)}
+              />
+            ))}
+          </div>
+          <p>Front, side and back photos are required for the tracker start point.</p>
         </section>
 
         <section className="tracker-estimate-card">
@@ -914,10 +1065,12 @@ function TrackerDashboardScreen({
   onCancelWeek,
   onOpenPhotos,
   onOpenWeek,
+  onPhotoChange,
   onSaveWeek,
   onUpdateCheckin,
   saving,
   tracker,
+  weekPhotoFiles,
   weekRows,
   weightChange
 }) {
@@ -1010,6 +1163,20 @@ function TrackerDashboardScreen({
             Notes
             <textarea value={checkinForm.notes || ""} onChange={(event) => onUpdateCheckin("notes", event.target.value)} />
           </label>
+          <section className="tracker-estimate-card tracker-week-photos">
+            <p className="eyebrow">Week {activeWeek.weekNumber} photos</p>
+            <div className="tracker-photo-row">
+              {poses.map((nextPose) => (
+                <TrackerPhotoInput
+                  file={weekPhotoFiles[nextPose]}
+                  hasExisting={Boolean(checkinForm.photo_ids?.[nextPose])}
+                  key={nextPose}
+                  label={labelPose(nextPose)}
+                  onChange={(file) => onPhotoChange(nextPose, file)}
+                />
+              ))}
+            </div>
+          </section>
           <button className="primary-action filled" disabled={saving} type="submit">{saving ? "Saving..." : "Save week check-in"}</button>
         </form>
       ) : (
@@ -1028,11 +1195,28 @@ function TrackerDashboardScreen({
               <strong>Week {week.weekNumber}</strong>
               <span>{formatTrackerDate(week.dueDate)}</span>
               <em>{week.checkin ? "Logged" : "Tap to log"}</em>
+              {week.checkin?.photo_thumbnails?.length ? (
+                <span className="tracker-week-thumbs">
+                  {week.checkin.photo_thumbnails.map((photo) => (
+                    <img alt={`${photo.pose} check-in`} key={photo.id} src={photo.thumbnail_url} />
+                  ))}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
       </section>
     </section>
+  );
+}
+
+function TrackerPhotoInput({ file, hasExisting = false, label, onChange }) {
+  return (
+    <label className={`tracker-photo-input ${file || hasExisting ? "has-file" : ""}`}>
+      <span>{label}</span>
+      <em>{file ? "Selected" : hasExisting ? "Saved" : "Required"}</em>
+      <input accept="image/*" hidden onChange={(event) => onChange(event.target.files?.[0] || null)} type="file" />
+    </label>
   );
 }
 
