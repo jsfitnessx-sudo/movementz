@@ -27,6 +27,8 @@ const blankCoachProfile = {
   years_experience: ""
 };
 
+const avatarBucket = "profile-avatars";
+
 function toProfileForm(profile, user) {
   return {
     full_name: profile?.full_name || user?.name || "",
@@ -34,8 +36,44 @@ function toProfileForm(profile, user) {
     role: profile?.role || "normal_user",
     gender: profile?.gender || "",
     age: profile?.age ?? "",
-    location: profile?.location || ""
+    location: profile?.location || "",
+    avatar_url: profile?.avatar_url || user?.avatarUrl || ""
   };
+}
+
+async function compressAvatar(file) {
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = reject;
+      image.src = objectUrl;
+    });
+
+    const size = 320;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+    const sourceX = Math.max(0, (image.naturalWidth - sourceSize) / 2);
+    const sourceY = Math.max(0, (image.naturalHeight - sourceSize) / 2);
+    context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) reject(new Error("Could not prepare this profile photo."));
+          else resolve(blob);
+        },
+        "image/webp",
+        0.72
+      );
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
@@ -45,6 +83,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
   const [loadingCoach, setLoadingCoach] = useState(false);
   const [coachLinks, setCoachLinks] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -149,6 +188,45 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
     }));
   }
 
+  async function uploadAvatar(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !supabase || !user?.id) return;
+
+    setSavingAvatar(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const blob = await compressAvatar(file);
+      const path = `${user.id}/avatar-${Date.now()}.webp`;
+      const { error: uploadError } = await supabase.storage.from(avatarBucket).upload(path, blob, {
+        cacheControl: "3600",
+        contentType: "image/webp",
+        upsert: true
+      });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from(avatarBucket).getPublicUrl(path);
+      const avatarUrl = data?.publicUrl || "";
+      const { data: savedProfile, error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .select("id,email,full_name,first_name,last_name,role,avatar_url,gender,age,location")
+        .single();
+      if (profileError) throw profileError;
+
+      setProfileForm((current) => ({ ...current, avatar_url: avatarUrl }));
+      setMessage("Profile photo updated.");
+      onProfileSaved(savedProfile);
+    } catch (avatarError) {
+      setError(`${avatarError.message}. Run supabase/phase-22-profile-avatars.sql in Supabase.`);
+    } finally {
+      setSavingAvatar(false);
+    }
+  }
+
   async function handleSave(event) {
     event.preventDefault();
     if (!supabase || !user?.id) return;
@@ -248,10 +326,16 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
 
       <form className="profile-panel" onSubmit={handleSave}>
         <div className="profile-hero">
-          <div className="profile-avatar">{initials}</div>
+          <div className="profile-avatar">
+            {profileForm.avatar_url ? <img alt="" src={profileForm.avatar_url} /> : initials}
+          </div>
           <div>
             <h2>{profileForm.full_name || "Movementz athlete"}</h2>
             <p>{profileForm.email}</p>
+            <label className="avatar-upload-button">
+              {savingAvatar ? "Uploading..." : "Upload profile photo"}
+              <input accept="image/*" disabled={savingAvatar} onChange={uploadAvatar} type="file" />
+            </label>
           </div>
         </div>
 

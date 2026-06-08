@@ -30,7 +30,7 @@ export function AppLayout({
             type="button"
             onClick={onProfileClick}
           >
-            {(user.name || user.email || "M").slice(0, 1)}
+            {user.avatarUrl ? <img alt="" src={user.avatarUrl} /> : (user.name || user.email || "M").slice(0, 1)}
           </button>
           <button className="signout-shortcut" type="button" onClick={onSignOut}>
             Sign out
