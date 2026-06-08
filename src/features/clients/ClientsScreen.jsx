@@ -906,6 +906,20 @@ export function ClientsScreen({ profile, user }) {
                 ) : (
                   <p className="compact-help">No recent food logs yet.</p>
                 )}
+                {clientFoodSummary.month_days?.length ? (
+                  <div className="coach-food-month-strip" aria-label="Food log month view">
+                    {clientFoodSummary.month_days.map((day) => {
+                      const calories = Number(day.calories || 0);
+                      const remaining = Number(day.remaining_calories || 0);
+                      return (
+                        <span className={calories ? (remaining < 0 ? "over" : "logged") : ""} key={day.log_date}>
+                          <strong>{new Date(`${day.log_date}T00:00:00`).getDate()}</strong>
+                          <em>{calories ? formatCalories(calories) : "-"}</em>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </>
             ) : (
               <p className="compact-help">No food log data yet.</p>

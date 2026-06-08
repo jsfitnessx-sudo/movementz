@@ -397,9 +397,14 @@ export function MutualFeedScreen({ user }) {
                     {item.comments?.length ? (
                       <div className="feed-comment-list">
                         {item.comments.map((comment) => (
-                          <p key={comment.id}>
-                            <strong>{comment.actor_name}</strong> {comment.body}
-                          </p>
+                          <div className="feed-comment-item" key={comment.id}>
+                            <span>
+                              {comment.avatar_url ? <img alt="" src={comment.avatar_url} /> : initialFor(comment.actor_name)}
+                            </span>
+                            <p>
+                              <strong>{comment.actor_name}</strong> {comment.body}
+                            </p>
+                          </div>
                         ))}
                       </div>
                     ) : null}

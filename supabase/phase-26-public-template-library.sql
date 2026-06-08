@@ -189,3 +189,36 @@ end;
 $$;
 
 grant execute on function public.copy_public_workout_template(uuid) to authenticated;
+
+create or replace function public.get_public_workout_template_preview(preview_limit integer default 2)
+returns jsonb
+language sql
+security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(template_item order by template_item->>'name'), '[]'::jsonb)
+  from (
+    select jsonb_build_object(
+      'id', wt.id,
+      'name', wt.name,
+      'workout_type', wt.workout_type,
+      'hiit_timer_type', wt.hiit_timer_type,
+      'exercise_count', coalesce(exercises.exercise_count, 0),
+      'exercise_names', coalesce(exercises.names, '[]'::jsonb)
+    ) as template_item
+    from public.workout_templates wt
+    left join lateral (
+      select
+        count(*)::integer as exercise_count,
+        coalesce(jsonb_agg(wte.exercise_name order by wte.position) filter (where wte.position <= 3), '[]'::jsonb) as names
+      from public.workout_template_exercises wte
+      where wte.template_id = wt.id
+    ) exercises on true
+    where wt.is_public_template = true
+      and wt.status = 'active'
+    order by wt.created_at desc
+    limit least(greatest(coalesce(preview_limit, 2), 1), 4)
+  ) templates;
+$$;
+
+grant execute on function public.get_public_workout_template_preview(integer) to authenticated;

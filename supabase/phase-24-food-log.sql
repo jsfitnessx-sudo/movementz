@@ -362,6 +362,7 @@ declare
   week_average integer := 0;
   monthly_compliance integer := 0;
   recent_rows jsonb := '[]'::jsonb;
+  month_rows jsonb := '[]'::jsonb;
 begin
   select exists (
     select 1
@@ -441,13 +442,47 @@ begin
     limit 7
   ) item;
 
+  with days as (
+    select generate_series(
+      date_trunc('month', current_date)::date,
+      (date_trunc('month', current_date) + interval '1 month - 1 day')::date,
+      interval '1 day'
+    )::date as log_date
+  ),
+  day_totals as (
+    select
+      fle.log_date,
+      round(sum(fle.calories))::integer as calories,
+      round(sum(fle.protein_g))::integer as protein_g,
+      count(*)::integer as entries
+    from public.food_log_entries fle
+    where fle.user_id = target_client_id
+      and fle.log_date >= date_trunc('month', current_date)::date
+      and fle.log_date < (date_trunc('month', current_date) + interval '1 month')::date
+    group by fle.log_date
+  )
+  select coalesce(jsonb_agg(to_jsonb(item) order by item.log_date), '[]'::jsonb)
+  into month_rows
+  from (
+    select
+      d.log_date,
+      coalesce(dt.calories, 0) as calories,
+      coalesce(dt.protein_g, 0) as protein_g,
+      coalesce(dt.entries, 0) as entries,
+      today_target as target_calories,
+      today_target - coalesce(dt.calories, 0) as remaining_calories
+    from days d
+    left join day_totals dt on dt.log_date = d.log_date
+  ) item;
+
   return jsonb_build_object(
     'today_calories', coalesce(today_calories, 0),
     'today_target', coalesce(today_target, 0),
     'today_remaining', coalesce(today_target, 0) - coalesce(today_calories, 0),
     'week_average', coalesce(week_average, 0),
     'monthly_compliance', coalesce(monthly_compliance, 0),
-    'recent_days', recent_rows
+    'recent_days', recent_rows,
+    'month_days', month_rows
   );
 end;
 $$;

@@ -169,6 +169,7 @@ export function HomeScreen({ onNavigate, role, user }) {
   const isClientLike = role === "client" || role === "normal_user";
   const [coachHomeData, setCoachHomeData] = useState(blankCoachHomeData);
   const [homeData, setHomeData] = useState(blankHomeData);
+  const [templatePreview, setTemplatePreview] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [coachLoading, setCoachLoading] = useState(Boolean(supabase));
   const [message, setMessage] = useState("");
@@ -209,6 +210,28 @@ export function HomeScreen({ onNavigate, role, user }) {
       alive = false;
     };
   }, [isCoach, user.id]);
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      if (!isClientLike || !supabase || user.id === "demo-user") {
+        if (alive) setTemplatePreview([]);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("get_public_workout_template_preview", {
+        preview_limit: 2
+      });
+
+      if (!alive) return;
+      setTemplatePreview(error || !Array.isArray(data) ? [] : data);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [isClientLike, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -438,6 +461,18 @@ export function HomeScreen({ onNavigate, role, user }) {
           <p className="eyebrow">Public templates</p>
           <strong>Browse Movementz workouts</strong>
           <span>Strength and HIIT templates you can copy into your library.</span>
+          {templatePreview.length ? (
+            <div className="home-template-preview-list">
+              {templatePreview.map((template) => (
+                <span key={template.id}>
+                  <b>{template.name}</b>
+                  <small>
+                    {template.workout_type === "hiit" ? "HIIT" : "Strength"} - {template.exercise_count || 0} exercises
+                  </small>
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
         <em>Open</em>
       </button>
