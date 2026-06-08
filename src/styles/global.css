@@ -4639,6 +4639,324 @@ button {
   color: var(--teal);
 }
 
+.mindset-screen {
+  --mind-bg: #f1faf7;
+  --mind-card: #ffffff;
+  --mind-line: #c8e3dc;
+  --mind-text: #1c3334;
+  --mind-muted: #66817f;
+  --mind-teal: #2fb9ad;
+  --mind-gold: #f3c96e;
+  --mind-pink: #f7dbe5;
+  justify-items: center;
+}
+
+.mindset-shell {
+  display: grid;
+  gap: 12px;
+  width: min(520px, 100%);
+  border: 1px solid var(--mind-line);
+  border-radius: 14px;
+  background: var(--mind-bg);
+  color: var(--mind-text);
+  padding: 14px;
+}
+
+.mindset-title {
+  text-align: center;
+}
+
+.mindset-title .eyebrow,
+.mindset-card .eyebrow {
+  color: var(--mind-teal);
+}
+
+.mindset-title h1 {
+  margin: 3px 0 0;
+  color: var(--mind-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mindset-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mindset-stat-grid article,
+.mindset-card {
+  border: 1px solid var(--mind-line);
+  border-radius: 10px;
+  background: var(--mind-card);
+  box-shadow: 0 6px 18px rgba(31, 73, 72, 0.06);
+}
+
+.mindset-stat-grid article {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+}
+
+.mindset-stat-grid strong {
+  color: var(--mind-teal);
+  font-size: 20px;
+}
+
+.mindset-stat-grid .gold strong {
+  color: #c78922;
+}
+
+.mindset-stat-grid span {
+  color: var(--mind-muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mindset-card {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  color: var(--mind-text);
+}
+
+.mindset-card h2,
+.mindset-card p {
+  margin: 0;
+}
+
+.mindset-card h2 {
+  color: var(--mind-text);
+  font-size: 16px;
+  text-align: center;
+}
+
+.mindset-card p {
+  color: var(--mind-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.mindset-card input,
+.mindset-card textarea {
+  width: 100%;
+  border: 1px solid var(--mind-line);
+  border-radius: 8px;
+  background: #fbfffd;
+  color: var(--mind-text);
+  padding: 10px;
+  font-size: 16px;
+}
+
+.mindset-card textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.mood-card {
+  border-color: #bfe8df;
+  background: #f7fffd;
+}
+
+.mood-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.mood-options button {
+  min-height: 48px;
+  border: 1px solid var(--mind-line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--mind-muted);
+  padding: 6px;
+}
+
+.mood-options button.active {
+  border-color: var(--mind-teal);
+  color: var(--mind-text);
+  box-shadow: inset 0 0 0 1px var(--mind-teal);
+}
+
+.mood-options strong {
+  display: block;
+  font-size: 11px;
+}
+
+.mood-options .great.active,
+.mood-history-list .great {
+  background: #e0f7ee;
+}
+
+.mood-options .good.active,
+.mood-history-list .good {
+  background: #e6f3ff;
+}
+
+.mood-options .okay.active,
+.mood-history-list .okay {
+  background: #fff3cf;
+}
+
+.mood-options .low.active,
+.mood-history-list .low {
+  background: #ffe3cf;
+}
+
+.mood-options .hard.active,
+.mood-history-list .hard,
+.support-card {
+  background: #fff1f5;
+}
+
+.support-card {
+  border-color: #ecc3cf;
+}
+
+.affirmation-card {
+  border-color: #d9e5df;
+  background: #fdfefb;
+}
+
+.affirmation-card h2 {
+  color: var(--mind-teal);
+}
+
+.resource-list {
+  display: grid;
+  gap: 9px;
+}
+
+.resource-list article {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #bce4dd;
+  border-radius: 10px;
+  background: #eefbf8;
+  padding: 10px;
+}
+
+.resource-list span {
+  color: var(--mind-teal);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.resource-list strong {
+  color: var(--mind-text);
+  font-size: 14px;
+  text-align: center;
+}
+
+.resource-list a {
+  display: grid;
+  min-height: 38px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--mind-teal);
+  color: #052625;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.why-card label,
+.why-card > div {
+  display: grid;
+  gap: 7px;
+  color: var(--mind-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.why-card > div:nth-of-type(1) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.why-card > div:nth-of-type(1) span {
+  grid-column: 1 / -1;
+}
+
+.why-card button,
+.support-tags button {
+  min-height: 30px;
+  border: 1px solid var(--mind-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--mind-muted);
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.why-card button.active,
+.support-tags button.active {
+  border-color: var(--mind-teal);
+  background: #dff7f1;
+  color: var(--mind-text);
+}
+
+.support-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+
+.resource-editor {
+  border-color: var(--mind-gold);
+  background: #fffaf0;
+}
+
+.mood-history-card > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mood-history-card > div:first-child span {
+  color: var(--mind-muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.mood-history-list {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mood-history-list article {
+  display: grid;
+  gap: 4px;
+  min-height: 54px;
+  border: 1px solid var(--mind-line);
+  border-radius: 8px;
+  padding: 6px 4px;
+  text-align: center;
+}
+
+.mood-history-list strong {
+  overflow: hidden;
+  color: var(--mind-text);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mood-history-list span {
+  color: var(--mind-muted);
+  font-size: 9px;
+}
+
 @media (max-width: 720px) {
   .client-insight-header {
     grid-template-columns: 1fr;
@@ -4656,6 +4974,20 @@ button {
   .coach-habit-row {
     grid-template-columns: minmax(96px, 1fr) 52px minmax(120px, 1.2fr);
     gap: 7px;
+  }
+
+  .mindset-shell {
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .mood-options {
+    gap: 5px;
+  }
+
+  .mood-options button {
+    min-height: 44px;
+    padding: 4px;
   }
 
   .client-detail-grid {

@@ -5,6 +5,7 @@ import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
 import { HabitsScreen } from "../features/habits/HabitsScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
+import { MindsetScreen } from "../features/mindset/MindsetScreen.jsx";
 import { MessagesScreen } from "../features/messages/MessagesScreen.jsx";
 import { PlansScreen } from "../features/plans/PlansScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
@@ -345,6 +346,8 @@ export function App() {
         <HabitsScreen user={user} />
       ) : activeTab === "progress" ? (
         <ProgressPhotosScreen profile={profile} role={role} user={user} />
+      ) : activeTab === "mindset" ? (
+        <MindsetScreen role={role} user={user} />
       ) : activeTab === "requests" && role === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : (
