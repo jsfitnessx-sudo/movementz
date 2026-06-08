@@ -3,6 +3,7 @@ import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
+import { HabitsScreen } from "../features/habits/HabitsScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
 import { MessagesScreen } from "../features/messages/MessagesScreen.jsx";
 import { PlansScreen } from "../features/plans/PlansScreen.jsx";
@@ -340,6 +341,8 @@ export function App() {
         <ClientsScreen profile={profile} user={user} />
       ) : activeTab === "messages" && (role === "coach" || role === "client") ? (
         <MessagesScreen role={role} user={user} />
+      ) : activeTab === "habits" ? (
+        <HabitsScreen user={user} />
       ) : activeTab === "progress" ? (
         <ProgressPhotosScreen profile={profile} role={role} user={user} />
       ) : activeTab === "requests" && role === "admin" ? (

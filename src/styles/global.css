@@ -4374,6 +4374,201 @@ button {
   font-size: 12px;
 }
 
+.habits-screen {
+  gap: 12px;
+}
+
+.compact-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.habit-week-score {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.habit-week-score strong {
+  color: var(--gold);
+  font-size: 22px;
+}
+
+.habit-week-score span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.habit-daily-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-color: color-mix(in srgb, var(--teal) 36%, var(--line));
+  background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
+}
+
+.habit-progress-bar {
+  position: relative;
+  overflow: hidden;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0b141c;
+}
+
+.habit-progress-bar span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), var(--teal-soft));
+  opacity: 0.25;
+}
+
+.habit-progress-bar strong {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 30px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.habit-section {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, #0b141c 72%, transparent);
+}
+
+.habit-section > .eyebrow {
+  justify-self: center;
+  color: var(--teal);
+}
+
+.habit-mindset-row,
+.habit-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  padding: 7px 8px;
+  text-align: left;
+}
+
+.habit-mindset-row.done,
+.habit-toggle.done {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 9%, var(--field));
+}
+
+.habit-mindset-row span,
+.habit-toggle span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.habit-mindset-row strong,
+.habit-toggle strong,
+.habit-input-block strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habit-mindset-row em,
+.habit-toggle em,
+.habit-input-block span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habit-mindset-row small,
+.habit-toggle small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.habit-mindset-row.done small,
+.habit-toggle.done small {
+  color: var(--teal);
+}
+
+.habit-input-block {
+  display: grid;
+  gap: 6px;
+}
+
+.habit-input-block > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.habit-input-block input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.habit-water-buttons,
+.habit-segment {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.habit-segment {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.habit-water-buttons button,
+.habit-segment button {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.habit-water-buttons button.active,
+.habit-segment button.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, var(--field));
+  color: var(--teal);
+}
+
 @media (max-width: 720px) {
   .client-insight-header {
     grid-template-columns: 1fr;

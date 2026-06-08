@@ -4,6 +4,7 @@ export const roleTabs = {
     { id: "today", label: "Today", icon: "T" },
     { id: "workouts", label: "Workouts", icon: "W" },
     { id: "plans", label: "Plans", icon: "P" },
+    { id: "habits", label: "Habits", icon: "H" },
     { id: "progress", label: "Progress", icon: "R" },
     { id: "mindset", label: "Mindset", icon: "M" }
   ],
@@ -13,6 +14,7 @@ export const roleTabs = {
     { id: "workouts", label: "Workouts", icon: "W" },
     { id: "plans", label: "Plans", icon: "P" },
     { id: "messages", label: "Messages", icon: "M" },
+    { id: "habits", label: "Habits", icon: "H" },
     { id: "progress", label: "Progress", icon: "R" },
     { id: "mindset", label: "Mindset", icon: "N" }
   ],
