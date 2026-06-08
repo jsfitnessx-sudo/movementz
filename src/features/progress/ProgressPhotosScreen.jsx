@@ -214,6 +214,85 @@ function isSuccessMessage(message) {
   return /saved|started|updated|completed|archived|deleted|uploaded/i.test(message || "");
 }
 
+function estimateOneRepMax(kg, reps) {
+  const weight = Number(kg) || 0;
+  const repCount = Number(reps) || 0;
+  if (!weight || !repCount) return 0;
+  return weight * (1 + repCount / 30);
+}
+
+function formatRecordDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function formatRecordDuration(seconds) {
+  const total = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return minutes ? `${minutes}m ${secs.toString().padStart(2, "0")}s` : `${secs}s`;
+}
+
+function buildProgressRecords(sessions) {
+  const maxWeightByExercise = new Map();
+  const bestOneRepByExercise = new Map();
+  const forTimeByWorkout = new Map();
+  let bestVolume = null;
+
+  for (const session of sessions || []) {
+    if (!bestVolume || Number(session.total_volume_kg || 0) > Number(bestVolume.total_volume_kg || 0)) {
+      bestVolume = session;
+    }
+
+    if (session.workout_type === "hiit" && Number(session.duration_seconds) > 0) {
+      const current = forTimeByWorkout.get(session.name);
+      if (!current || Number(session.duration_seconds) < Number(current.duration_seconds)) {
+        forTimeByWorkout.set(session.name, session);
+      }
+    }
+
+    for (const exercise of session.session_log_exercises || []) {
+      for (const set of exercise.session_log_sets || []) {
+        if (!set.completed || !set.kg || !set.reps) continue;
+        const exerciseName = exercise.exercise_name || "Exercise";
+        const heaviest = maxWeightByExercise.get(exerciseName);
+        if (!heaviest || Number(set.kg) > Number(heaviest.kg)) {
+          maxWeightByExercise.set(exerciseName, {
+            exerciseName,
+            kg: Number(set.kg),
+            reps: Number(set.reps),
+            sessionName: session.name,
+            date: session.completed_at
+          });
+        }
+
+        const estimatedOneRepMax = estimateOneRepMax(set.kg, set.reps);
+        const bestOneRep = bestOneRepByExercise.get(exerciseName);
+        if (!bestOneRep || estimatedOneRepMax > bestOneRep.estimatedOneRepMax) {
+          bestOneRepByExercise.set(exerciseName, {
+            exerciseName,
+            estimatedOneRepMax,
+            kg: Number(set.kg),
+            reps: Number(set.reps),
+            sessionName: session.name,
+            date: session.completed_at
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    bestVolume,
+    count: maxWeightByExercise.size + bestOneRepByExercise.size + forTimeByWorkout.size + (bestVolume ? 1 : 0),
+    forTime: [...forTimeByWorkout.values()].slice(0, 5),
+    maxWeight: [...maxWeightByExercise.values()].sort((left, right) => right.kg - left.kg).slice(0, 6),
+    oneRepMax: [...bestOneRepByExercise.values()]
+      .sort((left, right) => right.estimatedOneRepMax - left.estimatedOneRepMax)
+      .slice(0, 6)
+  };
+}
+
 export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [photos, setPhotos] = useState([]);
   const [clients, setClients] = useState([]);
@@ -225,6 +304,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [progressView, setProgressView] = useState("hub");
   const [tracker, setTracker] = useState(null);
   const [completedTrackers, setCompletedTrackers] = useState([]);
+  const [progressRecords, setProgressRecords] = useState(() => buildProgressRecords([]));
   const [checkins, setCheckins] = useState([]);
   const [trackerForm, setTrackerForm] = useState(() => blankTrackerForm(profile));
   const [checkinForm, setCheckinForm] = useState({});
@@ -233,8 +313,10 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [editingWeek, setEditingWeek] = useState(null);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingTracker, setLoadingTracker] = useState(Boolean(supabase));
+  const [loadingRecords, setLoadingRecords] = useState(Boolean(supabase));
   const [uploading, setUploading] = useState(false);
   const [savingTracker, setSavingTracker] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const fileInputRef = useRef(null);
 
@@ -418,6 +500,36 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     setCompletedTrackers(await signFinalSummaryPhotos(data || []));
   }, [signFinalSummaryPhotos, targetUserId, user.id]);
 
+  const loadProgressRecords = useCallback(async () => {
+    if (!targetUserId || !supabase || user.id === "demo-user") {
+      setProgressRecords(buildProgressRecords([]));
+      setLoadingRecords(false);
+      return;
+    }
+
+    setLoadingRecords(true);
+
+    const { data, error } = await supabase
+      .from("session_logs")
+      .select(
+        "id,name,workout_type,completed_at,duration_seconds,total_exercises,completed_sets,total_volume_kg,session_log_exercises(id,exercise_name,split_duration_seconds,session_log_sets(id,set_number,kg,reps,completed))"
+      )
+      .eq("owner_id", targetUserId)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(60);
+
+    setLoadingRecords(false);
+
+    if (error) {
+      setProgressRecords(buildProgressRecords([]));
+      setMessage(`${error.message}. Run supabase/phase-3-session-logging.sql in Supabase.`);
+      return;
+    }
+
+    setProgressRecords(buildProgressRecords(data || []));
+  }, [targetUserId, user.id]);
+
   const loadTracker = useCallback(async () => {
     if (!targetUserId || !supabase || user.id === "demo-user") {
       setTracker(null);
@@ -506,6 +618,16 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
       alive = false;
     };
   }, [loadCompletedTrackers]);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.resolve().then(() => {
+      if (alive) loadProgressRecords();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [loadProgressRecords]);
 
   function updateTrackerForm(field, value) {
     setTrackerForm((current) => ({ ...current, [field]: value }));
@@ -960,10 +1082,10 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
             <strong>{tracker ? tracker.goal_name : "Start tracker"}</strong>
             <em>{tracker ? `${tracker.duration_weeks} week ${tracker.goal_type.replace("_", " ")}` : "Optional body, weight and measurement tracking block."}</em>
           </button>
-          <button className="progress-hub-card gold" type="button">
+          <button className="progress-hub-card gold" onClick={() => setRecordsOpen((open) => !open)} type="button">
             <span>Progress records</span>
-            <strong>0 PRs</strong>
-            <em>Strength records and best volume will appear here.</em>
+            <strong>{loadingRecords ? "Loading" : `${progressRecords.count} PRs`}</strong>
+            <em>{progressRecords.bestVolume ? `Best volume: ${Math.round(progressRecords.bestVolume.total_volume_kg || 0).toLocaleString()}kg` : "Strength records and best volume will appear here."}</em>
           </button>
           <button className="progress-hub-card blue" onClick={() => setProgressView("photos")} type="button">
             <span>Progress photos</span>
@@ -976,6 +1098,16 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
             <em>{latestCheckin ? `${latestCheckin.weight_kg || "-"}kg logged` : "Complete workouts or tracker logs to populate this section."}</em>
           </div>
         </div>
+
+        {recordsOpen ? (
+          <section className="progress-records-section">
+            <div className="section-row">
+              <p className="eyebrow">Progress records</p>
+              <button className="primary-action compact" onClick={loadProgressRecords} type="button">Refresh</button>
+            </div>
+            <ProgressRecordsPanel records={progressRecords} />
+          </section>
+        ) : null}
 
         {completedTrackers.length ? (
           <section className="tracker-results-section">
@@ -1121,6 +1253,75 @@ function PhotoCompareCard({ label, photo }) {
         <span>{formatPhotoDate(photo.taken_at)}</span>
       </div>
     </article>
+  );
+}
+
+function ProgressRecordsPanel({ records }) {
+  const hasRecords = records.count > 0;
+  if (!hasRecords) {
+    return (
+      <div className="panel empty-state">
+        <p>Complete workouts with weights, reps, volume or For Time sessions to populate PRs.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="progress-records-grid">
+      {records.bestVolume ? (
+        <article className="progress-record-card gold">
+          <p className="eyebrow">Best volume session</p>
+          <strong>{Math.round(records.bestVolume.total_volume_kg || 0).toLocaleString()}kg</strong>
+          <span>{records.bestVolume.name} - {formatRecordDate(records.bestVolume.completed_at)}</span>
+        </article>
+      ) : null}
+
+      {records.forTime.length ? (
+        <article className="progress-record-card">
+          <p className="eyebrow">For Time PBs</p>
+          <div className="progress-record-list">
+            {records.forTime.map((session) => (
+              <span key={session.id}>
+                <strong>{session.name}</strong>
+                <em>{formatRecordDuration(session.duration_seconds)} - {formatRecordDate(session.completed_at)}</em>
+              </span>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
+      <article className="progress-record-card">
+        <p className="eyebrow">Heaviest sets</p>
+        {records.maxWeight.length ? (
+          <div className="progress-record-list">
+            {records.maxWeight.map((record) => (
+              <span key={record.exerciseName}>
+                <strong>{record.exerciseName}</strong>
+                <em>{record.kg}kg x {record.reps} - {formatRecordDate(record.date)}</em>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="compact-help">Log completed weighted sets to show heaviest lifts.</p>
+        )}
+      </article>
+
+      <article className="progress-record-card">
+        <p className="eyebrow">Estimated 1RM</p>
+        {records.oneRepMax.length ? (
+          <div className="progress-record-list">
+            {records.oneRepMax.map((record) => (
+              <span key={record.exerciseName}>
+                <strong>{record.exerciseName}</strong>
+                <em>{Math.round(record.estimatedOneRepMax)}kg est - {record.kg}kg x {record.reps}</em>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="compact-help">Estimated 1RMs appear after weighted sets are logged.</p>
+        )}
+      </article>
+    </div>
   );
 }
 
