@@ -5166,6 +5166,15 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.home-dashboard-screen .screen-heading {
+  gap: 3px;
+}
+
+.home-dashboard-screen .screen-heading h1,
+.coach-home-screen .screen-heading h1 {
+  max-width: 760px;
+}
+
 .home-quick-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5175,7 +5184,7 @@ button {
 .home-checkin-card {
   display: grid;
   gap: 6px;
-  min-height: 110px;
+  min-height: 96px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--line));
   border-radius: 10px;
@@ -5196,7 +5205,7 @@ button {
 }
 
 .home-checkin-card strong {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -5243,7 +5252,7 @@ button {
 .home-session-summary article {
   display: grid;
   gap: 4px;
-  padding: 10px;
+  padding: 9px 10px;
   border: 1px solid var(--line-soft);
   border-radius: 9px;
   background: rgba(18, 35, 48, 0.55);
@@ -5442,6 +5451,43 @@ button {
   line-height: 1.35;
 }
 
+.coach-feed-type {
+  width: fit-content;
+  border: 1px solid color-mix(in srgb, var(--teal) 42%, var(--line));
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: color-mix(in srgb, var(--teal) 10%, transparent);
+  color: var(--teal);
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.coach-feed-type.pr {
+  border-color: color-mix(in srgb, var(--gold) 65%, var(--line));
+  background: color-mix(in srgb, var(--gold) 11%, transparent);
+  color: var(--gold);
+}
+
+.coach-feed-type.mood {
+  border-color: color-mix(in srgb, var(--blue) 60%, var(--line));
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  color: var(--blue);
+}
+
+.coach-feed-type.checkin {
+  border-color: color-mix(in srgb, var(--red) 48%, var(--line));
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  color: #ffb7c0;
+}
+
+.coach-feed-type.habit {
+  border-color: color-mix(in srgb, var(--teal) 60%, var(--line));
+  background: color-mix(in srgb, var(--teal) 10%, transparent);
+  color: var(--teal);
+}
+
 .coach-feed-item strong span {
   color: var(--teal);
 }
@@ -5636,26 +5682,75 @@ button {
     padding: 12px 0;
   }
 
+  .coach-feed-type {
+    padding: 2px 7px;
+    font-size: 8px;
+  }
+
+  .coach-feed-item strong {
+    font-size: 13px;
+  }
+
+  .coach-feed-actions button {
+    min-height: 26px;
+    padding-inline: 9px;
+    font-size: 10px;
+  }
+
   .home-dashboard-screen .screen-heading h1 {
-    font-size: clamp(30px, 8vw, 42px);
+    font-size: clamp(26px, 7vw, 36px);
   }
 
   .home-dashboard-screen .stats-grid {
-    gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
   }
 
   .home-dashboard-screen .stat-card {
-    min-height: 82px;
-    padding: 10px;
+    min-height: 74px;
+    padding: 8px 6px;
   }
 
   .home-dashboard-screen .stat-card strong {
-    font-size: 24px;
+    font-size: 22px;
+  }
+
+  .home-dashboard-screen .stat-card span,
+  .coach-signal-grid .stat-card span,
+  .coach-analytics-grid .stat-card span {
+    font-size: 8px;
+    line-height: 1.2;
+  }
+
+  .home-session-summary article {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 3px 8px;
+  }
+
+  .home-session-summary article span,
+  .home-session-summary article em {
+    grid-column: 1 / -1;
   }
 
   .home-checkin-card {
-    min-height: 88px;
-    padding: 11px;
+    min-height: 78px;
+    padding: 10px;
+  }
+
+  .home-checkin-card strong {
+    font-size: 20px;
+  }
+
+  .home-mindset-card,
+  .home-achievement-card,
+  .home-session-summary {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .home-session-summary article strong {
+    font-size: 15px;
   }
 
   .home-achievement-card,

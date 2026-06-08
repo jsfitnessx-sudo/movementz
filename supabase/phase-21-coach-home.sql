@@ -278,6 +278,27 @@ begin
     select *
     from (
       select
+        gtc.id::text as id,
+        'checkin'::text as type,
+        coalesce(p.full_name, p.email, 'Client') as client_name,
+        p.avatar_url,
+        'logged a tracker check-in.'::text as title,
+        'Week ' || coalesce(gtc.week_number, 0)::text ||
+          case
+            when gtc.weight_kg is not null then ' - ' || trim(to_char(gtc.weight_kg, 'FM999999990.0')) || 'kg'
+            else ''
+          end as detail,
+        gtc.created_at as created_at
+      from public.goal_tracker_checkins gtc
+      join public.profiles p on p.id = gtc.user_id
+      where gtc.user_id = any(client_ids)
+      order by gtc.created_at desc
+      limit 10
+    ) checkins
+    union all
+    select *
+    from (
+      select
         dhl.id::text as id,
         'habit'::text as type,
         coalesce(p.full_name, p.email, 'Client') as client_name,

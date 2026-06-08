@@ -156,6 +156,14 @@ function coachInitial(name) {
   return (name || "M").trim().slice(0, 1).toUpperCase();
 }
 
+function activityBadge(type) {
+  if (type === "pr") return "PR";
+  if (type === "mood") return "Mood";
+  if (type === "habit") return "Habit";
+  if (type === "checkin") return "Check-in";
+  return "Workout";
+}
+
 export function HomeScreen({ onNavigate, role, user }) {
   const isCoach = role === "coach";
   const isClientLike = role === "client" || role === "normal_user";
@@ -393,13 +401,14 @@ export function HomeScreen({ onNavigate, role, user }) {
                   <i />
                 </div>
                 <div>
+                  <span className={`coach-feed-type ${item.type || "workout"}`}>{activityBadge(item.type)}</span>
                   <strong>
                     <span>{item.client_name}</span> {item.title}
                   </strong>
                   <p>{item.detail}</p>
                   <em>{formatActivityDate(item.created_at)}</em>
                   <div className="coach-feed-actions">
-                    <button type="button">♡ Like</button>
+                    <button type="button">Like</button>
                     <button type="button">Comment</button>
                   </div>
                 </div>
@@ -483,7 +492,7 @@ export function HomeScreen({ onNavigate, role, user }) {
             <p className="eyebrow">Today</p>
             <h2>Scheduled sessions</h2>
           </div>
-          <strong>{homeData.sessionsCompletedWeek}/{homeData.sessionsScheduledToday}</strong>
+          <strong>{homeData.sessionsScheduledToday}</strong>
         </div>
         {homeData.todaySessions.length ? (
           homeData.todaySessions.slice(0, 4).map((session) => (
@@ -500,3 +509,4 @@ export function HomeScreen({ onNavigate, role, user }) {
     </section>
   );
 }
+

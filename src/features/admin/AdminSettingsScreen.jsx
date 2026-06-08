@@ -171,8 +171,16 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     if (!supabase) return;
     setSaving(resourceId);
     const { error } = await supabase.rpc("admin_hide_mindset_resource", { resource_id: resourceId });
+    let finalError = error;
+    if (error) {
+      const { error: fallbackError } = await supabase
+        .from("mindset_resources")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", resourceId);
+      finalError = fallbackError;
+    }
     setSaving("");
-    if (error) setMessage(`${error.message}. Run supabase/phase-20-home-admin-privacy.sql in Supabase.`);
+    if (finalError) setMessage(`${finalError.message}. Run supabase/phase-21-coach-home.sql in Supabase.`);
     else {
       setResources((current) => current.filter((resource) => resource.id !== resourceId));
       if (resourceDraft.id === resourceId) setResourceDraft(blankResource);
@@ -219,8 +227,16 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     if (!supabase) return;
     setSaving(affirmationId);
     const { error } = await supabase.rpc("admin_hide_mindset_affirmation", { affirmation_id: affirmationId });
+    let finalError = error;
+    if (error) {
+      const { error: fallbackError } = await supabase
+        .from("mindset_affirmations")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("id", affirmationId);
+      finalError = fallbackError;
+    }
     setSaving("");
-    if (error) setMessage(`${error.message}. Run supabase/phase-20-home-admin-privacy.sql in Supabase.`);
+    if (finalError) setMessage(`${finalError.message}. Run supabase/phase-21-coach-home.sql in Supabase.`);
     else {
       setAffirmations((current) => current.filter((affirmation) => affirmation.id !== affirmationId));
       if (affirmationDraft.id === affirmationId) setAffirmationDraft(blankAffirmation());
