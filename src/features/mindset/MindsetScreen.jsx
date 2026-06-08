@@ -61,9 +61,13 @@ function scoreToMood(score) {
   return moodOptions.find((option) => option.value === Number(score)) || moodOptions[2];
 }
 
-function pickDailyAffirmation(themes) {
+function pickDailyAffirmation(themes, customAffirmations = []) {
   const selected = themes?.length ? themes : ["Confidence"];
-  const pool = selected.flatMap((theme) => affirmations[theme] || []);
+  const customPool = customAffirmations
+    .filter((affirmation) => selected.includes(affirmation.theme))
+    .map((affirmation) => affirmation.text)
+    .filter(Boolean);
+  const pool = customPool.length ? customPool : selected.flatMap((theme) => affirmations[theme] || []);
   const options = pool.length ? pool : affirmations.Confidence;
   const dayNumber = Math.floor(new Date(`${todayIso()}T00:00:00`).getTime() / 86400000);
   return options[dayNumber % options.length];
@@ -82,6 +86,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
   const [form, setForm] = useState(blankForm);
   const [logs, setLogs] = useState([]);
   const [resources, setResources] = useState(defaultResources);
+  const [customAffirmations, setCustomAffirmations] = useState([]);
   const [resourceViewOpen, setResourceViewOpen] = useState(false);
   const [resourceForm, setResourceForm] = useState({ title: "", category: "Video", description: "", url: "" });
   const [reminders, setReminders] = useState([]);
@@ -94,7 +99,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
   const [savingReminder, setSavingReminder] = useState(false);
   const [message, setMessage] = useState("");
   const logDate = todayIso();
-  const canManageResources = role === "coach" || role === "admin";
+  const canManageResources = role === "admin";
   const moodStreak = useMemo(() => logs.filter((log) => Number(log.mood_score) >= 3).length, [logs]);
   const strugglingStreak = useMemo(() => {
     let streak = 0;
@@ -104,7 +109,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
     }
     return streak;
   }, [logs]);
-  const dailyAffirmation = useMemo(() => pickDailyAffirmation(form.affirmation_themes), [form.affirmation_themes]);
+  const dailyAffirmation = useMemo(() => pickDailyAffirmation(form.affirmation_themes, customAffirmations), [customAffirmations, form.affirmation_themes]);
   const selectedReminder = reminders.find((reminder) => Number(reminder.horizon_months) === Number(selectedHorizon));
   const dueReminders = reminders.filter((reminder) => reminder.status === "hidden" && reminder.due_date <= logDate && reminder.message);
 
@@ -117,7 +122,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
     setLoading(true);
     setMessage("");
 
-    const [logsResponse, resourcesResponse, remindersResponse] = await Promise.all([
+    const [logsResponse, resourcesResponse, remindersResponse, affirmationsResponse] = await Promise.all([
       supabase
         .from("daily_mindset_logs")
         .select("id,log_date,mood_score,mood_note,support_need,weekly_focus,affirmation_themes,gratitude,reflection")
@@ -134,7 +139,13 @@ export function MindsetScreen({ role = "normal_user", user }) {
         .from("mindset_future_reminders")
         .select("id,horizon_months,message,due_date,status,created_at")
         .eq("user_id", user.id)
-        .order("horizon_months", { ascending: true })
+        .order("horizon_months", { ascending: true }),
+      supabase
+        .from("mindset_affirmations")
+        .select("id,theme,text")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(100)
     ]);
 
     setLoading(false);
@@ -160,6 +171,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
     }
 
     if (!resourcesResponse.error && resourcesResponse.data?.length) setResources(resourcesResponse.data);
+    if (!affirmationsResponse.error) setCustomAffirmations(affirmationsResponse.data || []);
     if (!remindersResponse.error) {
       const nextReminders = remindersResponse.data || [];
       setReminders(nextReminders);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
+import { AdminSettingsScreen } from "../features/admin/AdminSettingsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
 import { HabitsScreen } from "../features/habits/HabitsScreen.jsx";
@@ -95,10 +96,25 @@ export function App() {
   const [claimedInviteCode, setClaimedInviteCode] = useState("");
   const [pendingInvite, setPendingInvite] = useState(null);
   const [handlingInvite, setHandlingInvite] = useState(false);
+  const [previewAccount, setPreviewAccount] = useState(null);
   const [appMessage, setAppMessage] = useState("");
-  const tabs = useMemo(() => roleTabs[role] ?? roleTabs.normal_user, [role]);
+  const effectiveRole = previewAccount?.role || role;
+  const tabs = useMemo(() => roleTabs[effectiveRole] ?? roleTabs.normal_user, [effectiveRole]);
   const [activeTab, setActiveTab] = useState(tabs[0].id);
-  const user = useMemo(() => buildUser(session, profile), [session, profile]);
+  const accountUser = useMemo(() => buildUser(session, profile), [session, profile]);
+  const user = useMemo(() => previewAccount ? {
+    id: previewAccount.id,
+    email: previewAccount.email,
+    name: previewAccount.name,
+    avatarUrl: previewAccount.avatarUrl
+  } : accountUser, [accountUser, previewAccount]);
+  const effectiveProfile = useMemo(() => previewAccount ? {
+    id: previewAccount.id,
+    email: previewAccount.email,
+    full_name: previewAccount.name,
+    role: previewAccount.role,
+    avatar_url: previewAccount.avatarUrl
+  } : profile, [previewAccount, profile]);
 
   const previewInviteIfNeeded = useCallback(
     async (nextSession) => {
@@ -175,11 +191,11 @@ export function App() {
   useEffect(() => {
     if (activeTab === "profile") return;
 
-    const nextTabs = roleTabs[role] ?? roleTabs.normal_user;
+    const nextTabs = roleTabs[effectiveRole] ?? roleTabs.normal_user;
     if (!nextTabs.some((tab) => tab.id === activeTab)) {
       Promise.resolve().then(() => setActiveTab(nextTabs[0].id));
     }
-  }, [activeTab, role]);
+  }, [activeTab, effectiveRole]);
 
   useEffect(() => {
     if (!session?.user || !pendingInviteCode || claimedInviteCode === pendingInviteCode) return undefined;
@@ -268,6 +284,7 @@ export function App() {
     }
     setSession(null);
     setProfile(null);
+    setPreviewAccount(null);
     setRole("normal_user");
     setActiveTab("home");
   }
@@ -275,6 +292,11 @@ export function App() {
   function handleProfileSaved(nextProfile) {
     setProfile(nextProfile);
     setRole(nextProfile?.role || "normal_user");
+  }
+
+  function handlePreviewAccount(nextAccount) {
+    setPreviewAccount(nextAccount);
+    setActiveTab(nextAccount ? (roleTabs[nextAccount.role] ?? roleTabs.normal_user)[0].id : "settings");
   }
 
   if (booting) {
@@ -301,10 +323,22 @@ export function App() {
       onRoleChange={setRole}
       onProfileClick={() => setActiveTab("profile")}
       onSignOut={handleSignOut}
-      role={role}
+      role={effectiveRole}
       tabs={tabs}
       user={user}
     >
+      {previewAccount ? (
+        <div className="panel admin-preview-banner">
+          <div>
+            <p className="eyebrow">Admin preview</p>
+            <h2>Viewing as {previewAccount.name}</h2>
+            <p>This is a build/testing preview from your admin login, not a real Supabase Auth switch.</p>
+          </div>
+          <button className="primary-action filled" onClick={() => handlePreviewAccount(null)} type="button">
+            Back to admin
+          </button>
+        </div>
+      ) : null}
       {appMessage ? <p className="form-message success">{appMessage}</p> : null}
       {pendingInvite ? (
         <div className="panel invite-confirm-panel">
@@ -324,34 +358,40 @@ export function App() {
         </div>
       ) : null}
       {activeTab === "home" ? (
-        <HomeScreen onNavigate={setActiveTab} role={role} user={user} />
+        <HomeScreen onNavigate={setActiveTab} role={effectiveRole} user={user} />
       ) : activeTab === "today" ? (
-        <TodayScreen onNavigate={setActiveTab} role={role} user={user} />
+        <TodayScreen onNavigate={setActiveTab} role={effectiveRole} user={user} />
       ) : activeTab === "profile" ? (
         <ProfileScreen
           onProfileSaved={handleProfileSaved}
           onSignOut={handleSignOut}
-          profile={profile}
+          profile={effectiveProfile}
           user={user}
         />
       ) : activeTab === "workouts" ? (
-        <WorkoutLibraryScreen role={role} user={user} />
+        <WorkoutLibraryScreen role={effectiveRole} user={user} />
       ) : activeTab === "plans" ? (
-        <PlansScreen role={role} user={user} />
-      ) : activeTab === "clients" && role === "coach" ? (
-        <ClientsScreen profile={profile} user={user} />
-      ) : activeTab === "messages" && (role === "coach" || role === "client") ? (
-        <MessagesScreen role={role} user={user} />
+        <PlansScreen role={effectiveRole} user={user} />
+      ) : activeTab === "clients" && effectiveRole === "coach" ? (
+        <ClientsScreen profile={effectiveProfile} user={user} />
+      ) : activeTab === "messages" && (effectiveRole === "coach" || effectiveRole === "client") ? (
+        <MessagesScreen role={effectiveRole} user={user} />
       ) : activeTab === "habits" ? (
         <HabitsScreen user={user} />
       ) : activeTab === "progress" ? (
-        <ProgressPhotosScreen profile={profile} role={role} user={user} />
+        <ProgressPhotosScreen profile={effectiveProfile} role={effectiveRole} user={user} />
       ) : activeTab === "mindset" ? (
-        <MindsetScreen role={role} user={user} />
-      ) : activeTab === "requests" && role === "admin" ? (
+        <MindsetScreen role={effectiveRole} user={user} />
+      ) : activeTab === "requests" && effectiveRole === "admin" ? (
         <AdminRequestsScreen user={user} />
+      ) : activeTab === "settings" && effectiveRole === "admin" ? (
+        <AdminSettingsScreen
+          onPreviewAccount={handlePreviewAccount}
+          previewAccount={previewAccount}
+          user={user}
+        />
       ) : (
-        <PlaceholderScreen role={role} tab={activeTab} />
+        <PlaceholderScreen role={effectiveRole} tab={activeTab} />
       )}
     </AppLayout>
   );

@@ -6364,6 +6364,141 @@ button {
   font-size: 15px;
 }
 
+.admin-settings-screen {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.admin-preview-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-color: rgba(255, 205, 62, 0.45);
+  background: rgba(255, 205, 62, 0.08);
+}
+
+.admin-settings-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-settings-panel h2 {
+  margin: 2px 0 4px;
+  font-size: 20px;
+}
+
+.admin-settings-panel p {
+  margin: 0;
+}
+
+.admin-test-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.admin-test-grid article,
+.admin-resource-list article,
+.admin-affirmation-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(18, 35, 48, 0.52);
+}
+
+.admin-test-grid article div,
+.admin-resource-list article div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-test-grid strong,
+.admin-resource-list strong {
+  color: var(--text);
+}
+
+.admin-test-grid span,
+.admin-resource-list span,
+.admin-test-grid em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-settings-form {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-settings-form label,
+.danger-zone label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-settings-form input,
+.admin-settings-form select,
+.admin-settings-form textarea,
+.danger-zone input,
+.danger-zone select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #132331;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.admin-settings-form textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.admin-resource-list,
+.admin-affirmation-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-resource-list section,
+.admin-affirmation-list section {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-affirmation-list article span {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.danger-zone {
+  border-color: rgba(255, 122, 149, 0.42);
+  background: rgba(64, 22, 34, 0.2);
+}
+
+.danger-zone .primary-action.danger {
+  color: var(--danger);
+}
+
 @media (max-width: 720px) {
   .main-panel {
     padding: 12px 10px 92px;
@@ -6417,5 +6552,17 @@ button {
   .bottom-nav {
     min-height: 64px;
     padding-top: 6px;
+  }
+
+  .admin-preview-banner,
+  .admin-test-grid article,
+  .admin-resource-list article,
+  .admin-affirmation-list article {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-settings-panel h2 {
+    font-size: 18px;
   }
 }

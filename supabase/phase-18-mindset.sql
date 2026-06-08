@@ -92,7 +92,8 @@ to authenticated
 using (is_active = true);
 
 drop policy if exists "mindset_resources_insert_coach_admin" on public.mindset_resources;
-create policy "mindset_resources_insert_coach_admin"
+drop policy if exists "mindset_resources_insert_admin" on public.mindset_resources;
+create policy "mindset_resources_insert_admin"
 on public.mindset_resources
 for insert
 to authenticated
@@ -101,7 +102,7 @@ with check (
     select 1
     from public.profiles p
     where p.id = auth.uid()
-      and p.role in ('coach', 'admin')
+      and p.role = 'admin'
   )
 );
 
