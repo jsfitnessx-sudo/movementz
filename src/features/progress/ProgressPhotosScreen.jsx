@@ -1033,7 +1033,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     );
   }
 
-  if (role !== "coach" && tracker && progressView !== "photos") {
+  if (role !== "coach" && tracker && progressView === "tracker") {
     return (
       <TrackerDashboardScreen
         checkinForm={checkinForm}
