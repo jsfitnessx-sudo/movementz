@@ -4,6 +4,7 @@ import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AdminSettingsScreen } from "../features/admin/AdminSettingsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
+import { MutualFeedScreen } from "../features/feed/MutualFeedScreen.jsx";
 import { HabitsScreen } from "../features/habits/HabitsScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
 import { MindsetScreen } from "../features/mindset/MindsetScreen.jsx";
@@ -400,6 +401,8 @@ export function App() {
         <ProgressPhotosScreen profile={effectiveProfile} role={effectiveRole} user={user} />
       ) : activeTab === "mindset" ? (
         <MindsetScreen role={effectiveRole} user={user} />
+      ) : activeTab === "feed" ? (
+        <MutualFeedScreen user={user} />
       ) : activeTab === "requests" && effectiveRole === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : activeTab === "settings" && effectiveRole === "admin" ? (

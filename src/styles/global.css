@@ -5562,6 +5562,182 @@ button {
   font-weight: 900;
 }
 
+.mutual-feed-screen {
+  max-width: 760px;
+}
+
+.feed-tabs,
+.leaderboard-toggle-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.feed-tabs button,
+.leaderboard-toggle-row button {
+  min-height: 38px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.feed-tabs button.active,
+.leaderboard-toggle-row button.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--teal);
+}
+
+.mutual-search-panel,
+.mutual-pending-panel,
+.mutual-list-panel,
+.mutual-leaderboard-card {
+  display: grid;
+  gap: 12px;
+}
+
+.inline-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.mutual-result-list {
+  display: grid;
+  gap: 8px;
+}
+
+.mutual-result-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  padding: 9px;
+  background: color-mix(in srgb, var(--panel-strong) 74%, transparent);
+}
+
+.mutual-pending-panel .mutual-result-row {
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
+}
+
+.mutual-result-row strong,
+.leaderboard-list strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.mutual-result-row span {
+  display: block;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mutual-result-row em {
+  border: 1px solid color-mix(in srgb, var(--gold) 52%, var(--line));
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--gold);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 950;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.coach-feed-actions button.active {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 14%, transparent);
+  color: var(--teal);
+}
+
+.feed-comment-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.feed-comment-list p {
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: color-mix(in srgb, var(--panel-strong) 72%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.feed-comment-list p strong {
+  display: inline;
+  color: var(--teal);
+  font-size: 12px;
+}
+
+.feed-comment-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.feed-comment-form input,
+.inline-search-row input {
+  min-height: 38px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  padding: 0 12px;
+  background: var(--input);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.mutual-leaderboard-card > div:first-child {
+  text-align: center;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 8px;
+}
+
+.leaderboard-list article {
+  display: grid;
+  grid-template-columns: 34px 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  padding: 9px;
+  background: color-mix(in srgb, var(--panel-strong) 74%, transparent);
+}
+
+.leaderboard-list article > span {
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.leaderboard-list em {
+  color: var(--teal);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.empty-state.compact {
+  min-height: 140px;
+  padding: 20px;
+}
+
 .due-reminder-card {
   border-color: var(--mind-gold);
   background: #fffaf0;

@@ -6,6 +6,7 @@ export const roleTabs = {
     { id: "plans", label: "Plans", icon: "\u{1F4CB}" },
     { id: "habits", label: "Habits", icon: "\u2713" },
     { id: "progress", label: "Progress", icon: "\u{1F4CA}" },
+    { id: "feed", label: "Feed", icon: "\u{1F30D}" },
     { id: "mindset", label: "Mindset", icon: "\u{1F499}" }
   ],
   client: [
@@ -16,6 +17,7 @@ export const roleTabs = {
     { id: "messages", label: "Messages", icon: "\u2709" },
     { id: "habits", label: "Habits", icon: "\u2713" },
     { id: "progress", label: "Progress", icon: "\u{1F4CA}" },
+    { id: "feed", label: "Feed", icon: "\u{1F30D}" },
     { id: "mindset", label: "Mindset", icon: "\u{1F499}" }
   ],
   coach: [
@@ -24,6 +26,7 @@ export const roleTabs = {
     { id: "workouts", label: "Workouts", icon: "\u{1F4DA}" },
     { id: "plans", label: "Plans", icon: "\u{1F4CB}" },
     { id: "messages", label: "Messages", icon: "\u2709" },
+    { id: "feed", label: "Feed", icon: "\u{1F30D}" },
     { id: "progress", label: "Progress", icon: "\u{1F4CA}" },
     { id: "appointments", label: "Appts", icon: "\u{1F4C6}" }
   ],
