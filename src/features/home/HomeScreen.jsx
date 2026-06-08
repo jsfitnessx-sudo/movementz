@@ -27,6 +27,22 @@ const blankHomeData = {
   nextBadges: []
 };
 
+const blankCoachHomeData = {
+  stats: {
+    struggle_moods_week: 0,
+    low_moods_week: 0,
+    client_workouts_today: 0,
+    habit_logging_today: 0,
+    habit_compliant_today: 0,
+    total_clients: 0,
+    new_clients_week: 0,
+    lost_clients: 0
+  },
+  affirmation: "Be Yourself",
+  due_soon: [],
+  activity: []
+};
+
 function isoDate(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -131,12 +147,22 @@ function calculateAchievements(data) {
   };
 }
 
+function formatActivityDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function coachInitial(name) {
+  return (name || "M").trim().slice(0, 1).toUpperCase();
+}
+
 export function HomeScreen({ onNavigate, role, user }) {
   const isCoach = role === "coach";
   const isClientLike = role === "client" || role === "normal_user";
-  const [coachClientCount, setCoachClientCount] = useState(0);
+  const [coachHomeData, setCoachHomeData] = useState(blankCoachHomeData);
   const [homeData, setHomeData] = useState(blankHomeData);
   const [loading, setLoading] = useState(Boolean(supabase));
+  const [coachLoading, setCoachLoading] = useState(Boolean(supabase));
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -144,13 +170,30 @@ export function HomeScreen({ onNavigate, role, user }) {
 
     Promise.resolve().then(async () => {
       if (!isCoach || !supabase || user.id === "demo-user") {
-        if (alive) setCoachClientCount(0);
+        if (alive) {
+          setCoachHomeData(blankCoachHomeData);
+          setCoachLoading(false);
+        }
         return;
       }
 
-      const { data } = await supabase.rpc("get_my_coach_clients");
+      setCoachLoading(true);
+      setMessage("");
+      const { data, error } = await supabase.rpc("get_coach_home_summary");
       if (alive) {
-        setCoachClientCount((data || []).filter((client) => client.status === "active").length);
+        setCoachLoading(false);
+        if (error) {
+          setMessage(`${error.message}. Run supabase/phase-21-coach-home.sql in Supabase.`);
+          setCoachHomeData(blankCoachHomeData);
+        } else {
+          setCoachHomeData({
+            ...blankCoachHomeData,
+            ...(data || {}),
+            stats: { ...blankCoachHomeData.stats, ...((data || {}).stats || {}) },
+            due_soon: Array.isArray(data?.due_soon) ? data.due_soon : [],
+            activity: Array.isArray(data?.activity) ? data.activity : []
+          });
+        }
       }
     });
 
@@ -266,33 +309,107 @@ export function HomeScreen({ onNavigate, role, user }) {
   }, [isClientLike, role, user.id]);
 
   if (isCoach) {
+    const stats = coachHomeData.stats || blankCoachHomeData.stats;
     return (
-      <section className="screen-stack">
-        <div className="screen-heading">
-          <p className="eyebrow">Coach workspace</p>
-          <h1>Dashboard</h1>
-          <p>Client signals, appointments and coaching actions in one place.</p>
+      <section className="screen-stack coach-home-screen">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">Coach workspace</p>
+            <h1>Dashboard</h1>
+            <p>Client signals, due plans and recent activity.</p>
+          </div>
         </div>
 
-        <div className="action-row">
-          <button className="primary-action" onClick={() => onNavigate("clients")} type="button">
-            Add Client
+        {message ? <p className="form-message error">{message}</p> : null}
+        {coachLoading ? <p className="form-message success">Loading coach dashboard...</p> : null}
+
+        <div className="coach-home-actions">
+          <button className="primary-action" onClick={() => onNavigate("workouts")} type="button">
+            + Build Workout
           </button>
           <button className="primary-action filled" onClick={() => onNavigate("plans")} type="button">
-            Build Plan
+            + Build Plan
           </button>
         </div>
 
-        <div className="stats-grid">
-          <StatCard label="Clients" value={String(coachClientCount)} tone="gold" />
-          <StatCard label="Client workouts today" value="0" tone="teal" />
-          <StatCard label="Habit compliance" value="0%" tone="red" />
+        <div className="coach-signal-grid">
+          <StatCard label="Struggle moods this week" value={String(stats.struggle_moods_week || 0)} tone="red" />
+          <StatCard label="Low moods this week" value={String(stats.low_moods_week || 0)} tone="gold" />
+          <StatCard label="Client workouts today" value={String(stats.client_workouts_today || 0)} tone="blue" />
+          <StatCard label="Habit logging today" value={`${stats.habit_logging_today || 0}%`} tone="gold" />
+          <StatCard label="Habit compliant today" value={`${stats.habit_compliant_today || 0}%`} tone="teal" />
         </div>
 
-        <div className="panel">
-          <h2>Coach home is next</h2>
-          <p>We will build the coach dashboard after the client home summary is stable.</p>
+        <section className="panel coach-affirmation-card">
+          <p className="eyebrow">Affirmation of the day</p>
+          <h2>Affirmation of the day</h2>
+          <strong>"{coachHomeData.affirmation || "Be Yourself"}"</strong>
+        </section>
+
+        <div className="coach-home-two-col">
+          <section className="panel coach-analytics-card">
+            <h2>Client analytics</h2>
+            <p>Client movement at a glance.</p>
+            <div className="coach-analytics-grid">
+              <StatCard label="Total clients" value={String(stats.total_clients || 0)} tone="gold" />
+              <StatCard label="New this week" value={String(stats.new_clients_week || 0)} tone="gold" />
+              <StatCard label="Lost clients" value={String(stats.lost_clients || 0)} tone="red" />
+            </div>
+          </section>
+
+          <section className="panel coach-due-card">
+            <div className="section-row">
+              <h2>Due soon</h2>
+              <span>{coachHomeData.due_soon.length}</span>
+            </div>
+            {coachHomeData.due_soon.length ? (
+              coachHomeData.due_soon.map((item) => (
+                <article key={`${item.assignment_id}-${item.plan_id}`}>
+                  <div>
+                    <strong>{item.client_name}</strong>
+                    <em>{item.plan_name}</em>
+                  </div>
+                  <span>{item.days_left <= 0 ? "today" : `${item.days_left}d`}</span>
+                </article>
+              ))
+            ) : (
+              <p className="compact-help">No plans due in the next 7 days.</p>
+            )}
+          </section>
         </div>
+
+        <section className="panel coach-activity-feed">
+          <div className="section-row">
+            <div>
+              <h2>Recent client activity</h2>
+              <p>Workout completions, mood updates, PRs and check-ins.</p>
+            </div>
+            <button className="primary-action compact" onClick={() => onNavigate("plans")} type="button">Plan</button>
+          </div>
+          {coachHomeData.activity.length ? (
+            coachHomeData.activity.map((item) => (
+              <article className="coach-feed-item" key={`${item.type}-${item.id}`}>
+                <div className="coach-feed-avatar">
+                  {item.avatar_url ? <img alt="" src={item.avatar_url} /> : <span>{coachInitial(item.client_name)}</span>}
+                  <i />
+                </div>
+                <div>
+                  <strong>
+                    <span>{item.client_name}</span> {item.title}
+                  </strong>
+                  <p>{item.detail}</p>
+                  <em>{formatActivityDate(item.created_at)}</em>
+                  <div className="coach-feed-actions">
+                    <button type="button">♡ Like</button>
+                    <button type="button">Comment</button>
+                  </div>
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="compact-help">No client activity yet.</p>
+          )}
+        </section>
       </section>
     );
   }

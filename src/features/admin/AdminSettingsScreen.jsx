@@ -74,11 +74,13 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
       supabase
         .from("mindset_resources")
         .select("id,title,category,description,url,thumbnail_url,is_active,created_at")
+        .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(80),
       supabase
         .from("mindset_affirmations")
         .select("id,theme,text,is_active,created_at")
+        .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(120),
       supabase
@@ -170,8 +172,9 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setSaving("");
     if (error) setMessage(`${error.message}. Run supabase/phase-20-home-admin-privacy.sql in Supabase.`);
     else {
+      setResources((current) => current.filter((resource) => resource.id !== resourceId));
+      if (resourceDraft.id === resourceId) setResourceDraft(blankResource);
       setMessage("Resource hidden.");
-      await loadAdminSettings();
     }
   }
 
@@ -217,8 +220,9 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setSaving("");
     if (error) setMessage(`${error.message}. Run supabase/phase-20-home-admin-privacy.sql in Supabase.`);
     else {
+      setAffirmations((current) => current.filter((affirmation) => affirmation.id !== affirmationId));
+      if (affirmationDraft.id === affirmationId) setAffirmationDraft(blankAffirmation());
       setMessage("Affirmation hidden.");
-      await loadAdminSettings();
     }
   }
 

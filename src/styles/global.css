@@ -5189,6 +5189,229 @@ button {
   font-size: 16px;
 }
 
+.coach-home-screen {
+  max-width: 920px;
+}
+
+.coach-home-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.coach-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coach-signal-grid .stat-card {
+  min-height: 86px;
+  padding: 12px;
+}
+
+.coach-affirmation-card {
+  display: grid;
+  gap: 8px;
+  border-color: color-mix(in srgb, var(--teal) 50%, var(--line));
+  text-align: center;
+}
+
+.coach-affirmation-card h2 {
+  margin: 0;
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.coach-affirmation-card strong {
+  color: var(--text);
+  font-size: 20px;
+}
+
+.coach-home-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.coach-analytics-card,
+.coach-due-card,
+.coach-activity-feed {
+  background: color-mix(in srgb, var(--panel-strong) 88%, #122535);
+}
+
+.coach-analytics-card {
+  display: grid;
+  gap: 14px;
+}
+
+.coach-analytics-card h2,
+.coach-due-card h2,
+.coach-activity-feed h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.coach-analytics-card > p,
+.coach-activity-feed .section-row p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.coach-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.coach-analytics-grid .stat-card {
+  min-height: 82px;
+  padding: 10px;
+}
+
+.coach-due-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.coach-due-card .section-row > span {
+  color: var(--gold);
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.coach-due-card article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+}
+
+.coach-due-card article div {
+  display: grid;
+  gap: 3px;
+}
+
+.coach-due-card strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.coach-due-card em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.coach-due-card article > span {
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.coach-activity-feed {
+  display: grid;
+  gap: 4px;
+}
+
+.coach-feed-item {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.coach-feed-item:first-of-type {
+  border-top: 0;
+}
+
+.coach-feed-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+
+.coach-feed-avatar img,
+.coach-feed-avatar span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--teal) 55%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--teal) 16%, var(--panel));
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 950;
+  object-fit: cover;
+}
+
+.coach-feed-avatar i {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--panel-strong);
+  border-radius: 999px;
+  background: var(--teal);
+}
+
+.coach-feed-item > div:last-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.coach-feed-item strong {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.coach-feed-item strong span {
+  color: var(--teal);
+}
+
+.coach-feed-item p {
+  margin: 0;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.coach-feed-item em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.coach-feed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.coach-feed-actions button {
+  min-height: 28px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 900;
+}
+
 .due-reminder-card {
   border-color: var(--mind-gold);
   background: #fffaf0;
@@ -5314,6 +5537,66 @@ button {
 
   .coach-history-row em {
     grid-column: 1 / -1;
+  }
+
+  .coach-home-actions,
+  .coach-home-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .coach-signal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .coach-signal-grid .stat-card,
+  .coach-analytics-grid .stat-card {
+    min-height: 72px;
+    padding: 9px;
+  }
+
+  .coach-signal-grid .stat-card strong,
+  .coach-analytics-grid .stat-card strong {
+    font-size: 22px;
+  }
+
+  .coach-analytics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .coach-feed-item {
+    grid-template-columns: 38px 1fr;
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .home-dashboard-screen .screen-heading h1 {
+    font-size: clamp(30px, 8vw, 42px);
+  }
+
+  .home-dashboard-screen .stats-grid {
+    gap: 8px;
+  }
+
+  .home-dashboard-screen .stat-card {
+    min-height: 82px;
+    padding: 10px;
+  }
+
+  .home-dashboard-screen .stat-card strong {
+    font-size: 24px;
+  }
+
+  .home-checkin-card {
+    min-height: 88px;
+    padding: 11px;
+  }
+
+  .home-achievement-card,
+  .home-session-summary,
+  .home-mindset-card {
+    gap: 9px;
   }
 }
 
