@@ -53,21 +53,30 @@ alter table public.daily_mindset_logs enable row level security;
 alter table public.mindset_resources enable row level security;
 alter table public.mindset_future_reminders enable row level security;
 
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+  );
+$$;
+
+grant execute on function public.is_admin() to authenticated;
+
 drop policy if exists "daily_mindset_logs_select_own_or_linked_coach" on public.daily_mindset_logs;
-create policy "daily_mindset_logs_select_own_or_linked_coach"
+drop policy if exists "daily_mindset_logs_select_own_or_admin" on public.daily_mindset_logs;
+create policy "daily_mindset_logs_select_own_or_admin"
 on public.daily_mindset_logs
 for select
 to authenticated
-using (
-  user_id = auth.uid()
-  or exists (
-    select 1
-    from public.coach_clients cc
-    where cc.coach_id = auth.uid()
-      and cc.client_id = daily_mindset_logs.user_id
-      and cc.status = 'active'
-  )
-);
+using (user_id = auth.uid() or public.is_admin());
 
 drop policy if exists "daily_mindset_logs_insert_own" on public.daily_mindset_logs;
 create policy "daily_mindset_logs_insert_own"

@@ -5097,6 +5097,98 @@ button {
   font-size: 15px;
 }
 
+.home-dashboard-screen .stats-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.home-checkin-card {
+  display: grid;
+  gap: 6px;
+  min-height: 110px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--teal) 45%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 7%, var(--panel));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.home-checkin-card span,
+.home-session-summary article span,
+.home-next-badges span {
+  color: var(--teal);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-checkin-card strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.home-checkin-card em,
+.home-session-summary article em,
+.home-badge-row em,
+.home-next-badges em {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.home-achievement-card,
+.home-session-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.home-achievement-card .section-row > strong,
+.home-session-summary .section-row > strong {
+  color: var(--gold);
+  font-size: 22px;
+}
+
+.home-badge-row,
+.home-next-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-badge-row span,
+.home-next-badges em {
+  display: inline-grid;
+  min-height: 28px;
+  align-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 0 11px;
+  background: rgba(18, 35, 48, 0.7);
+}
+
+.home-session-summary article {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: rgba(18, 35, 48, 0.55);
+}
+
+.home-session-summary article strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
 .due-reminder-card {
   border-color: var(--mind-gold);
   background: #fffaf0;

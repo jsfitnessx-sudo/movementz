@@ -166,9 +166,9 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
   async function archiveResource(resourceId) {
     if (!supabase) return;
     setSaving(resourceId);
-    const { error } = await supabase.from("mindset_resources").update({ is_active: false }).eq("id", resourceId);
+    const { error } = await supabase.rpc("admin_hide_mindset_resource", { resource_id: resourceId });
     setSaving("");
-    if (error) setMessage(error.message);
+    if (error) setMessage(`${error.message}. Run supabase/phase-20-home-admin-privacy.sql in Supabase.`);
     else {
       setMessage("Resource hidden.");
       await loadAdminSettings();
@@ -213,9 +213,9 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
   async function archiveAffirmation(affirmationId) {
     if (!supabase) return;
     setSaving(affirmationId);
-    const { error } = await supabase.from("mindset_affirmations").update({ is_active: false }).eq("id", affirmationId);
+    const { error } = await supabase.rpc("admin_hide_mindset_affirmation", { affirmation_id: affirmationId });
     setSaving("");
-    if (error) setMessage(error.message);
+    if (error) setMessage(`${error.message}. Run supabase/phase-20-home-admin-privacy.sql in Supabase.`);
     else {
       setMessage("Affirmation hidden.");
       await loadAdminSettings();
