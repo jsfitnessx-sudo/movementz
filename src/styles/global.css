@@ -4311,6 +4311,15 @@ button {
   font-weight: 800;
 }
 
+.client-final-tracker-list {
+  display: grid;
+  gap: 10px;
+}
+
+.coach-final-tracker-card {
+  background: color-mix(in srgb, var(--gold) 4%, var(--panel));
+}
+
 .client-photo-strip {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

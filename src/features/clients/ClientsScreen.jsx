@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
+import { buildProgressRecords, formatRecordDate, formatRecordDuration } from "../progress/progressRecords.js";
 
 const progressPhotoBucket = "progress-photos";
 const clientTrackerSelect = "id,goal_name,goal_type,start_weight_kg,goal_weight_kg,maintenance_calories,target_calories,duration_weeks,start_date,status";
@@ -44,6 +45,13 @@ function formatDuration(seconds) {
 function formatKg(value) {
   if (value === null || value === undefined || value === "") return "-";
   return `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })}kg`;
+}
+
+function formatChange(value, suffix = "") {
+  if (value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return `${number > 0 ? "+" : ""}${number.toFixed(1)}${suffix}`;
 }
 
 function trackerWeekPercent(tracker, checkins) {
@@ -106,6 +114,138 @@ function MiniLineChart({ color = "teal", label, points, suffix = "" }) {
   );
 }
 
+function CoachProgressRecords({ records }) {
+  if (!records.count) {
+    return <p className="compact-help">No PR records yet. Completed weighted sessions and For Time workouts will appear here.</p>;
+  }
+
+  return (
+    <div className="progress-records-grid coach-records-grid">
+      {records.bestVolume ? (
+        <article className="progress-record-card gold">
+          <p className="eyebrow">Best volume</p>
+          <strong>{Math.round(records.bestVolume.total_volume_kg || 0).toLocaleString()}kg</strong>
+          <span>{records.bestVolume.name} - {formatRecordDate(records.bestVolume.completed_at)}</span>
+        </article>
+      ) : null}
+
+      {records.forTime.length ? (
+        <article className="progress-record-card">
+          <p className="eyebrow">For Time PBs</p>
+          <div className="progress-record-list">
+            {records.forTime.slice(0, 3).map((session) => (
+              <span key={session.id}>
+                <strong>{session.name}</strong>
+                <em>{formatRecordDuration(session.duration_seconds)} - {formatRecordDate(session.completed_at)}</em>
+              </span>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
+      <article className="progress-record-card">
+        <p className="eyebrow">Heaviest sets</p>
+        {records.maxWeight.length ? (
+          <div className="progress-record-list">
+            {records.maxWeight.slice(0, 4).map((record) => (
+              <span key={record.exerciseName}>
+                <strong>{record.exerciseName}</strong>
+                <em>{record.kg}kg x {record.reps} - {formatRecordDate(record.date)}</em>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="compact-help">No completed weighted sets yet.</p>
+        )}
+      </article>
+
+      <article className="progress-record-card">
+        <p className="eyebrow">Estimated 1RM</p>
+        {records.oneRepMax.length ? (
+          <div className="progress-record-list">
+            {records.oneRepMax.slice(0, 4).map((record) => (
+              <span key={record.exerciseName}>
+                <strong>{record.exerciseName}</strong>
+                <em>{Math.round(record.estimatedOneRepMax)}kg est - {record.kg}kg x {record.reps}</em>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="compact-help">Estimated 1RMs appear after weighted sets.</p>
+        )}
+      </article>
+    </div>
+  );
+}
+
+function CoachFinalTrackerCard({ tracker }) {
+  const summary = tracker.final_summary || {};
+  const measurements = Object.values(summary.measurements || {}).filter((item) => item.change !== null && item.change !== undefined);
+  const initialPhotos = summary.initial_photos || [];
+  const finalPhotos = summary.final_photos || [];
+
+  return (
+    <article className="tracker-final-card coach-final-tracker-card">
+      <div className="tracker-final-head">
+        <div>
+          <p className="eyebrow">Final summary</p>
+          <h2>{tracker.goal_name}</h2>
+          <span>{tracker.duration_weeks} weeks - completed {formatShortDate(summary.completed_at || tracker.completed_at)}</span>
+        </div>
+        <strong>{summary.checkins_logged || 0}/{tracker.duration_weeks || 0}</strong>
+      </div>
+
+      <div className="tracker-final-stats">
+        <div>
+          <span>Start</span>
+          <strong>{formatKg(summary.start?.weight_kg)}</strong>
+        </div>
+        <div>
+          <span>Final</span>
+          <strong>{formatKg(summary.final?.weight_kg)}</strong>
+        </div>
+        <div>
+          <span>Weight</span>
+          <strong>{formatChange(summary.changes?.weight_kg, "kg")}</strong>
+        </div>
+        <div>
+          <span>Body fat</span>
+          <strong>{formatChange(summary.changes?.body_fat_percent, "%")}</strong>
+        </div>
+      </div>
+
+      {measurements.length ? (
+        <div className="tracker-final-measures">
+          {measurements.slice(0, 8).map((item) => (
+            <span key={item.label}>{item.label.replace(" cm", "")}: {formatChange(item.change, "cm")}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {initialPhotos.length || finalPhotos.length ? (
+        <div className="tracker-final-photos">
+          <CoachFinalPhotoGroup label="Initial" photos={initialPhotos} />
+          <CoachFinalPhotoGroup label="Final" photos={finalPhotos} />
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function CoachFinalPhotoGroup({ label, photos }) {
+  if (!photos.length) return null;
+  return (
+    <div>
+      <span>{label}</span>
+      <div>
+        {photos.map((photo) => (
+          <img alt={`${label} ${photo.pose}`} key={photo.id} src={photo.thumbnail_url} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ClientsScreen({ profile, user }) {
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -118,6 +258,8 @@ export function ClientsScreen({ profile, user }) {
   const [clientLatestWorkout, setClientLatestWorkout] = useState(null);
   const [clientWorkoutCount, setClientWorkoutCount] = useState(0);
   const [clientWorkoutHistory, setClientWorkoutHistory] = useState([]);
+  const [clientProgressRecords, setClientProgressRecords] = useState(() => buildProgressRecords([]));
+  const [clientCompletedTrackers, setClientCompletedTrackers] = useState([]);
   const [clientHabits, setClientHabits] = useState([]);
   const [clientProgressError, setClientProgressError] = useState("");
   const [clientChartsOpen, setClientChartsOpen] = useState(false);
@@ -205,6 +347,41 @@ export function ClientsScreen({ profile, user }) {
     );
   }, []);
 
+  const signTrackerSummaryPhotos = useCallback(async (trackers) => {
+    const photoIds = [
+      ...new Set(
+        (trackers || []).flatMap((tracker) => [
+          ...((tracker.final_summary || {}).initial_photo_ids || []),
+          ...((tracker.final_summary || {}).final_photo_ids || [])
+        ]).filter(Boolean)
+      )
+    ];
+
+    if (!photoIds.length) return trackers || [];
+
+    const { data, error } = await supabase
+      .from("progress_photos")
+      .select("id,pose,thumbnail_path,taken_at")
+      .in("id", photoIds);
+
+    if (error) return trackers || [];
+
+    const signedPhotos = await signClientPhotos(data || []);
+    const photoMap = new Map(signedPhotos.map((photo) => [photo.id, photo]));
+
+    return (trackers || []).map((tracker) => {
+      const summary = tracker.final_summary || {};
+      return {
+        ...tracker,
+        final_summary: {
+          ...summary,
+          initial_photos: (summary.initial_photo_ids || []).map((id) => photoMap.get(id)).filter(Boolean),
+          final_photos: (summary.final_photo_ids || []).map((id) => photoMap.get(id)).filter(Boolean)
+        }
+      };
+    });
+  }, [signClientPhotos]);
+
   const loadClientProgress = useCallback(async () => {
     const clientId = selectedClient?.client_id;
     if (!clientId || !supabase || user.id === "demo-user") {
@@ -217,6 +394,8 @@ export function ClientsScreen({ profile, user }) {
       setClientLatestWorkout(null);
       setClientWorkoutCount(0);
       setClientWorkoutHistory([]);
+      setClientProgressRecords(buildProgressRecords([]));
+      setClientCompletedTrackers([]);
       setClientHabits([]);
       setClientProgressError("");
       setLoadingPhotos(false);
@@ -240,6 +419,8 @@ export function ClientsScreen({ profile, user }) {
       setClientLatestWorkout(summary?.latest_workout || null);
       setClientWorkoutCount(summary?.workout_count || 0);
       setClientWorkoutHistory(summary?.latest_workouts || []);
+      setClientProgressRecords(buildProgressRecords(summary?.record_sessions || []));
+      setClientCompletedTrackers(await signTrackerSummaryPhotos(summary?.completed_trackers || []));
       setClientHabits(summary?.habits || []);
       setLoadingPhotos(false);
       return;
@@ -281,6 +462,8 @@ export function ClientsScreen({ profile, user }) {
       setClientLatestWorkout(null);
       setClientWorkoutCount(0);
       setClientWorkoutHistory([]);
+      setClientProgressRecords(buildProgressRecords([]));
+      setClientCompletedTrackers([]);
       setClientHabits([]);
       setLoadingPhotos(false);
       return;
@@ -299,9 +482,11 @@ export function ClientsScreen({ profile, user }) {
     setClientLatestWorkout(null);
     setClientWorkoutCount(0);
     setClientWorkoutHistory([]);
+    setClientProgressRecords(buildProgressRecords([]));
+    setClientCompletedTrackers([]);
     setClientHabits([]);
     setLoadingPhotos(false);
-  }, [selectedClient?.client_id, signClientPhotos, user.id]);
+  }, [selectedClient?.client_id, signClientPhotos, signTrackerSummaryPhotos, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -519,7 +704,7 @@ export function ClientsScreen({ profile, user }) {
             </div>
             <div>
               <span>PRs</span>
-              <strong>0</strong>
+              <strong>{clientProgressRecords.count}</strong>
             </div>
           </div>
 
@@ -582,6 +767,33 @@ export function ClientsScreen({ profile, user }) {
               <p className="compact-help">No active tracker yet.</p>
             )}
           </section>
+
+          <section className="client-progress-card">
+            <div className="client-section-title">
+              <div>
+                <p className="eyebrow">Progress records</p>
+                <span>Strength and For Time records from completed sessions.</span>
+              </div>
+              <strong className="client-week-average">{clientProgressRecords.count}</strong>
+            </div>
+            <CoachProgressRecords records={clientProgressRecords} />
+          </section>
+
+          {clientCompletedTrackers.length ? (
+            <section className="client-progress-card">
+              <div className="client-section-title">
+                <div>
+                  <p className="eyebrow">Completed trackers</p>
+                  <span>Final summaries saved when a tracker block is completed.</span>
+                </div>
+              </div>
+              <div className="client-final-tracker-list">
+                {clientCompletedTrackers.map((tracker) => (
+                  <CoachFinalTrackerCard key={tracker.id} tracker={tracker} />
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <div className="client-detail-grid">
             <section className="client-progress-card">
