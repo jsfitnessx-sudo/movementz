@@ -25,6 +25,7 @@ export function ClientsScreen({ profile, user }) {
   const [clientPhotoCount, setClientPhotoCount] = useState(0);
   const [clientTracker, setClientTracker] = useState(null);
   const [clientCheckinCount, setClientCheckinCount] = useState(0);
+  const [clientProgressError, setClientProgressError] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [inviteUrl, setInviteUrl] = useState("");
@@ -68,16 +69,47 @@ export function ClientsScreen({ profile, user }) {
     });
   }, [user.id]);
 
-  const loadClientPhotos = useCallback(async () => {
+  const signClientPhotos = useCallback(async (rows) => {
+    return Promise.all(
+      (rows || []).map(async (photo) => {
+        const { data: signed, error } = await supabase.storage
+          .from(progressPhotoBucket)
+          .createSignedUrl(photo.thumbnail_path, 60 * 60);
+
+        return { ...photo, thumbnail_url: error ? "" : signed?.signedUrl || "" };
+      })
+    );
+  }, []);
+
+  const loadClientProgress = useCallback(async () => {
     const clientId = selectedClient?.client_id;
     if (!clientId || !supabase || user.id === "demo-user") {
       setClientPhotos([]);
       setClientPhotoCount(0);
+      setClientTracker(null);
+      setClientCheckinCount(0);
+      setClientProgressError("");
       setLoadingPhotos(false);
       return;
     }
 
     setLoadingPhotos(true);
+    setClientProgressError("");
+
+    const { data: summary, error: summaryError } = await supabase.rpc("get_coach_client_progress_summary", {
+      target_client_id: clientId
+    });
+
+    if (!summaryError) {
+      setClientTracker(summary?.tracker || null);
+      setClientCheckinCount(summary?.checkin_count || 0);
+      setClientPhotoCount(summary?.photo_count || 0);
+      setClientPhotos(await signClientPhotos(summary?.photos || []));
+      setLoadingPhotos(false);
+      return;
+    }
+
+    setClientProgressError(`${summaryError.message}. Run supabase/phase-16-coach-client-progress.sql in Supabase.`);
 
     const { data, error, count } = await supabase
       .from("progress_photos")
@@ -90,56 +122,38 @@ export function ClientsScreen({ profile, user }) {
       setClientPhotos([]);
       setClientPhotoCount(0);
       setLoadingPhotos(false);
-      return;
+    } else {
+      setClientPhotos(await signClientPhotos(data || []));
+      setClientPhotoCount(count ?? (data || []).length);
     }
 
-    const signedPhotos = await Promise.all(
-      (data || []).map(async (photo) => {
-        const { data: signed } = await supabase.storage
-          .from(progressPhotoBucket)
-          .createSignedUrl(photo.thumbnail_path, 60 * 60);
-
-        return { ...photo, thumbnail_url: signed?.signedUrl || "" };
-      })
-    );
-
-    setClientPhotos(signedPhotos);
-    setClientPhotoCount(count ?? signedPhotos.length);
-    setLoadingPhotos(false);
-  }, [selectedClient?.client_id, user.id]);
-
-  const loadClientTracker = useCallback(async () => {
-    const clientId = selectedClient?.client_id;
-    if (!clientId || !supabase || user.id === "demo-user") {
-      setClientTracker(null);
-      setClientCheckinCount(0);
-      return;
-    }
-
-    const { data, error } = await supabase
+    const { data: trackerData, error: trackerError } = await supabase
       .from("goal_trackers")
       .select(clientTrackerSelect)
       .eq("user_id", clientId)
-      .eq("status", "active")
+      .in("status", ["active", "completed", "archived"])
+      .order("status", { ascending: true })
       .order("start_date", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (error || !data) {
+    if (trackerError || !trackerData) {
       setClientTracker(null);
       setClientCheckinCount(0);
+      setLoadingPhotos(false);
       return;
     }
 
-    setClientTracker(data);
+    setClientTracker(trackerData);
 
-    const { count } = await supabase
+    const { count: checkinCount } = await supabase
       .from("goal_tracker_checkins")
       .select("id", { count: "exact", head: true })
-      .eq("tracker_id", data.id);
+      .eq("tracker_id", trackerData.id);
 
-    setClientCheckinCount(count || 0);
-  }, [selectedClient?.client_id, user.id]);
+    setClientCheckinCount(checkinCount || 0);
+    setLoadingPhotos(false);
+  }, [selectedClient?.client_id, signClientPhotos, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -157,25 +171,13 @@ export function ClientsScreen({ profile, user }) {
     let alive = true;
 
     Promise.resolve().then(() => {
-      if (alive) loadClientPhotos();
+      if (alive) loadClientProgress();
     });
 
     return () => {
       alive = false;
     };
-  }, [loadClientPhotos]);
-
-  useEffect(() => {
-    let alive = true;
-
-    Promise.resolve().then(() => {
-      if (alive) loadClientTracker();
-    });
-
-    return () => {
-      alive = false;
-    };
-  }, [loadClientTracker]);
+  }, [loadClientProgress]);
 
   async function searchUsers(event) {
     event.preventDefault();
@@ -379,10 +381,12 @@ export function ClientsScreen({ profile, user }) {
                 <p className="eyebrow">Progress photos</p>
                 <span>Latest private uploads from {clientName(selectedClient)}.</span>
               </div>
-              <button className="primary-action compact" onClick={loadClientPhotos} disabled={loadingPhotos} type="button">
+              <button className="primary-action compact" onClick={loadClientProgress} disabled={loadingPhotos} type="button">
                 {loadingPhotos ? "Loading..." : "Refresh"}
               </button>
             </div>
+
+            {clientProgressError ? <p className="form-message error">{clientProgressError}</p> : null}
 
             {clientPhotos.length ? (
               <div className="client-photo-strip">
