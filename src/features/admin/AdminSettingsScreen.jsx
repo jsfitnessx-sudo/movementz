@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { buildSignupLink, copyTextToClipboard } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const resourceCategories = ["Featured", "Video", "Podcast", "Article", "Support"];
@@ -50,6 +51,7 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState("");
   const [message, setMessage] = useState("");
+  const signupLink = useMemo(buildSignupLink, []);
 
   const selectedResetProfile = profiles.find((profile) => profile.id === selectedResetId);
   const testProfiles = useMemo(() => {
@@ -247,6 +249,11 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setMessage(`Factory reset complete. Deleted ${data?.[0]?.deleted_rows ?? 0} rows for ${selectedResetProfile?.full_name || selectedResetProfile?.email || "selected account"}.`);
   }
 
+  async function copySignupLink() {
+    const copied = await copyTextToClipboard(signupLink);
+    setMessage(copied ? "Signup link copied." : signupLink);
+  }
+
   return (
     <section className="screen-stack admin-settings-screen">
       <div className="screen-heading library-heading">
@@ -270,6 +277,20 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
           <button className="primary-action filled" onClick={() => onPreviewAccount(null)} type="button">Exit preview</button>
         </div>
       ) : null}
+
+      <section className="panel admin-settings-panel signup-link-panel">
+        <div>
+          <p className="eyebrow">New user signup</p>
+          <h2>Shareable signup link</h2>
+          <p>This link always opens the user signup screen and clears any local logged-in session first.</p>
+        </div>
+        <div className="copy-link-row">
+          <input readOnly value={signupLink} />
+          <button className="primary-action filled" onClick={copySignupLink} type="button">
+            Copy
+          </button>
+        </div>
+      </section>
 
       <section className="panel admin-settings-panel">
         <div className="section-row">

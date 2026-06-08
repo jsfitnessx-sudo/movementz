@@ -444,7 +444,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
           </div>
           <label>
             Where do you want to be in {selectedHorizon} months?
-            <textarea disabled={selectedReminder?.status === "hidden"} onChange={(event) => setFutureText(event.target.value)} placeholder="Write it, then METZ will hide it and bring it back on the date." value={futureText} />
+            <textarea disabled={selectedReminder?.status === "hidden"} onChange={(event) => setFutureText(event.target.value)} placeholder="Write it, then Movementz will hide it and bring it back on the date." value={futureText} />
           </label>
           <div className="future-reminder-actions">
             <button className="primary-action filled" disabled={savingReminder || selectedReminder?.status === "hidden"} onClick={() => saveFutureReminder(false)} type="button">Save + hide</button>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { buildSignupLink, copyTextToClipboard } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const baseRoleOptions = [
@@ -57,6 +58,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
     () => (profileForm.full_name || profileForm.email || "M").slice(0, 1).toUpperCase(),
     [profileForm.email, profileForm.full_name]
   );
+  const signupLink = useMemo(buildSignupLink, []);
 
   useEffect(() => {
     Promise.resolve().then(() => setProfileForm(toProfileForm(profile, user)));
@@ -225,6 +227,17 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
     onProfileSaved(savedProfile);
   }
 
+  async function copySignupLink() {
+    const copied = await copyTextToClipboard(signupLink);
+    if (copied) {
+      setMessage("Signup link copied.");
+      setError("");
+    } else {
+      setMessage(signupLink);
+      setError("");
+    }
+  }
+
   return (
     <section className="screen-stack">
       <div className="screen-heading">
@@ -378,6 +391,18 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
             </label>
             <div className="coach-verification-note">
               Coach verification placeholder: certificate upload and review will be added later.
+            </div>
+            <div className="coach-verification-note signup-link-panel">
+              <div>
+                <strong>New user signup link</strong>
+                <span>This opens the user signup screen and clears any local logged-in session first.</span>
+              </div>
+              <div className="copy-link-row">
+                <input readOnly value={signupLink} />
+                <button className="primary-action compact filled" onClick={copySignupLink} type="button">
+                  Copy
+                </button>
+              </div>
             </div>
           </div>
         ) : null}

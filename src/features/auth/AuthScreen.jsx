@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { movementzWordmarkSrc } from "../../lib/brandAssets.js";
 import { hasSupabaseConfig, supabase } from "../../lib/supabase/client.js";
 
 const coachExperienceOptions = [
@@ -24,8 +25,8 @@ const blankForm = {
   aboutMe: ""
 };
 
-export function AuthScreen({ onAuthComplete, onDemoLogin }) {
-  const [mode, setMode] = useState("login");
+export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin }) {
+  const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState(blankForm);
   const [experienceAreas, setExperienceAreas] = useState([]);
   const [status, setStatus] = useState("");
@@ -39,6 +40,10 @@ export function AuthScreen({ onAuthComplete, onDemoLogin }) {
     if (mode === "coach") return "Coach signup";
     return "Create account";
   }, [mode]);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -136,7 +141,7 @@ export function AuthScreen({ onAuthComplete, onDemoLogin }) {
       <main className="auth-screen">
         <section className="auth-card">
           <div className="auth-brand">
-            <div className="brand-icon large">M</div>
+            <img className="auth-wordmark" src={movementzWordmarkSrc} alt="Movementz" />
             <h1>Movementz</h1>
             <p>Clean rebuild foundation</p>
           </div>
@@ -164,7 +169,7 @@ export function AuthScreen({ onAuthComplete, onDemoLogin }) {
     <main className="auth-screen">
       <section className="auth-card">
         <div className="auth-brand">
-          <div className="brand-icon large">M</div>
+          <img className="auth-wordmark" src={movementzWordmarkSrc} alt="Movementz" />
           <h1>{heading}</h1>
           <p>{isCoachSignup ? "Build your coaching workspace." : "Move, train and grow."}</p>
         </div>

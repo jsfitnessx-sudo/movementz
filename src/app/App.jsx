@@ -16,6 +16,7 @@ import { TodayScreen } from "../features/today/TodayScreen.jsx";
 import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.jsx";
 import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
+import { movementzIconSrc } from "../lib/brandAssets.js";
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
 
 async function loadProfile(authUser) {
@@ -88,6 +89,10 @@ function buildUser(session, profile) {
 }
 
 export function App() {
+  const forcedSignupMode = useMemo(() => {
+    const signupMode = new URLSearchParams(window.location.search).get("signup");
+    return signupMode === "user" || signupMode === "coach" ? signupMode : "";
+  }, []);
   const [booting, setBooting] = useState(hasSupabaseConfig);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -149,6 +154,16 @@ export function App() {
     let alive = true;
 
     async function boot() {
+      if (forcedSignupMode) {
+        await supabase.auth.signOut({ scope: "local" });
+        if (!alive) return;
+        setSession(null);
+        setProfile(null);
+        setRole("normal_user");
+        setBooting(false);
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
       if (!alive) return;
 
@@ -186,7 +201,7 @@ export function App() {
       alive = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [forcedSignupMode]);
 
   useEffect(() => {
     if (activeTab === "profile") return;
@@ -224,6 +239,9 @@ export function App() {
 
   async function handleAuthComplete(nextSession) {
     if (!nextSession?.user) return;
+    if (forcedSignupMode) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     const nextProfile = await loadProfile(nextSession.user);
     setProfile(nextProfile);
     setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
@@ -303,7 +321,7 @@ export function App() {
     return (
       <main className="auth-screen">
         <section className="auth-card auth-brand">
-          <div className="brand-icon large">M</div>
+          <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
           <h1>Movementz</h1>
           <p>Loading your account...</p>
         </section>
@@ -312,7 +330,7 @@ export function App() {
   }
 
   if (!session) {
-    return <AuthScreen onAuthComplete={handleAuthComplete} onDemoLogin={handleDemoLogin} />;
+    return <AuthScreen initialMode={forcedSignupMode || "login"} onAuthComplete={handleAuthComplete} onDemoLogin={handleDemoLogin} />;
   }
 
   return (

@@ -89,6 +89,18 @@ button {
   color: var(--muted);
 }
 
+.auth-wordmark {
+  width: min(300px, 82vw);
+  max-height: 86px;
+  object-fit: contain;
+}
+
+.brand-loading-icon {
+  width: 68px;
+  height: 68px;
+  object-fit: contain;
+}
+
 .auth-actions {
   display: grid;
   gap: 10px;
@@ -242,6 +254,18 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.brand-icon-img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.brand-wordmark-img {
+  width: clamp(156px, 22vw, 250px);
+  max-height: 46px;
+  object-fit: contain;
 }
 
 .brand-icon {
@@ -3436,6 +3460,13 @@ button {
   letter-spacing: 8px;
 }
 
+.share-logo-img {
+  width: min(310px, 72%);
+  max-height: 72px;
+  margin: 0 0 70px;
+  object-fit: contain;
+}
+
 .share-complete {
   margin: 0 0 12px;
   font-size: 20px;
@@ -3453,6 +3484,12 @@ button {
   margin-bottom: 28px;
   font-size: 15px;
   letter-spacing: 6px;
+}
+
+.for-time-share .share-logo-img {
+  width: min(260px, 70%);
+  max-height: 54px;
+  margin-bottom: 28px;
 }
 
 .for-time-share .share-complete {
@@ -3583,16 +3620,44 @@ button {
   display: grid;
   gap: 6px;
   margin-top: auto;
+  justify-items: center;
 }
 
 .share-footer strong {
   font-size: 34px;
 }
 
+.share-footer-logo {
+  width: 170px;
+  max-height: 42px;
+  object-fit: contain;
+}
+
 .share-footer span {
   font-size: 16px;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+.copy-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.copy-link-row input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.signup-link-panel {
+  gap: 14px;
 }
 
 .photo-upload-action {

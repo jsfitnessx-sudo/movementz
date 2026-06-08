@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { movementzWordmarkSrc } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
@@ -15,6 +16,20 @@ const hiitTargetTypes = [
 ];
 const CATALOG_SEARCH_LIMIT = 8;
 const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+
+function loadCanvasImage(src) {
+  return new Promise((resolve) => {
+    if (!src) {
+      resolve(null);
+      return;
+    }
+
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
+}
 
 const exerciseLibrary = {
   Chest: [
@@ -2668,7 +2683,7 @@ export function WorkoutLibraryScreen({
     reader.readAsDataURL(file);
   }
 
-  function drawShareImage(ctx, canvas, image = null) {
+  function drawShareImage(ctx, canvas, image = null, wordmark = null) {
     const width = canvas.width;
     const height = canvas.height;
     const isBranded = shareMode === "branded";
@@ -2713,6 +2728,22 @@ export function WorkoutLibraryScreen({
       ctx.fillText(`${trimmed.trim()}...`, x, y);
     };
 
+    const drawWordmark = (centerX, y, maxWidth, fallbackSize = 42) => {
+      if (wordmark?.width && wordmark?.height) {
+        const ratio = wordmark.width / wordmark.height;
+        const drawWidth = Math.min(maxWidth, wordmark.width);
+        const drawHeight = drawWidth / ratio;
+        ctx.drawImage(wordmark, centerX - drawWidth / 2, y, drawWidth, drawHeight);
+        return drawHeight;
+      }
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#50d0c7";
+      ctx.font = `900 ${fallbackSize}px Arial`;
+      ctx.fillText("MOVEMENTZ", centerX, y + fallbackSize);
+      return fallbackSize;
+    };
+
     if (isForTimeSession) {
       const splits = completedSession?.splits || [];
       const columns = splits.length > 10 ? 2 : 1;
@@ -2726,9 +2757,7 @@ export function WorkoutLibraryScreen({
       const nameWidth = columnWidth - 150;
 
       ctx.textAlign = "center";
-      ctx.fillStyle = "#50d0c7";
-      ctx.font = "700 42px Arial";
-      ctx.fillText("MOVEMENTZ", width / 2, 145);
+      drawWordmark(width / 2, 88, 470, 42);
       ctx.fillStyle = "#ffffff";
       ctx.font = "800 38px Arial";
       ctx.fillText("WORKOUT COMPLETE", width / 2, 245);
@@ -2778,18 +2807,15 @@ export function WorkoutLibraryScreen({
       drawTrimmedText(completedSession?.pbLabel || "For Time", width - 155, 1570, 390);
 
       ctx.textAlign = "center";
+      drawWordmark(width / 2, 1710, 360, 36);
       ctx.fillStyle = "#ffffff";
-      ctx.font = "900 42px Arial";
-      ctx.fillText("METZ", width / 2, 1740);
       ctx.font = "700 26px Arial";
       ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1790);
       return;
     }
 
     ctx.textAlign = "center";
-    ctx.fillStyle = "#50d0c7";
-    ctx.font = "700 56px Arial";
-    ctx.fillText("MOVEMENTZ", width / 2, 190);
+    drawWordmark(width / 2, 125, 560, 56);
     ctx.fillStyle = "#ffffff";
     ctx.font = "800 54px Arial";
     ctx.fillText("WORKOUT COMPLETE", width / 2, 410);
@@ -2806,13 +2832,13 @@ export function WorkoutLibraryScreen({
     ctx.font = "900 76px Arial";
     ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width / 2, 1255);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "900 44px Arial";
-    ctx.fillText("METZ", width / 2, 1650);
+    drawWordmark(width / 2, 1610, 420, 42);
+    ctx.fillStyle = "#ffffff";
     ctx.font = "700 30px Arial";
     ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1705);
   }
 
-  function saveShareImage() {
+  async function saveShareImage() {
     if (!completedSession) return;
 
     const canvas = document.createElement("canvas");
@@ -2828,17 +2854,12 @@ export function WorkoutLibraryScreen({
       link.click();
     };
 
-    if (sharePhoto) {
-      const image = new Image();
-      image.onload = () => {
-        drawShareImage(context, canvas, image);
-        download();
-      };
-      image.src = sharePhoto;
-      return;
-    }
+    const [image, wordmark] = await Promise.all([
+      sharePhoto ? loadCanvasImage(sharePhoto) : Promise.resolve(null),
+      loadCanvasImage(movementzWordmarkSrc)
+    ]);
 
-    drawShareImage(context, canvas);
+    drawShareImage(context, canvas, image, wordmark);
     download();
   }
 
@@ -3540,7 +3561,7 @@ export function WorkoutLibraryScreen({
             onClick={() => setShareMode("branded")}
             type="button"
           >
-            <strong>METZ Branded</strong>
+            <strong>Movementz Branded</strong>
             <span>Dark overlay</span>
           </button>
         </div>
@@ -3553,7 +3574,7 @@ export function WorkoutLibraryScreen({
             <div className={isForTimeSession ? "share-preview-overlay for-time-share" : "share-preview-overlay"}>
               {isForTimeSession ? (
                 <>
-                  <p className="share-logo">MOVEMENTZ</p>
+                  <img className="share-logo-img" src={movementzWordmarkSrc} alt="Movementz" />
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
                   <div className="share-title-meta">
@@ -3587,13 +3608,13 @@ export function WorkoutLibraryScreen({
                     </span>
                   </div>
                   <div className="share-footer">
-                    <strong>METZ</strong>
+                    <img className="share-footer-logo" src={movementzWordmarkSrc} alt="Movementz" />
                     <span>Move - Train - Grow</span>
                   </div>
                 </>
               ) : (
                 <>
-                  <p className="share-logo">MOVEMENTZ</p>
+                  <img className="share-logo-img" src={movementzWordmarkSrc} alt="Movementz" />
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
                   <div className="share-details">
@@ -3606,7 +3627,7 @@ export function WorkoutLibraryScreen({
                     {Math.round(completedSession.totalVolumeKg).toLocaleString()}kg
                   </strong>
                   <div className="share-footer">
-                    <strong>METZ</strong>
+                    <img className="share-footer-logo" src={movementzWordmarkSrc} alt="Movementz" />
                     <span>Move - Train - Grow</span>
                   </div>
                 </>

@@ -1,0 +1,17 @@
+{
+  "name": "Movementz",
+  "short_name": "Movementz",
+  "description": "Move, train and grow with Movementz.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080c0c",
+  "theme_color": "#080c0c",
+  "icons": [
+    {
+      "src": "/assets/movementz-icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
