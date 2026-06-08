@@ -13,6 +13,11 @@ declare
   checkin_count integer := 0;
   photo_count integer := 0;
   photo_rows jsonb := '[]'::jsonb;
+  checkin_rows jsonb := '[]'::jsonb;
+  assigned_plan_rows jsonb := '[]'::jsonb;
+  latest_workout_rows jsonb := '[]'::jsonb;
+  latest_workout_row jsonb;
+  workout_count integer := 0;
 begin
   if auth.uid() is null then
     raise exception 'You must be signed in.';
@@ -38,10 +43,26 @@ begin
       id,
       goal_name,
       goal_type,
+      gender,
+      age,
+      height_cm,
+      activity_level,
       start_weight_kg,
       goal_weight_kg,
+      deficit_style,
       maintenance_calories,
       target_calories,
+      body_fat_percent,
+      fat_kg,
+      muscle_kg,
+      neck_cm,
+      chest_cm,
+      waist_cm,
+      hips_cm,
+      left_bicep_cm,
+      right_bicep_cm,
+      left_thigh_cm,
+      right_thigh_cm,
       duration_weeks,
       start_date,
       status,
@@ -63,6 +84,36 @@ begin
     into checkin_count
     from public.goal_tracker_checkins gtc
     where gtc.tracker_id = (tracker_row->>'id')::uuid;
+
+    select coalesce(jsonb_agg(to_jsonb(checkin_item) order by checkin_item.week_number), '[]'::jsonb)
+    into checkin_rows
+    from (
+      select
+        id,
+        week_number,
+        checkin_date,
+        weight_kg,
+        body_fat_percent,
+        fat_kg,
+        muscle_kg,
+        neck_cm,
+        chest_cm,
+        waist_cm,
+        hips_cm,
+        left_bicep_cm,
+        right_bicep_cm,
+        left_thigh_cm,
+        right_thigh_cm,
+        energy,
+        mood,
+        notes,
+        photo_ids,
+        created_at
+      from public.goal_tracker_checkins
+      where tracker_id = (tracker_row->>'id')::uuid
+      order by week_number
+      limit 20
+    ) checkin_item;
   end if;
 
   select count(*)
@@ -86,11 +137,96 @@ begin
     limit 6
   ) photo_item;
 
+  select count(*)
+  into workout_count
+  from public.session_logs sl
+  where sl.owner_id = target_client_id
+    and sl.status = 'completed';
+
+  select to_jsonb(workout_item)
+  into latest_workout_row
+  from (
+    select
+      id,
+      name,
+      workout_type,
+      completed_at,
+      duration_seconds,
+      total_exercises,
+      completed_sets,
+      total_volume_kg,
+      rating
+    from public.session_logs
+    where owner_id = target_client_id
+      and status = 'completed'
+    order by completed_at desc
+    limit 1
+  ) workout_item;
+
+  select coalesce(jsonb_agg(to_jsonb(workout_item)), '[]'::jsonb)
+  into latest_workout_rows
+  from (
+    select
+      id,
+      name,
+      workout_type,
+      completed_at,
+      duration_seconds,
+      total_exercises,
+      completed_sets,
+      total_volume_kg,
+      rating
+    from public.session_logs
+    where owner_id = target_client_id
+      and status = 'completed'
+    order by completed_at desc
+    limit 8
+  ) workout_item;
+
+  select coalesce(jsonb_agg(plan_item), '[]'::jsonb)
+  into assigned_plan_rows
+  from (
+    select jsonb_build_object(
+      'assignment_id', tpa.id,
+      'status', tpa.status,
+      'assigned_at', tpa.created_at,
+      'plan_id', tp.id,
+      'name', tp.name,
+      'plan_type', tp.plan_type,
+      'block_weeks', tp.block_weeks,
+      'created_at', tp.created_at,
+      'workout_count', coalesce(plan_workouts.workout_count, 0),
+      'scheduled_days', coalesce(plan_workouts.scheduled_days, '[]'::jsonb)
+    ) as plan_item
+    from public.training_plan_assignments tpa
+    join public.training_plans tp on tp.id = tpa.plan_id
+    left join lateral (
+      select
+        count(*) as workout_count,
+        jsonb_agg(distinct day_value) filter (where day_value is not null) as scheduled_days
+      from public.training_plan_workouts tpw
+      left join lateral unnest(tpw.scheduled_days) as days(day_value) on true
+      where tpw.plan_id = tp.id
+    ) plan_workouts on true
+    where tpa.client_id = target_client_id
+      and tpa.assigned_by = auth.uid()
+      and tpa.status = 'active'
+    order by tpa.created_at desc
+    limit 6
+  ) plans;
+
   return jsonb_build_object(
     'tracker', tracker_row,
+    'checkins', checkin_rows,
     'checkin_count', checkin_count,
     'photo_count', photo_count,
-    'photos', photo_rows
+    'photos', photo_rows,
+    'assigned_plans', assigned_plan_rows,
+    'workout_count', workout_count,
+    'latest_workout', latest_workout_row,
+    'latest_workouts', latest_workout_rows,
+    'prs', 0,
+    'habits', '[]'::jsonb
   );
 end;
 $$;
