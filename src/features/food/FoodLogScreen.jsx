@@ -10,14 +10,25 @@ const mealTypes = [
 
 const units = ["g", "kg", "ml", "l", "serving"];
 const foodSelect = "id,name,brand,serving_quantity,serving_unit,calories,protein_g,carbs_g,fat_g,is_verified";
+const foodLookupUrl = "https://fdc.nal.usda.gov/food-search/";
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function monthStartIso(dateValue) {
   const date = new Date(`${dateValue || todayIso()}T00:00:00`);
-  return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+}
+
+function monthInputValue(dateValue) {
+  return monthStartIso(dateValue).slice(0, 7);
 }
 
 function formatFoodDate(value) {
@@ -90,6 +101,27 @@ function numberOrZero(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function sanitizeSearchTerm(value) {
+  return value.trim().replaceAll("%", "").replaceAll(",", " ").replaceAll("'", "");
+}
+
+function rankFoodResults(results, searchTextValue) {
+  const terms = sanitizeSearchTerm(searchTextValue).toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return results;
+
+  return [...results].sort((a, b) => {
+    const aName = `${a.name || ""} ${a.brand || ""}`.toLowerCase();
+    const bName = `${b.name || ""} ${b.brand || ""}`.toLowerCase();
+    const score = (name, item) => {
+      let total = item.is_verified ? 8 : 0;
+      if (name.startsWith(terms.join(" "))) total += 20;
+      total += terms.reduce((sum, term) => sum + (name.includes(term) ? 5 : 0), 0);
+      return total;
+    };
+    return score(bName, b) - score(aName, a) || a.name.localeCompare(b.name);
+  });
+}
+
 export function FoodLogScreen({ role, user }) {
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const [monthStart, setMonthStart] = useState(monthStartIso(todayIso()));
@@ -105,6 +137,7 @@ export function FoodLogScreen({ role, user }) {
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [lookupOpen, setLookupOpen] = useState(false);
 
   const selectedNutrition = useMemo(
     () => calculateFromFood(selectedFood, form.quantity, form.unit),
@@ -135,8 +168,7 @@ export function FoodLogScreen({ role, user }) {
     setLoading(true);
     setMessage("");
 
-    const currentMonthStart = monthStartIso(selectedDate);
-    setMonthStart(currentMonthStart);
+    const currentMonthStart = monthStart;
 
     const [entryResult, dayTargetResult, monthTargetResult, trackerResult, monthResult] = await Promise.all([
       supabase
@@ -186,7 +218,7 @@ export function FoodLogScreen({ role, user }) {
     setMonthlyTarget(nextMonthlyTarget || nextTrackerTarget || "");
     setTargetCalories(nextTarget || "");
     setMonthDays(Array.isArray(monthResult.data?.days) ? monthResult.data.days : []);
-  }, [selectedDate, user.id]);
+  }, [monthStart, selectedDate, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -206,21 +238,23 @@ export function FoodLogScreen({ role, user }) {
 
     let alive = true;
     const timeout = setTimeout(async () => {
-      const term = searchText.trim().replaceAll("%", "");
+      const term = sanitizeSearchTerm(searchText);
+      const searchTerms = term.split(/\s+/).filter(Boolean);
+      const broadTerm = searchTerms[0] || term;
       const { data, error } = await supabase
         .from("food_items")
         .select(foodSelect)
-        .or(`name.ilike.%${term}%,brand.ilike.%${term}%`)
+        .or(`name.ilike.%${term}%,brand.ilike.%${term}%,name.ilike.%${broadTerm}%,brand.ilike.%${broadTerm}%`)
         .order("is_verified", { ascending: false })
         .order("name", { ascending: true })
-        .limit(20);
+        .limit(50);
 
       if (!alive) return;
       if (error) {
         setMessage(`${error.message}. Run supabase/phase-24-food-log.sql in Supabase.`);
         setFoodResults([]);
       } else {
-        setFoodResults(data || []);
+        setFoodResults(rankFoodResults(data || [], searchText).slice(0, 25));
       }
     }, 350);
 
@@ -232,6 +266,19 @@ export function FoodLogScreen({ role, user }) {
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function changeSelectedDate(value) {
+    setSelectedDate(value);
+    setMonthStart(monthStartIso(value));
+  }
+
+  function changeSelectedMonth(value) {
+    if (!value) return;
+    const nextMonthStart = `${value}-01`;
+    const currentMonthStart = monthStartIso(todayIso());
+    setMonthStart(nextMonthStart);
+    setSelectedDate(nextMonthStart === currentMonthStart ? todayIso() : nextMonthStart);
   }
 
   function chooseFood(food) {
@@ -412,7 +459,7 @@ export function FoodLogScreen({ role, user }) {
         <div className="food-date-row">
           <label>
             <span>Date</span>
-            <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+            <input type="date" value={selectedDate} onChange={(event) => changeSelectedDate(event.target.value)} />
           </label>
           <label>
             <span>Today target</span>
@@ -527,6 +574,15 @@ export function FoodLogScreen({ role, user }) {
           )}
         </div>
         {!selectedFood ? (
+          <div className="food-lookup-helper">
+            <span>
+              <strong>Can&apos;t find it?</strong>
+              Check calories elsewhere, then log it manually.
+            </span>
+            <button onClick={() => setLookupOpen(true)} type="button">Food lookup</button>
+          </div>
+        ) : null}
+        {!selectedFood ? (
           <label className="food-save-custom">
             <input checked={form.save_custom} onChange={(event) => updateForm("save_custom", event.target.checked)} type="checkbox" />
             <span>Save this custom food for next time</span>
@@ -577,11 +633,14 @@ export function FoodLogScreen({ role, user }) {
             <p className="eyebrow">History</p>
             <h2>Month view</h2>
           </div>
-          <span className="status-pill">{new Date(`${monthStart}T00:00:00`).toLocaleDateString(undefined, { month: "short" })}</span>
+          <label className="food-month-picker">
+            <span>Month</span>
+            <input type="month" value={monthInputValue(monthStart)} onChange={(event) => changeSelectedMonth(event.target.value)} />
+          </label>
         </div>
         <div className="food-history-grid">
           {monthDays.map((day) => (
-            <button className={day.log_date === selectedDate ? "active" : ""} key={day.log_date} onClick={() => setSelectedDate(day.log_date)} type="button">
+            <button className={day.log_date === selectedDate ? "active" : ""} key={day.log_date} onClick={() => changeSelectedDate(day.log_date)} type="button">
               <span>{new Date(`${day.log_date}T00:00:00`).getDate()}</span>
               <strong>{day.calories || 0}</strong>
               <em className={Number(day.remaining_calories) < 0 ? "over" : ""}>
@@ -591,6 +650,22 @@ export function FoodLogScreen({ role, user }) {
           ))}
         </div>
       </section>
+
+      {lookupOpen ? (
+        <div className="food-lookup-modal" role="dialog" aria-modal="true" aria-label="Food lookup">
+          <div className="food-lookup-panel">
+            <div className="section-row">
+              <div>
+                <p className="eyebrow">Food lookup</p>
+                <h2>Find calories & macros</h2>
+              </div>
+              <button className="icon-button" onClick={() => setLookupOpen(false)} type="button" aria-label="Close food lookup">x</button>
+            </div>
+            <p className="compact-help">Use FoodData Central if the app search misses a food. Copy the calories/macros back into your manual log.</p>
+            <a className="primary-action filled" href={foodLookupUrl} target="_blank" rel="noreferrer">Open FoodData Central</a>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

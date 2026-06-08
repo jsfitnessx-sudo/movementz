@@ -216,6 +216,62 @@ values
   ('Wholemeal bread slice', null, 1, 'serving', 95, 4, 17, 1.5, true)
 on conflict do nothing;
 
+insert into public.food_items(name, brand, serving_quantity, serving_unit, calories, protein_g, carbs_g, fat_g, is_verified)
+select seed.name, seed.brand, seed.serving_quantity, seed.serving_unit, seed.calories, seed.protein_g, seed.carbs_g, seed.fat_g, true
+from (
+  values
+    ('Egg whites', null, 100, 'g', 52, 10.9, 0.7, 0.2),
+    ('Chicken thigh cooked', null, 100, 'g', 209, 26, 0, 10.9),
+    ('Turkey mince lean', null, 100, 'g', 149, 22, 0, 7),
+    ('Pork tenderloin', null, 100, 'g', 143, 26, 0, 3.5),
+    ('Cod fillet', null, 100, 'g', 82, 18, 0, 0.7),
+    ('Prawns cooked', null, 100, 'g', 99, 24, 0.2, 0.3),
+    ('Tuna canned in springwater', null, 100, 'g', 116, 26, 0, 1),
+    ('Tofu firm', null, 100, 'g', 144, 15.8, 3.9, 8.7),
+    ('Lentils cooked', null, 100, 'g', 116, 9, 20, 0.4),
+    ('Chickpeas cooked', null, 100, 'g', 164, 8.9, 27, 2.6),
+    ('Black beans cooked', null, 100, 'g', 132, 8.9, 24, 0.5),
+    ('Kidney beans cooked', null, 100, 'g', 127, 8.7, 22.8, 0.5),
+    ('Quinoa cooked', null, 100, 'g', 120, 4.4, 21.3, 1.9),
+    ('Pasta cooked', null, 100, 'g', 158, 5.8, 30.9, 0.9),
+    ('Couscous cooked', null, 100, 'g', 112, 3.8, 23.2, 0.2),
+    ('Potato baked', null, 100, 'g', 93, 2.5, 21.2, 0.1),
+    ('Carrot', null, 100, 'g', 41, 0.9, 9.6, 0.2),
+    ('Tomato', null, 100, 'g', 18, 0.9, 3.9, 0.2),
+    ('Cucumber', null, 100, 'g', 15, 0.7, 3.6, 0.1),
+    ('Lettuce', null, 100, 'g', 15, 1.4, 2.9, 0.2),
+    ('Mushrooms', null, 100, 'g', 22, 3.1, 3.3, 0.3),
+    ('Onion', null, 100, 'g', 40, 1.1, 9.3, 0.1),
+    ('Capsicum', null, 100, 'g', 31, 1, 6, 0.3),
+    ('Peas', null, 100, 'g', 84, 5.4, 15.6, 0.2),
+    ('Corn kernels', null, 100, 'g', 96, 3.4, 21, 1.5),
+    ('Blueberries', null, 100, 'g', 57, 0.7, 14.5, 0.3),
+    ('Strawberries', null, 100, 'g', 32, 0.7, 7.7, 0.3),
+    ('Orange', null, 1, 'serving', 62, 1.2, 15.4, 0.2),
+    ('Almonds', null, 30, 'g', 174, 6.4, 6.5, 15),
+    ('Walnuts', null, 30, 'g', 196, 4.6, 4.1, 19.6),
+    ('Cheddar cheese', null, 30, 'g', 121, 7.5, 0.4, 10),
+    ('Cottage cheese low fat', null, 100, 'g', 82, 11.5, 3.4, 2.3),
+    ('Skyr yoghurt', null, 100, 'g', 63, 11, 3.6, 0.2),
+    ('Butter', null, 10, 'g', 72, 0.1, 0, 8.1),
+    ('Mayonnaise', null, 15, 'g', 103, 0.1, 0.1, 11.3),
+    ('Hummus', null, 50, 'g', 83, 3.9, 7.1, 4.8),
+    ('Protein bar', null, 1, 'serving', 210, 20, 23, 7),
+    ('Granola', null, 50, 'g', 235, 5, 32, 9),
+    ('Breakfast cereal', null, 40, 'g', 150, 3, 32, 1),
+    ('Bagel', null, 1, 'serving', 245, 9.5, 48, 1.5),
+    ('Tortilla wrap', null, 1, 'serving', 180, 5, 30, 4),
+    ('Bacon cooked', null, 50, 'g', 270, 18.5, 0.7, 21),
+    ('Dark chocolate', null, 30, 'g', 180, 2.3, 13.8, 12.9),
+    ('Honey', null, 15, 'g', 46, 0, 12.4, 0)
+) as seed(name, brand, serving_quantity, serving_unit, calories, protein_g, carbs_g, fat_g)
+where not exists (
+  select 1
+  from public.food_items item
+  where item.owner_id is null
+    and lower(item.name) = lower(seed.name)
+);
+
 create or replace function public.get_food_month_summary(month_start_input date)
 returns jsonb
 language plpgsql

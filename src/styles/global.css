@@ -7332,7 +7332,8 @@ button {
 .food-month-target input,
 .food-entry-grid input,
 .food-entry-grid select,
-.food-search-box input {
+.food-search-box input,
+.food-month-picker input {
   width: 100%;
   min-height: 42px;
   border: 1px solid var(--border);
@@ -7343,6 +7344,23 @@ button {
   font-size: 16px;
   font-weight: 750;
   padding: 9px 11px;
+}
+
+.food-month-picker {
+  display: grid;
+  gap: 5px;
+  min-width: 138px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.food-month-picker input {
+  min-height: 36px;
+  padding: 7px 10px;
+  color-scheme: dark;
 }
 
 .food-total-grid {
@@ -7475,6 +7493,64 @@ button {
   color: var(--muted);
   font-size: 12px;
   font-weight: 750;
+}
+
+.food-lookup-helper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(75, 207, 198, 0.18);
+  border-radius: 9px;
+  background: rgba(75, 207, 198, 0.08);
+}
+
+.food-lookup-helper span {
+  display: grid;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.food-lookup-helper strong {
+  color: var(--text);
+}
+
+.food-lookup-helper button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(75, 207, 198, 0.54);
+  border-radius: 999px;
+  background: rgba(75, 207, 198, 0.14);
+  color: var(--aqua);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.food-lookup-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(3, 8, 12, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.food-lookup-panel {
+  display: grid;
+  gap: 12px;
+  width: min(460px, 100%);
+  padding: 16px;
+  border: 1px solid rgba(75, 207, 198, 0.34);
+  border-radius: 13px;
+  background: #101d28;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.44);
 }
 
 .food-meal-section {
@@ -7700,6 +7776,19 @@ button {
   .food-month-target .primary-action,
   .food-log-card .primary-action.filled {
     grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .food-month-picker {
+    width: 100%;
+  }
+
+  .food-lookup-helper {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .food-lookup-helper button {
     width: 100%;
   }
 
