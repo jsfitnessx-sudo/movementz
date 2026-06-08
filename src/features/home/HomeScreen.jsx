@@ -342,7 +342,6 @@ export function HomeScreen({ onNavigate, role, user }) {
 
         <section className="panel coach-affirmation-card">
           <p className="eyebrow">Affirmation of the day</p>
-          <h2>Affirmation of the day</h2>
           <strong>"{coachHomeData.affirmation || "Be Yourself"}"</strong>
         </section>
 

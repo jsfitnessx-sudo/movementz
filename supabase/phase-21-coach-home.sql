@@ -80,6 +80,7 @@ set search_path = public
 as $$
 declare
   current_role text;
+  has_coach_profile boolean := false;
   client_ids uuid[] := '{}'::uuid[];
   active_clients integer := 0;
   new_clients integer := 0;
@@ -102,7 +103,14 @@ begin
   from public.profiles p
   where p.id = auth.uid();
 
-  if current_role not in ('coach', 'admin') then
+  select exists (
+    select 1
+    from public.coach_profiles cp
+    where cp.user_id = auth.uid()
+  )
+  into has_coach_profile;
+
+  if current_role not in ('coach', 'admin') and not has_coach_profile then
     raise exception 'Only coaches can load the coach dashboard.';
   end if;
 
