@@ -4741,6 +4741,7 @@ button {
 }
 
 .mindset-card input,
+.mindset-card select,
 .mindset-card textarea {
   width: 100%;
   border: 1px solid var(--mind-line);
@@ -4768,12 +4769,14 @@ button {
 }
 
 .mood-options button {
+  min-width: 0;
   min-height: 48px;
   border: 1px solid var(--mind-line);
   border-radius: 9px;
   background: #fff;
   color: var(--mind-muted);
   padding: 6px;
+  overflow: hidden;
 }
 
 .mood-options button.active {
@@ -4784,7 +4787,17 @@ button {
 
 .mood-options strong {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.mood-options span {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .mood-options .great.active,
@@ -4866,8 +4879,7 @@ button {
   text-decoration: none;
 }
 
-.why-card label,
-.why-card > div {
+.why-card label {
   display: grid;
   gap: 7px;
   color: var(--mind-muted);
@@ -4876,12 +4888,30 @@ button {
   text-align: center;
 }
 
-.why-card > div:nth-of-type(1) {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.future-reminder-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--mind-muted);
+  font-size: 11px;
+  font-weight: 800;
 }
 
-.why-card > div:nth-of-type(1) span {
-  grid-column: 1 / -1;
+.future-reminder-head strong {
+  color: var(--mind-text);
+}
+
+.future-reminder-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.future-reminder-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .why-card button,
@@ -4913,6 +4943,186 @@ button {
 .resource-editor {
   border-color: var(--mind-gold);
   background: #fffaf0;
+}
+
+.support-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.support-alert-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mind-muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.support-alert-toggle input {
+  width: auto;
+  min-height: auto;
+}
+
+.resource-library-shell {
+  max-width: 980px;
+}
+
+.resource-library-title {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.resource-library-title .eyebrow,
+.resource-library-title h1 {
+  grid-column: 1;
+}
+
+.resource-library-title button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.resource-category-panel {
+  gap: 12px;
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.resource-library-card {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  border: 1px solid #bce4dd;
+  border-radius: 10px;
+  background: #eefbf8;
+  padding: 9px;
+}
+
+.resource-thumb {
+  display: grid;
+  min-height: 74px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #dcefe9;
+}
+
+.resource-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.resource-thumb span {
+  color: var(--mind-teal);
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.resource-library-card div:last-child {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.resource-library-card span {
+  color: var(--mind-teal);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.resource-library-card strong {
+  overflow: hidden;
+  color: var(--mind-text);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-library-card p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-align: left;
+}
+
+.resource-library-card a {
+  display: inline-grid;
+  min-height: 30px;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--mind-teal);
+  color: #052625;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.home-mindset-card {
+  display: grid;
+  gap: 10px;
+  border-color: color-mix(in srgb, var(--teal) 40%, var(--line));
+}
+
+.home-mindset-card div {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 5%, var(--panel));
+}
+
+.home-mindset-card span {
+  color: var(--teal);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-mindset-card strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.due-reminder-card {
+  border-color: var(--mind-gold);
+  background: #fffaf0;
+}
+
+.due-reminder-card article {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid #efd99f;
+  border-radius: 9px;
+  background: #fffdf6;
+  text-align: center;
+}
+
+.due-reminder-card span {
+  color: #9f741e;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.due-reminder-card strong {
+  color: var(--mind-text);
+  font-size: 15px;
 }
 
 .mood-history-card > div:first-child {
@@ -5263,12 +5473,13 @@ button {
 
 .nav-icon {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   border-radius: 6px;
   background: #172838;
-  font-size: 12px;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .nav-item > span:last-child {

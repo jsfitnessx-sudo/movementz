@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabase/client.js";
 export function HomeScreen({ onNavigate, role, user }) {
   const isCoach = role === "coach";
   const [coachClientCount, setCoachClientCount] = useState(0);
+  const [homeMindset, setHomeMindset] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -18,6 +19,40 @@ export function HomeScreen({ onNavigate, role, user }) {
       const { data } = await supabase.rpc("get_my_coach_clients");
       if (alive) {
         setCoachClientCount((data || []).filter((client) => client.status === "active").length);
+      }
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [isCoach, user.id]);
+
+  useEffect(() => {
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      if (isCoach || !supabase || user.id === "demo-user") {
+        if (alive) setHomeMindset(null);
+        return;
+      }
+
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      const { data } = await supabase
+        .from("daily_mindset_logs")
+        .select("log_date,weekly_focus,gratitude")
+        .eq("user_id", user.id)
+        .gte("log_date", sevenDaysAgo.toISOString().slice(0, 10))
+        .order("log_date", { ascending: false })
+        .limit(7);
+
+      if (alive) {
+        const today = new Date().toISOString().slice(0, 10);
+        const logs = data || [];
+        setHomeMindset({
+          weeklyFocus: logs.find((log) => log.weekly_focus)?.weekly_focus || "",
+          gratitude: logs.find((log) => log.log_date === today)?.gratitude || ""
+        });
       }
     });
 
@@ -84,13 +119,31 @@ export function HomeScreen({ onNavigate, role, user }) {
         <StatCard label="Habits today" value="0%" tone="blue" />
       </div>
 
-      <div className="panel">
-        <h2>Foundation ready</h2>
-        <p>
-          This clean shell separates user, client, coach and admin experiences
-          so the rebuild does not become one large tangled file again.
-        </p>
-      </div>
+      {(homeMindset?.weeklyFocus || homeMindset?.gratitude) ? (
+        <div className="panel home-mindset-card">
+          <p className="eyebrow">Mindset today</p>
+          {homeMindset.weeklyFocus ? (
+            <div>
+              <span>Weekly focus</span>
+              <strong>{homeMindset.weeklyFocus}</strong>
+            </div>
+          ) : null}
+          {homeMindset.gratitude ? (
+            <div>
+              <span>Gratitude</span>
+              <strong>{homeMindset.gratitude}</strong>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="panel">
+          <h2>Foundation ready</h2>
+          <p>
+            This clean shell separates user, client, coach and admin experiences
+            so the rebuild does not become one large tangled file again.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

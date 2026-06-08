@@ -9,8 +9,10 @@ create table if not exists public.daily_mindset_logs (
   mood_note text,
   support_need text,
   affirmation text,
+  weekly_focus text,
   morning_focus text,
   reminder_minutes integer,
+  affirmation_themes text[] not null default '{}',
   support_tags text[] not null default '{}',
   gratitude text,
   reflection text,
@@ -26,12 +28,30 @@ create table if not exists public.mindset_resources (
   category text,
   description text,
   url text not null,
+  thumbnail_url text,
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.mindset_future_reminders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  horizon_months integer not null check (horizon_months in (3, 6, 9, 12)),
+  message text,
+  due_date date not null,
+  status text not null default 'hidden' check (status in ('hidden', 'due', 'shown', 'skipped')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, horizon_months)
+);
+
+alter table public.daily_mindset_logs add column if not exists weekly_focus text;
+alter table public.daily_mindset_logs add column if not exists affirmation_themes text[] not null default '{}';
+alter table public.mindset_resources add column if not exists thumbnail_url text;
+
 alter table public.daily_mindset_logs enable row level security;
 alter table public.mindset_resources enable row level security;
+alter table public.mindset_future_reminders enable row level security;
 
 drop policy if exists "daily_mindset_logs_select_own_or_linked_coach" on public.daily_mindset_logs;
 create policy "daily_mindset_logs_select_own_or_linked_coach"
@@ -85,11 +105,36 @@ with check (
   )
 );
 
+drop policy if exists "mindset_future_reminders_select_own" on public.mindset_future_reminders;
+create policy "mindset_future_reminders_select_own"
+on public.mindset_future_reminders
+for select
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "mindset_future_reminders_insert_own" on public.mindset_future_reminders;
+create policy "mindset_future_reminders_insert_own"
+on public.mindset_future_reminders
+for insert
+to authenticated
+with check (user_id = auth.uid());
+
+drop policy if exists "mindset_future_reminders_update_own" on public.mindset_future_reminders;
+create policy "mindset_future_reminders_update_own"
+on public.mindset_future_reminders
+for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
 create index if not exists daily_mindset_logs_user_date_idx
   on public.daily_mindset_logs(user_id, log_date desc);
 
 create index if not exists mindset_resources_active_created_idx
   on public.mindset_resources(is_active, created_at desc);
+
+create index if not exists mindset_future_reminders_user_horizon_idx
+  on public.mindset_future_reminders(user_id, horizon_months);
 
 create or replace function public.set_daily_mindset_logs_updated_at()
 returns trigger
@@ -105,3 +150,18 @@ drop trigger if exists daily_mindset_logs_updated_at on public.daily_mindset_log
 create trigger daily_mindset_logs_updated_at
 before update on public.daily_mindset_logs
 for each row execute function public.set_daily_mindset_logs_updated_at();
+
+create or replace function public.set_mindset_future_reminders_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists mindset_future_reminders_updated_at on public.mindset_future_reminders;
+create trigger mindset_future_reminders_updated_at
+before update on public.mindset_future_reminders
+for each row execute function public.set_mindset_future_reminders_updated_at();
