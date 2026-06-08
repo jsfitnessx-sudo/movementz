@@ -77,6 +77,12 @@ function measurementChanges(tracker, checkins) {
     .filter((item) => item.value !== "-");
 }
 
+function habitPercent(habit) {
+  if (habit?.percent !== null && habit?.percent !== undefined) return Number(habit.percent) || 0;
+  const total = Number(habit?.total || 7) || 7;
+  return Math.round(((Number(habit?.done || 0) || 0) / total) * 100);
+}
+
 function MiniLineChart({ color = "teal", label, points, suffix = "" }) {
   const cleanPoints = points.filter((point) => point.value !== null && point.value !== undefined && point.value !== "");
   if (cleanPoints.length < 2) {
@@ -261,6 +267,7 @@ export function ClientsScreen({ profile, user }) {
   const [clientProgressRecords, setClientProgressRecords] = useState(() => buildProgressRecords([]));
   const [clientCompletedTrackers, setClientCompletedTrackers] = useState([]);
   const [clientHabits, setClientHabits] = useState([]);
+  const [clientHabitAverage, setClientHabitAverage] = useState(0);
   const [clientProgressError, setClientProgressError] = useState("");
   const [clientChartsOpen, setClientChartsOpen] = useState(false);
   const [clientPhotosOpen, setClientPhotosOpen] = useState(false);
@@ -397,6 +404,7 @@ export function ClientsScreen({ profile, user }) {
       setClientProgressRecords(buildProgressRecords([]));
       setClientCompletedTrackers([]);
       setClientHabits([]);
+      setClientHabitAverage(0);
       setClientProgressError("");
       setLoadingPhotos(false);
       return;
@@ -422,6 +430,7 @@ export function ClientsScreen({ profile, user }) {
       setClientProgressRecords(buildProgressRecords(summary?.record_sessions || []));
       setClientCompletedTrackers(await signTrackerSummaryPhotos(summary?.completed_trackers || []));
       setClientHabits(summary?.habits || []);
+      setClientHabitAverage(summary?.habit_average || 0);
       setLoadingPhotos(false);
       return;
     }
@@ -465,6 +474,7 @@ export function ClientsScreen({ profile, user }) {
       setClientProgressRecords(buildProgressRecords([]));
       setClientCompletedTrackers([]);
       setClientHabits([]);
+      setClientHabitAverage(0);
       setLoadingPhotos(false);
       return;
     }
@@ -485,6 +495,7 @@ export function ClientsScreen({ profile, user }) {
     setClientProgressRecords(buildProgressRecords([]));
     setClientCompletedTrackers([]);
     setClientHabits([]);
+    setClientHabitAverage(0);
     setLoadingPhotos(false);
   }, [selectedClient?.client_id, signClientPhotos, signTrackerSummaryPhotos, user.id]);
 
@@ -843,18 +854,30 @@ export function ClientsScreen({ profile, user }) {
             <div className="client-section-title">
               <div>
                 <p className="eyebrow">Daily habits</p>
-                <span>Weekly habit compliance will appear once habit tracking is added.</span>
+                <span>Last 7 days habit compliance for {clientName(selectedClient)}.</span>
               </div>
-              <strong className="client-week-average">{clientHabits.length ? "Live" : "-"}</strong>
+              <strong className="client-week-average">{clientHabitAverage}%</strong>
             </div>
             {clientHabits.length ? (
-              <div className="habit-summary-list">
+              <div className="coach-habit-table">
+                <div className="coach-habit-head">
+                  <span>Habit</span>
+                  <span>Done</span>
+                  <span>Compliance</span>
+                </div>
                 {clientHabits.map((habit) => (
-                  <span key={habit.name}>{habit.name}: {habit.done || 0}/{habit.total || 7}</span>
+                  <div className="coach-habit-row" key={habit.name}>
+                    <strong>{habit.name}</strong>
+                    <span>{habit.done || 0}/{habit.total || 7}</span>
+                    <div>
+                      <em><i style={{ width: `${habitPercent(habit)}%` }} /></em>
+                      <b>{habitPercent(habit)}%</b>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
-              <p className="compact-help">No habit tracking data yet.</p>
+              <p className="compact-help">No habit logs yet. Once this client starts logging, weekly compliance will show here.</p>
             )}
           </section>
 

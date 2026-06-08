@@ -4311,6 +4311,76 @@ button {
   font-weight: 800;
 }
 
+.coach-habit-table {
+  display: grid;
+  gap: 0;
+}
+
+.coach-habit-head,
+.coach-habit-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 72px minmax(150px, 1.4fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.coach-habit-head {
+  padding-top: 0;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.coach-habit-row strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coach-habit-row > span {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.coach-habit-row > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 8px;
+  align-items: center;
+}
+
+.coach-habit-row em {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+}
+
+.coach-habit-row i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--teal), var(--teal-soft));
+}
+
+.coach-habit-row b {
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.coach-habit-row:has(i[style*="100"]) b {
+  color: var(--teal);
+}
+
 .client-final-tracker-list {
   display: grid;
   gap: 10px;
@@ -4580,6 +4650,12 @@ button {
 
   .client-photo-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .coach-habit-head,
+  .coach-habit-row {
+    grid-template-columns: minmax(96px, 1fr) 52px minmax(120px, 1.2fr);
+    gap: 7px;
   }
 
   .client-detail-grid {

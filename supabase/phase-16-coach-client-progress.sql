@@ -19,6 +19,8 @@ declare
   latest_workout_rows jsonb := '[]'::jsonb;
   latest_workout_row jsonb;
   record_session_rows jsonb := '[]'::jsonb;
+  habit_rows jsonb := '[]'::jsonb;
+  habit_average integer := 0;
   workout_count integer := 0;
 begin
   if auth.uid() is null then
@@ -280,6 +282,47 @@ begin
     limit 6
   ) plans;
 
+  with recent_logs as (
+    select *
+    from public.daily_habit_logs dhl
+    where dhl.user_id = target_client_id
+      and dhl.log_date >= current_date - interval '6 days'
+    order by dhl.log_date desc
+    limit 7
+  ),
+  habit_summary as (
+    select 'Gratitude' as name, count(*) filter (where coalesce((mindset->>'gratitude')::boolean, false))::integer as done from recent_logs
+    union all select 'Personal Development', count(*) filter (where coalesce((mindset->>'personal_development')::boolean, false))::integer from recent_logs
+    union all select 'Mindfulness', count(*) filter (where coalesce((mindset->>'mindfulness')::boolean, false))::integer from recent_logs
+    union all select 'Mood Check-In', count(*) filter (where coalesce((mindset->>'positive_checkin')::boolean, false))::integer from recent_logs
+    union all select 'Daily Win', count(*) filter (where coalesce((mindset->>'daily_win')::boolean, false))::integer from recent_logs
+    union all select 'Workout', count(*) filter (where workout_completed)::integer from recent_logs
+    union all select 'Steps', count(*) filter (where coalesce(steps, 0) > 0)::integer from recent_logs
+    union all select 'Water', count(*) filter (where coalesce(water_liters, 0) > 0)::integer from recent_logs
+    union all select 'Protein', count(*) filter (where coalesce(protein_g, 0) > 0)::integer from recent_logs
+    union all select 'Sleep', count(*) filter (where coalesce(sleep_hours, 0) > 0)::integer from recent_logs
+    union all select 'Nutrition Compliance', count(*) filter (where nutrition_compliance in ('yes', 'mostly'))::integer from recent_logs
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'name', name,
+    'done', done,
+    'total', 7,
+    'percent', round((done::numeric / 7) * 100)::integer
+  )), '[]'::jsonb)
+  into habit_rows
+  from habit_summary;
+
+  select coalesce(round(avg(completion_percent))::integer, 0)
+  into habit_average
+  from (
+    select completion_percent
+    from public.daily_habit_logs dhl
+    where dhl.user_id = target_client_id
+      and dhl.log_date >= current_date - interval '6 days'
+    order by dhl.log_date desc
+    limit 7
+  ) recent_habit_average;
+
   return jsonb_build_object(
     'tracker', tracker_row,
     'checkins', checkin_rows,
@@ -293,7 +336,8 @@ begin
     'record_sessions', record_session_rows,
     'completed_trackers', completed_tracker_rows,
     'prs', 0,
-    'habits', '[]'::jsonb
+    'habit_average', habit_average,
+    'habits', habit_rows
   );
 end;
 $$;
