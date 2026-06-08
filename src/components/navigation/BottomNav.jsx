@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function BottomNav({ activeTab, onTabChange, tabs }) {
+export function BottomNav({ activeTab, badges = {}, onTabChange, tabs }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const preferredOverflowIds = new Set(["habits", "progress", "feed", "food", "mindset"]);
   const visibleTabs = tabs.filter((tab) => !preferredOverflowIds.has(tab.id)).slice(0, 5);
@@ -53,6 +53,7 @@ export function BottomNav({ activeTab, onTabChange, tabs }) {
           >
             <span className="nav-icon" aria-hidden="true">
               {tab.icon}
+              {Number(badges[tab.id] || 0) > 0 ? <em className="nav-badge">{badges[tab.id]}</em> : null}
             </span>
             <span>{tab.label}</span>
           </button>

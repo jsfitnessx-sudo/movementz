@@ -15,7 +15,15 @@ function peerInitial(peer) {
   return (peer?.peer_name || peer?.peer_email || "M").slice(0, 1).toUpperCase();
 }
 
-export function MessagesScreen({ role = "normal_user", user }) {
+function relationshipCopy(thread, role) {
+  if (!thread) return "Messages";
+  if (thread.relationship_role === "mutual") return "Mutual";
+  if (thread.relationship_role === "coach") return "Your coach";
+  if (thread.relationship_role === "client") return "Client";
+  return role === "coach" ? "Client" : "Thread";
+}
+
+export function MessagesScreen({ onNotificationsChange, role = "normal_user", user }) {
   const [threads, setThreads] = useState([]);
   const [selectedPeerId, setSelectedPeerId] = useState("");
   const [messages, setMessages] = useState([]);
@@ -46,7 +54,7 @@ export function MessagesScreen({ role = "normal_user", user }) {
     setLoadingThreads(false);
 
     if (error) {
-      setMessage(`${error.message}. Run supabase/phase-11-coach-messages.sql in Supabase.`);
+      setMessage(`${error.message}. Run supabase/phase-25-notifications-mutual-messages.sql in Supabase.`);
       setThreads([]);
       return;
     }
@@ -75,13 +83,14 @@ export function MessagesScreen({ role = "normal_user", user }) {
     setLoadingMessages(false);
 
     if (error) {
-      setMessage(`${error.message}. Run supabase/phase-11-coach-messages.sql in Supabase.`);
+      setMessage(`${error.message}. Run supabase/phase-25-notifications-mutual-messages.sql in Supabase.`);
       setMessages([]);
       return;
     }
 
     setMessages(data || []);
-  }, [user.id]);
+    onNotificationsChange?.({ silent: true });
+  }, [onNotificationsChange, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -124,34 +133,41 @@ export function MessagesScreen({ role = "normal_user", user }) {
     setSending(false);
 
     if (error) {
-      setMessage(`${error.message}. Run supabase/phase-11-coach-messages.sql in Supabase.`);
+      setMessage(`${error.message}. Run supabase/phase-25-notifications-mutual-messages.sql in Supabase.`);
       return;
     }
 
     setDraft("");
     await Promise.all([loadMessages(selectedPeerId), loadThreads()]);
+    onNotificationsChange?.({ silent: true });
   }
+
+  const hasThreadPicker = role === "coach" || threads.length > 1 || threads.some((thread) => thread.relationship_role === "mutual");
+  const emptyThreadCopy = role === "coach"
+    ? "Link a client first, then their thread will appear here."
+    : "Accept a coach invite or mutual request and your thread will appear here.";
+  const selectedLabel = relationshipCopy(selectedThread, role);
 
   return (
     <section className="screen-stack messages-screen">
       <div className="screen-heading">
-        <p className="eyebrow">{role === "coach" ? "Client inbox" : "Coaching thread"}</p>
-        <h1>{role === "coach" ? "Messages" : <>Coach <span>Messages</span></>}</h1>
-        <p>{role === "coach" ? "Select a client and keep the coaching thread in one place." : "Keep your coaching conversation in one place."}</p>
+        <p className="eyebrow">{role === "coach" ? "Client inbox" : "Inbox"}</p>
+        <h1>{role === "coach" ? "Messages" : <>Messages</>}</h1>
+        <p>{role === "coach" ? "Select a client or mutual and keep the thread in one place." : "Message your coach or approved mutuals."}</p>
       </div>
 
       {message ? <p className="form-message error">{message}</p> : null}
       {loadingThreads ? <p className="form-message success">Loading messages...</p> : null}
 
       <div className="message-shell">
-        {role === "coach" ? (
+        {hasThreadPicker ? (
           <label className="message-client-select">
-            Client
+            Conversation
             <select value={selectedPeerId} onChange={(event) => setSelectedPeerId(event.target.value)}>
-              {threads.length ? null : <option value="">No linked clients</option>}
+              {threads.length ? null : <option value="">No threads yet</option>}
               {threads.map((thread) => (
                 <option key={thread.peer_id} value={thread.peer_id}>
-                  {thread.peer_name}
+                  {thread.peer_name} ({relationshipCopy(thread, role)})
                   {thread.latest_at ? ` - last ${formatMessageTime(thread.latest_at)}` : ""}
                 </option>
               ))}
@@ -169,7 +185,7 @@ export function MessagesScreen({ role = "normal_user", user }) {
               )}
             </div>
             <div>
-              <p className="eyebrow">{role === "coach" ? "To client" : "Your coach"}</p>
+              <p className="eyebrow">{selectedLabel}</p>
               <h2>{selectedThread.peer_name}</h2>
               <span>{selectedThread.peer_email}</span>
             </div>
@@ -179,7 +195,7 @@ export function MessagesScreen({ role = "normal_user", user }) {
         <div className="message-thread-window" aria-live="polite">
           {loadingMessages ? <p className="compact-help">Loading thread...</p> : null}
           {!loadingMessages && !selectedThread ? (
-            <p className="compact-help">{role === "coach" ? "Link a client first, then their thread will appear here." : "Accept a coach invite and your thread will appear here."}</p>
+            <p className="compact-help">{emptyThreadCopy}</p>
           ) : null}
           {!loadingMessages && selectedThread && !messages.length ? (
             <p className="compact-help">No messages yet. Start the conversation below.</p>
@@ -200,7 +216,7 @@ export function MessagesScreen({ role = "normal_user", user }) {
           <textarea
             disabled={!selectedThread || sending}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder={role === "coach" ? "Write a check-in, cue, or reminder..." : "Write your coach a message..."}
+            placeholder={selectedThread?.relationship_role === "mutual" ? "Write your mutual a message..." : role === "coach" ? "Write a check-in, cue, or reminder..." : "Write a message..."}
             value={draft}
           />
           <button className="primary-action filled" disabled={!draft.trim() || !selectedThread || sending} type="submit">

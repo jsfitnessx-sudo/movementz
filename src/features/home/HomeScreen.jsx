@@ -433,6 +433,15 @@ export function HomeScreen({ onNavigate, role, user }) {
       {message ? <p className="form-message error">{message}</p> : null}
       {loading ? <p className="form-message success">Loading home...</p> : null}
 
+      <button className="panel home-template-cta" onClick={() => onNavigate("templates")} type="button">
+        <div>
+          <p className="eyebrow">Public templates</p>
+          <strong>Browse Movementz workouts</strong>
+          <span>Strength and HIIT templates you can copy into your library.</span>
+        </div>
+        <em>Open</em>
+      </button>
+
       <div className="home-quick-grid">
         <button className="home-checkin-card" onClick={() => onNavigate("mindset")} type="button">
           <span>Mood check-in</span>

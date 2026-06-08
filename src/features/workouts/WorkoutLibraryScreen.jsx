@@ -571,7 +571,7 @@ export function WorkoutLibraryScreen({
     setLoading(true);
     const { data, error } = await supabase
       .from("workout_templates")
-      .select("id,name,notes,status,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_station_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
+      .select("id,name,notes,status,is_public_template,workout_type,hiit_timer_type,hiit_rounds,hiit_work_seconds,hiit_rest_seconds,hiit_station_rest_seconds,hiit_countdown_seconds,hiit_goal_seconds,hiit_focus_area,created_at,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
       .eq("owner_id", user.id)
       .eq("status", "active")
       .order("created_at", { ascending: false })
@@ -1859,6 +1859,40 @@ export function WorkoutLibraryScreen({
 
     setWorkouts((current) => current.filter((workout) => workout.id !== workoutId));
     await loadArchivedWorkouts();
+  }
+
+  async function togglePublicTemplate(workout) {
+    setOpenWorkoutMenu(null);
+    setMessage("");
+
+    if (!supabase || user.id === "demo-user") {
+      setWorkouts((current) =>
+        current.map((item) =>
+          item.id === workout.id ? { ...item, is_public_template: !item.is_public_template } : item
+        )
+      );
+      return;
+    }
+
+    const { error } = await supabase
+      .from("workout_templates")
+      .update({
+        is_public_template: !workout.is_public_template,
+        updated_at: new Date().toISOString()
+      })
+      .eq("owner_id", user.id)
+      .eq("id", workout.id);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-26-public-template-library.sql in Supabase.`);
+      return;
+    }
+
+    setWorkouts((current) =>
+      current.map((item) =>
+        item.id === workout.id ? { ...item, is_public_template: !workout.is_public_template } : item
+      )
+    );
   }
 
   async function restoreWorkout(workoutId) {
@@ -4695,6 +4729,14 @@ export function WorkoutLibraryScreen({
                                 type="button"
                               >
                                 Assign
+                              </button>
+                            ) : null}
+                            {role === "admin" ? (
+                              <button
+                                onClick={() => togglePublicTemplate(workout)}
+                                type="button"
+                              >
+                                {workout.is_public_template ? "Hide from public" : "Show in public"}
                               </button>
                             ) : null}
                             <button

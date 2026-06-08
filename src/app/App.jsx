@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AdminSettingsScreen } from "../features/admin/AdminSettingsScreen.jsx";
@@ -14,6 +14,7 @@ import { PlansScreen } from "../features/plans/PlansScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
 import { ProgressPhotosScreen } from "../features/progress/ProgressPhotosScreen.jsx";
 import { PlaceholderScreen } from "../features/shared/PlaceholderScreen.jsx";
+import { PublicTemplateLibraryScreen } from "../features/templates/PublicTemplateLibraryScreen.jsx";
 import { TodayScreen } from "../features/today/TodayScreen.jsx";
 import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.jsx";
 import { roleTabs } from "../lib/roles/roleTabs.js";
@@ -105,6 +106,14 @@ export function App() {
   const [handlingInvite, setHandlingInvite] = useState(false);
   const [previewAccount, setPreviewAccount] = useState(null);
   const [appMessage, setAppMessage] = useState("");
+  const [notificationSummary, setNotificationSummary] = useState({
+    unread_total: 0,
+    unread_messages: 0,
+    items: [],
+    open: false,
+    badges: {}
+  });
+  const notificationCountRef = useRef(0);
   const effectiveRole = previewAccount?.role || role;
   const tabs = useMemo(() => roleTabs[effectiveRole] ?? roleTabs.normal_user, [effectiveRole]);
   const [activeTab, setActiveTab] = useState(tabs[0].id);
@@ -122,6 +131,77 @@ export function App() {
     role: previewAccount.role,
     avatar_url: previewAccount.avatarUrl
   } : profile, [previewAccount, profile]);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(740, context.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(980, context.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.22);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.24);
+    } catch {
+      // Browsers can block audio before a user gesture; the badge still updates.
+    }
+  }, []);
+
+  const loadNotifications = useCallback(async ({ silent = false } = {}) => {
+    if (!supabase || !session?.user?.id || previewAccount) return;
+
+    const { data, error } = await supabase.rpc("get_my_notification_summary");
+    if (error) {
+      console.warn("Notification summary failed", error);
+      return;
+    }
+
+    const nextSummary = {
+      unread_total: Number(data?.unread_total || 0),
+      unread_messages: Number(data?.unread_messages || 0),
+      items: Array.isArray(data?.items) ? data.items : [],
+      badges: {
+        messages: Number(data?.unread_messages || 0)
+      }
+    };
+    const nextCount = nextSummary.unread_total + nextSummary.unread_messages;
+    if (!silent && nextCount > notificationCountRef.current) {
+      playNotificationSound();
+    }
+    notificationCountRef.current = nextCount;
+    setNotificationSummary((current) => ({
+      ...nextSummary,
+      open: current.open
+    }));
+  }, [playNotificationSound, previewAccount, session?.user?.id]);
+
+  const markNotificationsRead = useCallback(async ({ notificationId = null, filterType = null } = {}) => {
+    if (!supabase || !session?.user?.id || previewAccount) return;
+    await supabase.rpc("mark_app_notifications_read", {
+      notification_id: notificationId,
+      filter_type: filterType
+    });
+    await loadNotifications({ silent: true });
+  }, [loadNotifications, previewAccount, session?.user?.id]);
+
+  const toggleNotifications = useCallback(() => {
+    setNotificationSummary((current) => ({ ...current, open: !current.open }));
+  }, []);
+
+  async function handleNotificationSelect(notification) {
+    await markNotificationsRead({ notificationId: notification.id });
+    setNotificationSummary((current) => ({ ...current, open: false }));
+    if (notification.link_tab) {
+      setActiveTab(notification.link_tab);
+    }
+  }
 
   const previewInviteIfNeeded = useCallback(
     async (nextSession) => {
@@ -206,7 +286,7 @@ export function App() {
   }, [forcedSignupMode]);
 
   useEffect(() => {
-    if (activeTab === "profile") return;
+    if (activeTab === "profile" || activeTab === "templates") return;
 
     const nextTabs = roleTabs[effectiveRole] ?? roleTabs.normal_user;
     if (!nextTabs.some((tab) => tab.id === activeTab)) {
@@ -227,6 +307,22 @@ export function App() {
       alive = false;
     };
   }, [claimedInviteCode, previewInviteIfNeeded, pendingInviteCode, session]);
+
+  useEffect(() => {
+    if (!session?.user?.id || previewAccount) return undefined;
+    let alive = true;
+    Promise.resolve().then(() => {
+      if (alive) loadNotifications({ silent: true });
+    });
+    const interval = window.setInterval(() => {
+      if (alive) loadNotifications();
+    }, 20000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
+  }, [loadNotifications, previewAccount, session?.user?.id]);
 
   function handleDemoLogin(nextRole) {
     setRole(nextRole);
@@ -305,6 +401,8 @@ export function App() {
     setSession(null);
     setProfile(null);
     setPreviewAccount(null);
+    setNotificationSummary({ unread_total: 0, unread_messages: 0, items: [], open: false, badges: {} });
+    notificationCountRef.current = 0;
     setRole("normal_user");
     setActiveTab("home");
   }
@@ -340,6 +438,10 @@ export function App() {
       activeTab={activeTab}
       canPreviewRole={session.user.id === "demo-user"}
       onTabChange={setActiveTab}
+      notificationSummary={notificationSummary}
+      onNotificationSelect={handleNotificationSelect}
+      onNotificationsOpen={toggleNotifications}
+      onNotificationsRead={markNotificationsRead}
       onRoleChange={setRole}
       onProfileClick={() => setActiveTab("profile")}
       onSignOut={handleSignOut}
@@ -379,6 +481,8 @@ export function App() {
       ) : null}
       {activeTab === "home" ? (
         <HomeScreen onNavigate={setActiveTab} role={effectiveRole} user={user} />
+      ) : activeTab === "templates" ? (
+        <PublicTemplateLibraryScreen onBack={() => setActiveTab("home")} user={user} />
       ) : activeTab === "today" ? (
         <TodayScreen onNavigate={setActiveTab} role={effectiveRole} user={user} />
       ) : activeTab === "profile" ? (
@@ -394,8 +498,8 @@ export function App() {
         <PlansScreen role={effectiveRole} user={user} />
       ) : activeTab === "clients" && effectiveRole === "coach" ? (
         <ClientsScreen profile={effectiveProfile} user={user} />
-      ) : activeTab === "messages" && (effectiveRole === "coach" || effectiveRole === "client") ? (
-        <MessagesScreen role={effectiveRole} user={user} />
+      ) : activeTab === "messages" && (effectiveRole === "coach" || effectiveRole === "client" || effectiveRole === "normal_user") ? (
+        <MessagesScreen onNotificationsChange={loadNotifications} role={effectiveRole} user={user} />
       ) : activeTab === "habits" ? (
         <HabitsScreen user={user} />
       ) : activeTab === "progress" ? (
