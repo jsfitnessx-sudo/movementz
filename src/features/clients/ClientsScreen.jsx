@@ -47,6 +47,12 @@ function formatKg(value) {
   return `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })}kg`;
 }
 
+function formatCalories(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return `${Math.round(number).toLocaleString()} cal`;
+}
+
 function formatChange(value, suffix = "") {
   if (value === null || value === undefined || value === "") return "-";
   const number = Number(value);
@@ -268,6 +274,8 @@ export function ClientsScreen({ profile, user }) {
   const [clientCompletedTrackers, setClientCompletedTrackers] = useState([]);
   const [clientHabits, setClientHabits] = useState([]);
   const [clientHabitAverage, setClientHabitAverage] = useState(0);
+  const [clientFoodSummary, setClientFoodSummary] = useState(null);
+  const [clientFoodError, setClientFoodError] = useState("");
   const [clientProgressError, setClientProgressError] = useState("");
   const [clientChartsOpen, setClientChartsOpen] = useState(false);
   const [clientPhotosOpen, setClientPhotosOpen] = useState(false);
@@ -405,6 +413,8 @@ export function ClientsScreen({ profile, user }) {
       setClientCompletedTrackers([]);
       setClientHabits([]);
       setClientHabitAverage(0);
+      setClientFoodSummary(null);
+      setClientFoodError("");
       setClientProgressError("");
       setLoadingPhotos(false);
       return;
@@ -412,6 +422,22 @@ export function ClientsScreen({ profile, user }) {
 
     setLoadingPhotos(true);
     setClientProgressError("");
+    setClientFoodError("");
+
+    const loadFoodSummary = async () => {
+      const { data, error } = await supabase.rpc("get_coach_client_food_summary", {
+        target_client_id: clientId
+      });
+
+      if (error) {
+        setClientFoodSummary(null);
+        setClientFoodError(`${error.message}. Run supabase/phase-24-food-log.sql in Supabase.`);
+        return;
+      }
+
+      setClientFoodSummary(data || null);
+      setClientFoodError("");
+    };
 
     const { data: summary, error: summaryError } = await supabase.rpc("get_coach_client_progress_summary", {
       target_client_id: clientId
@@ -431,6 +457,7 @@ export function ClientsScreen({ profile, user }) {
       setClientCompletedTrackers(await signTrackerSummaryPhotos(summary?.completed_trackers || []));
       setClientHabits(summary?.habits || []);
       setClientHabitAverage(summary?.habit_average || 0);
+      await loadFoodSummary();
       setLoadingPhotos(false);
       return;
     }
@@ -475,6 +502,8 @@ export function ClientsScreen({ profile, user }) {
       setClientCompletedTrackers([]);
       setClientHabits([]);
       setClientHabitAverage(0);
+      setClientFoodSummary(null);
+      setClientFoodError("");
       setLoadingPhotos(false);
       return;
     }
@@ -496,6 +525,7 @@ export function ClientsScreen({ profile, user }) {
     setClientCompletedTrackers([]);
     setClientHabits([]);
     setClientHabitAverage(0);
+    await loadFoodSummary();
     setLoadingPhotos(false);
   }, [selectedClient?.client_id, signClientPhotos, signTrackerSummaryPhotos, user.id]);
 
@@ -833,6 +863,54 @@ export function ClientsScreen({ profile, user }) {
               )}
             </section>
           </div>
+
+          <section className="client-progress-card coach-food-summary">
+            <div className="client-section-title">
+              <div>
+                <p className="eyebrow">Food log</p>
+                <span>Daily calories and recent nutrition logs from this client.</span>
+              </div>
+              {clientFoodSummary ? <strong className="client-week-average">{clientFoodSummary.monthly_compliance || 0}%</strong> : null}
+            </div>
+            {clientFoodError ? (
+              <p className="form-message error">{clientFoodError}</p>
+            ) : clientFoodSummary ? (
+              <>
+                <div className="coach-food-grid">
+                  <div>
+                    <span>Today</span>
+                    <strong>{formatCalories(clientFoodSummary.today_calories)}</strong>
+                  </div>
+                  <div>
+                    <span>Target</span>
+                    <strong>{formatCalories(clientFoodSummary.today_target)}</strong>
+                  </div>
+                  <div className={Number(clientFoodSummary.today_remaining) < 0 ? "over" : ""}>
+                    <span>{Number(clientFoodSummary.today_remaining) < 0 ? "Exceeded" : "Remaining"}</span>
+                    <strong>{formatCalories(Math.abs(Number(clientFoodSummary.today_remaining || 0)))}</strong>
+                  </div>
+                  <div>
+                    <span>Week avg</span>
+                    <strong>{formatCalories(clientFoodSummary.week_average)}</strong>
+                  </div>
+                </div>
+                {clientFoodSummary.recent_days?.length ? (
+                  <div className="coach-food-days">
+                    {clientFoodSummary.recent_days.map((day) => (
+                      <span key={day.log_date}>
+                        <strong>{formatShortDate(day.log_date)}</strong>
+                        <em>{formatCalories(day.calories)} - {day.entries || 0} items - P {Math.round(day.protein_g || 0)}g</em>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="compact-help">No recent food logs yet.</p>
+                )}
+              </>
+            ) : (
+              <p className="compact-help">No food log data yet.</p>
+            )}
+          </section>
 
           <section className="client-progress-card">
             <div className="client-section-title">

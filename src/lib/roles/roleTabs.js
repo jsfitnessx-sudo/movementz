@@ -18,6 +18,7 @@ export const roleTabs = {
     { id: "habits", label: "Habits", icon: "\u2713" },
     { id: "progress", label: "Progress", icon: "\u{1F4CA}" },
     { id: "feed", label: "Feed", icon: "\u{1F30D}" },
+    { id: "food", label: "Food", icon: "\u{1F37D}" },
     { id: "mindset", label: "Mindset", icon: "\u{1F499}" }
   ],
   coach: [

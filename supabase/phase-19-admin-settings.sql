@@ -188,6 +188,10 @@ begin
   total_deleted := total_deleted + public.admin_delete_user_rows('goal_trackers', 'user_id', target_user_id);
   total_deleted := total_deleted + public.admin_delete_user_rows('progress_photos', 'user_id', target_user_id);
   total_deleted := total_deleted + public.admin_delete_user_rows('daily_habit_logs', 'user_id', target_user_id);
+  total_deleted := total_deleted + public.admin_delete_user_rows('food_log_entries', 'user_id', target_user_id);
+  total_deleted := total_deleted + public.admin_delete_user_rows('food_day_targets', 'user_id', target_user_id);
+  total_deleted := total_deleted + public.admin_delete_user_rows('food_month_targets', 'user_id', target_user_id);
+  total_deleted := total_deleted + public.admin_delete_user_rows('food_items', 'owner_id', target_user_id);
   total_deleted := total_deleted + public.admin_delete_user_rows('daily_mindset_logs', 'user_id', target_user_id);
   total_deleted := total_deleted + public.admin_delete_user_rows('mindset_future_reminders', 'user_id', target_user_id);
   total_deleted := total_deleted + public.admin_delete_user_rows('user_exercise_options', 'owner_id', target_user_id);

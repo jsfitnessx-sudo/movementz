@@ -5,6 +5,7 @@ import { AdminSettingsScreen } from "../features/admin/AdminSettingsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
 import { MutualFeedScreen } from "../features/feed/MutualFeedScreen.jsx";
+import { FoodLogScreen } from "../features/food/FoodLogScreen.jsx";
 import { HabitsScreen } from "../features/habits/HabitsScreen.jsx";
 import { HomeScreen } from "../features/home/HomeScreen.jsx";
 import { MindsetScreen } from "../features/mindset/MindsetScreen.jsx";
@@ -403,6 +404,8 @@ export function App() {
         <MindsetScreen role={effectiveRole} user={user} />
       ) : activeTab === "feed" ? (
         <MutualFeedScreen user={user} />
+      ) : activeTab === "food" ? (
+        <FoodLogScreen role={effectiveRole} user={user} />
       ) : activeTab === "requests" && effectiveRole === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : activeTab === "settings" && effectiveRole === "admin" ? (
