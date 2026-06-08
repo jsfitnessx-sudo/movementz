@@ -224,6 +224,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
   const [afterId, setAfterId] = useState("");
   const [progressView, setProgressView] = useState("hub");
   const [tracker, setTracker] = useState(null);
+  const [completedTrackers, setCompletedTrackers] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [trackerForm, setTrackerForm] = useState(() => blankTrackerForm(profile));
   const [checkinForm, setCheckinForm] = useState({});
@@ -354,6 +355,69 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     }));
   }, []);
 
+  const signFinalSummaryPhotos = useCallback(async (rows) => {
+    if (!supabase || !rows.length) return rows;
+    const photoIds = rows.flatMap((row) => {
+      const summary = row.final_summary || {};
+      return [
+        ...poses.map((nextPose) => summary.initial_photo_ids?.[nextPose]).filter(Boolean),
+        ...poses.map((nextPose) => summary.final_photo_ids?.[nextPose]).filter(Boolean)
+      ];
+    });
+
+    if (!photoIds.length) return rows;
+
+    const { data, error } = await supabase
+      .from("progress_photos")
+      .select("id,pose,thumbnail_path,taken_at")
+      .in("id", photoIds);
+
+    if (error || !data?.length) return rows;
+
+    const signed = await Promise.all(
+      data.map(async (photo) => {
+        const { data: thumbData } = await supabase.storage.from(bucketName).createSignedUrl(photo.thumbnail_path, 60 * 60);
+        return { ...photo, thumbnail_url: thumbData?.signedUrl || "" };
+      })
+    );
+    const byId = Object.fromEntries(signed.map((photo) => [photo.id, photo]));
+
+    return rows.map((row) => {
+      const summary = row.final_summary || {};
+      return {
+        ...row,
+        final_summary: {
+          ...summary,
+          initial_photos: poses.map((nextPose) => byId[summary.initial_photo_ids?.[nextPose]]).filter(Boolean),
+          final_photos: poses.map((nextPose) => byId[summary.final_photo_ids?.[nextPose]]).filter(Boolean)
+        }
+      };
+    });
+  }, []);
+
+  const loadCompletedTrackers = useCallback(async () => {
+    if (!targetUserId || !supabase || user.id === "demo-user") {
+      setCompletedTrackers([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("goal_trackers")
+      .select(trackerSelect)
+      .eq("user_id", targetUserId)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(6);
+
+    if (error) {
+      setCompletedTrackers([]);
+      setMessage(`${error.message}. Run supabase/phase-15-tracker-completion.sql in Supabase.`);
+      return;
+    }
+
+    setCompletedTrackers(await signFinalSummaryPhotos(data || []));
+  }, [signFinalSummaryPhotos, targetUserId, user.id]);
+
   const loadTracker = useCallback(async () => {
     if (!targetUserId || !supabase || user.id === "demo-user") {
       setTracker(null);
@@ -432,6 +496,16 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
       alive = false;
     };
   }, [loadTracker]);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.resolve().then(() => {
+      if (alive) loadCompletedTrackers();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [loadCompletedTrackers]);
 
   function updateTrackerForm(field, value) {
     setTrackerForm((current) => ({ ...current, [field]: value }));
@@ -673,6 +747,7 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
     setCheckins([]);
     setProgressView("hub");
     setMessage("Tracker completed. Final summary saved.");
+    await loadCompletedTrackers();
   }
 
   async function saveStartingMeasurements(form) {
@@ -901,6 +976,20 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
             <em>{latestCheckin ? `${latestCheckin.weight_kg || "-"}kg logged` : "Complete workouts or tracker logs to populate this section."}</em>
           </div>
         </div>
+
+        {completedTrackers.length ? (
+          <section className="tracker-results-section">
+            <div className="section-row">
+              <p className="eyebrow">Completed trackers</p>
+              <button className="primary-action compact" onClick={loadCompletedTrackers} type="button">Refresh</button>
+            </div>
+            <div className="tracker-results-list">
+              {completedTrackers.map((completedTracker) => (
+                <FinalTrackerSummaryCard key={completedTracker.id} tracker={completedTracker} />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </section>
     );
   }
@@ -1032,6 +1121,90 @@ function PhotoCompareCard({ label, photo }) {
         <span>{formatPhotoDate(photo.taken_at)}</span>
       </div>
     </article>
+  );
+}
+
+function formatChange(value, suffix = "") {
+  if (value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return `${number > 0 ? "+" : ""}${number.toFixed(1)}${suffix}`;
+}
+
+function FinalTrackerSummaryCard({ tracker }) {
+  const summary = tracker.final_summary || {};
+  const measurements = Object.values(summary.measurements || {}).filter((item) => item.change !== null && item.change !== undefined);
+  const initialPhotos = summary.initial_photos || [];
+  const finalPhotos = summary.final_photos || [];
+  const completedDate = summary.completed_at || tracker.completed_at;
+
+  return (
+    <article className="tracker-final-card">
+      <div className="tracker-final-head">
+        <div>
+          <p className="eyebrow">Final summary</p>
+          <h2>{tracker.goal_name}</h2>
+          <span>{tracker.duration_weeks} weeks - completed {formatTrackerDate(completedDate?.slice(0, 10) || completedDate)}</span>
+        </div>
+        <strong>{summary.checkins_logged || 0}/{tracker.duration_weeks || 0}</strong>
+      </div>
+
+      <div className="tracker-final-stats">
+        <div>
+          <span>Start weight</span>
+          <strong>{summary.start?.weight_kg ?? "-"}kg</strong>
+        </div>
+        <div>
+          <span>Final weight</span>
+          <strong>{summary.final?.weight_kg ?? "-"}kg</strong>
+        </div>
+        <div>
+          <span>Weight change</span>
+          <strong>{formatChange(summary.changes?.weight_kg, "kg")}</strong>
+        </div>
+        <div>
+          <span>Body fat</span>
+          <strong>{formatChange(summary.changes?.body_fat_percent, "%")}</strong>
+        </div>
+        <div>
+          <span>Fat mass</span>
+          <strong>{formatChange(summary.changes?.fat_kg, "kg")}</strong>
+        </div>
+        <div>
+          <span>Muscle mass</span>
+          <strong>{formatChange(summary.changes?.muscle_kg, "kg")}</strong>
+        </div>
+      </div>
+
+      {measurements.length ? (
+        <div className="tracker-final-measures">
+          {measurements.map((item) => (
+            <span key={item.label}>{item.label.replace(" cm", "")}: {formatChange(item.change, "cm")}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {initialPhotos.length || finalPhotos.length ? (
+        <div className="tracker-final-photos">
+          <FinalPhotoGroup label="Initial" photos={initialPhotos} />
+          <FinalPhotoGroup label="Final" photos={finalPhotos} />
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function FinalPhotoGroup({ label, photos }) {
+  if (!photos.length) return null;
+  return (
+    <div>
+      <span>{label}</span>
+      <div>
+        {photos.map((photo) => (
+          <img alt={`${label} ${photo.pose}`} key={photo.id} src={photo.thumbnail_url} />
+        ))}
+      </div>
+    </div>
   );
 }
 

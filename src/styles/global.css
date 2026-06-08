@@ -1639,6 +1639,118 @@ button {
   color: var(--blue);
 }
 
+.tracker-results-section,
+.tracker-results-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tracker-final-card {
+  display: grid;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--gold) 5%, var(--panel));
+  padding: 12px;
+}
+
+.tracker-final-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.tracker-final-head h2 {
+  margin: 2px 0;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.tracker-final-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tracker-final-head > strong {
+  border: 1px solid color-mix(in srgb, var(--teal) 55%, var(--line));
+  border-radius: 999px;
+  color: var(--teal);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.tracker-final-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.tracker-final-stats div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  padding: 8px;
+}
+
+.tracker-final-stats span,
+.tracker-final-photos span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tracker-final-stats strong {
+  color: var(--teal);
+  font-size: 14px;
+}
+
+.tracker-final-measures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tracker-final-measures span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--field);
+  color: var(--muted);
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tracker-final-photos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tracker-final-photos > div {
+  display: grid;
+  gap: 6px;
+}
+
+.tracker-final-photos > div > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.tracker-final-photos img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #091017;
+  object-fit: cover;
+}
+
 .tracker-screen {
   gap: 12px;
 }
