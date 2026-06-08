@@ -149,7 +149,7 @@ begin
     true,
     'active'
   )
-  returning id into new_template_id;
+  returning workout_templates.id into new_template_id;
 
   insert into public.workout_template_exercises (
     template_id,

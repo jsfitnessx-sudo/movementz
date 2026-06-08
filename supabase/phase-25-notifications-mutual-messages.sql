@@ -134,7 +134,7 @@ begin
     target_tab,
     coalesce(payload, '{}'::jsonb)
   )
-  returning id into notice_id;
+  returning app_notifications.id into notice_id;
 
   return notice_id;
 end;
@@ -439,8 +439,8 @@ begin
 
   select coalesce(full_name, email, 'Movementz user')
   into sender_name
-  from public.profiles
-  where id = auth.uid();
+  from public.profiles p
+  where p.id = auth.uid();
 
   select *
   into thread
@@ -525,8 +525,8 @@ begin
 
   select coalesce(full_name, email, 'Movementz user')
   into actor_name
-  from public.profiles
-  where id = auth.uid();
+  from public.profiles p
+  where p.id = auth.uid();
 
   select mc.id
   into connection_id
@@ -538,7 +538,7 @@ begin
   if connection_id is null then
     insert into public.mutual_connections(requester_id, recipient_id, status)
     values (auth.uid(), target_user_id, 'pending')
-    returning id into connection_id;
+    returning mutual_connections.id into connection_id;
   else
     update public.mutual_connections
     set requester_id = auth.uid(),
@@ -546,8 +546,8 @@ begin
         status = 'pending',
         responded_at = null,
         created_at = now()
-    where id = connection_id
-      and status = 'rejected';
+    where mutual_connections.id = connection_id
+      and mutual_connections.status = 'rejected';
   end if;
 
   perform public.create_app_notification(
@@ -590,9 +590,9 @@ begin
   update public.mutual_connections
   set status = lower(response_status),
       responded_at = now()
-  where id = connection_id
-    and recipient_id = auth.uid()
-    and status = 'pending';
+  where mutual_connections.id = connection_id
+    and mutual_connections.recipient_id = auth.uid()
+    and mutual_connections.status = 'pending';
 
   if not found then
     raise exception 'Mutual request not found.';
@@ -601,8 +601,8 @@ begin
   if lower(response_status) = 'active' then
     select coalesce(full_name, email, 'Movementz user')
     into actor_name
-    from public.profiles
-    where id = auth.uid();
+    from public.profiles p
+    where p.id = auth.uid();
 
     perform public.create_app_notification(
       requester,
@@ -649,13 +649,13 @@ begin
 
   select coalesce(full_name, email, 'Movementz user')
   into actor_name
-  from public.profiles
-  where id = auth.uid();
+  from public.profiles p
+  where p.id = auth.uid();
 
   if feed_item_type = 'workout' then
-    select owner_id into item_owner from public.session_logs where id = feed_item_id;
+    select sl.owner_id into item_owner from public.session_logs sl where sl.id = feed_item_id;
   elsif feed_item_type = 'mood' then
-    select user_id into item_owner from public.daily_mindset_logs where id = feed_item_id;
+    select dml.user_id into item_owner from public.daily_mindset_logs dml where dml.id = feed_item_id;
   elsif feed_item_type = 'pr' then
     select sl.owner_id
     into item_owner
@@ -698,17 +698,17 @@ begin
 
   insert into public.feed_comments(actor_id, item_type, item_id, body)
   values (auth.uid(), feed_item_type, feed_item_id, trim(comment_body))
-  returning id into new_comment_id;
+  returning feed_comments.id into new_comment_id;
 
   select coalesce(full_name, email, 'Movementz user')
   into actor_name
-  from public.profiles
-  where id = auth.uid();
+  from public.profiles p
+  where p.id = auth.uid();
 
   if feed_item_type = 'workout' then
-    select owner_id into item_owner from public.session_logs where id = feed_item_id;
+    select sl.owner_id into item_owner from public.session_logs sl where sl.id = feed_item_id;
   elsif feed_item_type = 'mood' then
-    select user_id into item_owner from public.daily_mindset_logs where id = feed_item_id;
+    select dml.user_id into item_owner from public.daily_mindset_logs dml where dml.id = feed_item_id;
   elsif feed_item_type = 'pr' then
     select sl.owner_id
     into item_owner

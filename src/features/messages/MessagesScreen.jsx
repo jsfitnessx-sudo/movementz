@@ -151,8 +151,8 @@ export function MessagesScreen({ onNotificationsChange, role = "normal_user", us
   return (
     <section className="screen-stack messages-screen">
       <div className="screen-heading">
-        <p className="eyebrow">{role === "coach" ? "Client inbox" : "Inbox"}</p>
-        <h1>{role === "coach" ? "Messages" : <>Messages</>}</h1>
+        <p className="eyebrow">Messages</p>
+        <h1>Messages</h1>
         <p>{role === "coach" ? "Select a client or mutual and keep the thread in one place." : "Message your coach or approved mutuals."}</p>
       </div>
 
