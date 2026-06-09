@@ -2,7 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
 
 const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || process.env.VITE_VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
@@ -48,7 +47,7 @@ export default async function handler(request, response) {
     return;
   }
 
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
+  if (!supabaseUrl || !supabaseServiceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
     json(response, 501, { error: "Push notifications are not configured on the server yet." });
     return;
   }
@@ -61,8 +60,7 @@ export default async function handler(request, response) {
   }
 
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey);
-  const authClient = createClient(supabaseUrl, supabaseAnonKey);
-  const { data: userData, error: userError } = await authClient.auth.getUser(token);
+  const { data: userData, error: userError } = await serviceClient.auth.getUser(token);
   const senderId = userData?.user?.id;
 
   if (userError || !senderId) {

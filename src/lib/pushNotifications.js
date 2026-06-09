@@ -76,8 +76,16 @@ export async function enablePhonePushNotifications() {
 export async function sendPhonePushToUser({ recipientId, title, body, url = "/", type = "message" }) {
   if (!recipientId || !supabase) return { sent: 0 };
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
+  const { data: userData } = await supabase.auth.getUser();
+  let token = null;
+  if (userData?.user?.id) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    token = sessionData?.session?.access_token;
+  }
+  if (!token) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    token = refreshed?.session?.access_token;
+  }
   if (!token) return { sent: 0 };
 
   const response = await fetch("/api/send-push", {
