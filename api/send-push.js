@@ -2,11 +2,17 @@ import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
 
 function cleanSupabaseUrl(url) {
-  return String(url || "")
+  const clean = String(url || "")
     .trim()
     .replace(/\/rest\/v1\/?$/i, "")
     .replace(/\/auth\/v1\/?$/i, "")
     .replace(/\/+$/, "");
+  try {
+    const parsed = new URL(clean);
+    return parsed.origin;
+  } catch {
+    return clean;
+  }
 }
 
 const supabaseUrl = cleanSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
