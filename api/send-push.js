@@ -1,7 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import webPush from "web-push";
 
-const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+function cleanSupabaseUrl(url) {
+  return String(url || "")
+    .trim()
+    .replace(/\/rest\/v1\/?$/i, "")
+    .replace(/\/auth\/v1\/?$/i, "")
+    .replace(/\/+$/, "");
+}
+
+const supabaseUrl = cleanSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || process.env.VITE_VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
@@ -64,7 +72,7 @@ export default async function handler(request, response) {
   const senderId = userData?.user?.id;
 
   if (userError || !senderId) {
-    json(response, 401, { error: "You must be signed in." });
+    json(response, 401, { error: `Push auth failed: ${userError?.message || "no user found"}.` });
     return;
   }
 
