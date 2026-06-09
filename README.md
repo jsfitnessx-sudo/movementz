@@ -4,6 +4,8 @@ This is the clean rebuild of Movementz.
 
 The current prototype remains in `work/metz-app` and should be treated as a reference only.
 
+Daily affirmation phone pushes use a Vercel cron endpoint.
+
 ## Setup
 
 1. Copy `.env.example` to `.env`.
