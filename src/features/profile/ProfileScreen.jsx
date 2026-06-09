@@ -4,8 +4,7 @@ import { supabase } from "../../lib/supabase/client.js";
 
 const baseRoleOptions = [
   { value: "normal_user", label: "Normal user" },
-  { value: "client", label: "Client" },
-  { value: "coach", label: "Coach" }
+  { value: "client", label: "Client" }
 ];
 
 const experienceOptions = [
@@ -91,8 +90,10 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
   const isClient = profileForm.role === "client";
   const roleOptions =
     profile?.role === "admin"
-      ? [...baseRoleOptions, { value: "admin", label: "Admin" }]
-      : baseRoleOptions;
+      ? [...baseRoleOptions, { value: "coach", label: "Coach" }, { value: "admin", label: "Admin" }]
+      : profile?.role === "coach"
+        ? [...baseRoleOptions, { value: "coach", label: "Coach" }]
+        : baseRoleOptions;
   const initials = useMemo(
     () => (profileForm.full_name || profileForm.email || "M").slice(0, 1).toUpperCase(),
     [profileForm.email, profileForm.full_name]

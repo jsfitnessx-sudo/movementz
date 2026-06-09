@@ -483,8 +483,6 @@ export function WorkoutLibraryScreen({
   const [swapCatalogResults, setSwapCatalogResults] = useState([]);
   const [swapExerciseDbResults, setSwapExerciseDbResults] = useState([]);
   const [demoVideo, setDemoVideo] = useState(null);
-  const [librarySearch, setLibrarySearch] = useState("");
-  const [libraryMuscleFilter, setLibraryMuscleFilter] = useState("All");
   const [expandedWorkoutIds, setExpandedWorkoutIds] = useState(new Set());
   const [openWorkoutMenu, setOpenWorkoutMenu] = useState(null);
   const [assignWorkout, setAssignWorkout] = useState(null);
@@ -544,20 +542,7 @@ export function WorkoutLibraryScreen({
     return Object.fromEntries((recentSessions || []).map((session) => [session.name, session]));
   }, [recentSessions]);
 
-  const filteredWorkouts = useMemo(() => {
-    const cleanSearch = librarySearch.trim().toLowerCase();
-    return workouts.filter((workout) => {
-      const exercises = workout.workout_template_exercises || [];
-      const muscleGroupsForWorkout = new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean));
-      const matchesSearch =
-        !cleanSearch ||
-        workout.name.toLowerCase().includes(cleanSearch) ||
-        exercises.some((exercise) => exercise.exercise_name?.toLowerCase().includes(cleanSearch));
-      const matchesMuscle = libraryMuscleFilter === "All" || muscleGroupsForWorkout.has(libraryMuscleFilter);
-
-      return matchesSearch && matchesMuscle;
-    });
-  }, [libraryMuscleFilter, librarySearch, workouts]);
+  const filteredWorkouts = workouts;
 
   const loadWorkouts = useCallback(async () => {
     setMessage("");
@@ -4626,31 +4611,6 @@ export function WorkoutLibraryScreen({
         </div>
       ) : (
         <>
-          <div className="library-control-panel">
-            <label>
-              Search workouts
-              <input
-                onChange={(event) => setLibrarySearch(event.target.value)}
-                placeholder="Workout or exercise name..."
-                value={librarySearch}
-              />
-            </label>
-            <label>
-              Muscle
-              <select
-                onChange={(event) => setLibraryMuscleFilter(event.target.value)}
-                value={libraryMuscleFilter}
-              >
-                <option value="All">All</option>
-                {muscleGroups.map((muscle) => (
-                  <option key={muscle} value={muscle}>
-                    {muscle}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
           {filteredWorkouts.length === 0 ? (
             <div className="panel empty-state">
               <p>No workouts match that filter.</p>

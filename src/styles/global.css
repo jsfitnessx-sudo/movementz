@@ -16,6 +16,7 @@
   --muted: #a2afba;
   --teal: #4fcac1;
   --teal-soft: #8bded8;
+  --logo-blue: #58d5e7;
   --gold: #e4bd4f;
   --blue: #8dbfea;
   --red: #ed7480;
@@ -108,7 +109,7 @@ button {
 
 .auth-mode-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 18px;
   padding: 4px;
@@ -6427,11 +6428,6 @@ button {
   font-weight: 950;
 }
 
-.nav-floating-menu button:nth-child(2) .floating-icon {
-  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
-  background: var(--gold);
-}
-
 .nav-floating-trigger {
   width: 60px;
   height: 60px;
@@ -7625,15 +7621,16 @@ button {
 .nav-floating-trigger {
   width: 54px;
   height: 54px;
-  border-color: color-mix(in srgb, var(--blue) 70%, transparent);
-  background: #9ec8ff;
+  border-color: color-mix(in srgb, var(--logo-blue) 70%, transparent);
+  background: var(--logo-blue);
   font-size: 28px;
 }
 
 .floating-icon {
   width: 46px;
   height: 46px;
-  background: #9ec8ff;
+  border-color: color-mix(in srgb, var(--logo-blue) 70%, transparent);
+  background: var(--logo-blue);
 }
 
 .nav-floating-menu {

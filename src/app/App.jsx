@@ -47,7 +47,7 @@ async function loadProfile(authUser) {
     id: authUser.id,
     email: authUser.email,
     full_name: metadata.full_name || "",
-    role: metadata.role || "normal_user",
+    role: metadata.role === "admin" ? "admin" : "normal_user",
     gender: metadata.gender || null,
     age: metadata.age ? Number(metadata.age) : null,
     location: metadata.location || null
@@ -98,7 +98,7 @@ function buildUser(session, profile) {
 export function App() {
   const forcedSignupMode = useMemo(() => {
     const signupMode = new URLSearchParams(window.location.search).get("signup");
-    return signupMode === "user" || signupMode === "coach" ? signupMode : "";
+    return signupMode === "user" ? signupMode : "";
   }, []);
   const [booting, setBooting] = useState(hasSupabaseConfig);
   const [session, setSession] = useState(null);
@@ -310,7 +310,7 @@ export function App() {
         const nextProfile = await loadProfile(nextSession.user);
         if (!alive) return;
         setProfile(nextProfile);
-        setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
+        setRole(nextProfile?.role || "normal_user");
       }
 
       setBooting(false);
@@ -326,7 +326,7 @@ export function App() {
       if (nextSession?.user) {
         const nextProfile = await loadProfile(nextSession.user);
         setProfile(nextProfile);
-        setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
+        setRole(nextProfile?.role || "normal_user");
       } else {
         setProfile(null);
         setRole("normal_user");
@@ -414,9 +414,9 @@ export function App() {
     }
     const nextProfile = await loadProfile(nextSession.user);
     setProfile(nextProfile);
-    setRole(nextProfile?.role || nextSession.user.user_metadata?.role || "normal_user");
+    setRole(nextProfile?.role || "normal_user");
     setSession(nextSession);
-    setActiveTab((roleTabs[nextProfile?.role || nextSession.user.user_metadata?.role] ?? roleTabs.normal_user)[0].id);
+    setActiveTab((roleTabs[nextProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
     await previewInviteIfNeeded(nextSession);
   }
 
@@ -436,7 +436,7 @@ export function App() {
 
     const nextProfile = await loadProfile(session.user);
     setProfile(nextProfile);
-    setRole(nextProfile?.role || session.user.user_metadata?.role || "normal_user");
+    setRole(nextProfile?.role || "normal_user");
     setActiveTab("home");
     setPendingInvite(null);
     setClaimedInviteCode(pendingInviteCode);

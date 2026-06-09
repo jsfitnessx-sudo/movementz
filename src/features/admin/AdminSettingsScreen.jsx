@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { buildSignupLink, copyTextToClipboard } from "../../lib/brandAssets.js";
+import { buildAuthRedirectUrl, buildSignupLink, copyTextToClipboard } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const resourceCategories = ["Featured", "Video", "Podcast", "Article", "Support"];
@@ -46,6 +46,7 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
   const [affirmations, setAffirmations] = useState([]);
   const [affirmationDraft, setAffirmationDraft] = useState(blankAffirmation);
   const [profiles, setProfiles] = useState([]);
+  const [passwordResetEmail, setPasswordResetEmail] = useState("");
   const [selectedResetId, setSelectedResetId] = useState("");
   const [resetConfirm, setResetConfirm] = useState("");
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -270,6 +271,27 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setMessage(copied ? "Signup link copied." : signupLink);
   }
 
+  async function sendPasswordReset(event) {
+    event.preventDefault();
+    if (!supabase || !passwordResetEmail.trim()) return;
+
+    setSaving("password-reset");
+    setMessage("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(passwordResetEmail.trim(), {
+      redirectTo: buildAuthRedirectUrl()
+    });
+
+    setSaving("");
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage(`Password reset email sent to ${passwordResetEmail.trim()}.`);
+  }
+
   return (
     <section className="screen-stack admin-settings-screen">
       <div className="screen-heading library-heading">
@@ -306,6 +328,25 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
             Copy
           </button>
         </div>
+      </section>
+
+      <section className="panel admin-settings-panel signup-link-panel">
+        <div>
+          <p className="eyebrow">Password reset</p>
+          <h2>Send reset email</h2>
+          <p>Use this when a member needs a fresh password reset link.</p>
+        </div>
+        <form className="copy-link-row" onSubmit={sendPasswordReset}>
+          <input
+            onChange={(event) => setPasswordResetEmail(event.target.value)}
+            placeholder="member@email.com"
+            type="email"
+            value={passwordResetEmail}
+          />
+          <button className="primary-action filled" disabled={saving === "password-reset"} type="submit">
+            {saving === "password-reset" ? "Sending..." : "Send"}
+          </button>
+        </form>
       </section>
 
       <section className="panel admin-settings-panel">

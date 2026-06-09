@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { movementzWordmarkSrc } from "../../lib/brandAssets.js";
+import { buildAuthRedirectUrl, movementzWordmarkSrc } from "../../lib/brandAssets.js";
 import { hasSupabaseConfig, supabase } from "../../lib/supabase/client.js";
 
 const coachExperienceOptions = [
@@ -33,11 +33,10 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const isCoachSignup = mode === "coach";
+  const isCoachSignup = false;
   const heading = useMemo(() => {
     if (!hasSupabaseConfig) return "Preview Movementz";
     if (mode === "login") return "Welcome back";
-    if (mode === "coach") return "Coach signup";
     return "Create account";
   }, [mode]);
 
@@ -90,7 +89,7 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
     setError("");
     setStatus("");
 
-    const role = isCoachSignup ? "coach" : "normal_user";
+    const role = "normal_user";
     const metadata = {
       role,
       full_name: form.fullName.trim(),
@@ -117,7 +116,10 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: form.email.trim(),
       password: form.password,
-      options: { data: metadata }
+      options: {
+        data: metadata,
+        emailRedirectTo: buildAuthRedirectUrl()
+      }
     });
 
     setSubmitting(false);
@@ -188,13 +190,6 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
             onClick={() => setMode("user")}
           >
             User
-          </button>
-          <button
-            className={mode === "coach" ? "active" : ""}
-            type="button"
-            onClick={() => setMode("coach")}
-          >
-            Coach
           </button>
         </div>
 
