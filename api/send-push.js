@@ -30,6 +30,7 @@ function json(response, status, payload) {
 }
 
 async function canSendToRecipient(serviceClient, senderId, recipientId, type) {
+  if (senderId === recipientId && type === "affirmation") return true;
   if (senderId === recipientId) return false;
 
   if (type === "message") {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { sendPhonePushToUser } from "../../lib/pushNotifications.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const moodOptions = [
@@ -31,7 +32,41 @@ const defaultResources = [
 ];
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateKey(new Date());
+}
+
+function localDateKey(value) {
+  const date = new Date(value);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function affirmationDateKey(value = new Date()) {
+  const date = new Date(value);
+  if (date.getHours() < 10) date.setDate(date.getDate() - 1);
+  return localDateKey(date);
+}
+
+function isAffirmationRefreshReady(value = new Date()) {
+  return new Date(value).getHours() >= 10;
+}
+
+function msUntilNextAffirmationRefresh() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(10, 0, 0, 0);
+  if (now >= next) next.setDate(next.getDate() + 1);
+  return Math.max(1000, next.getTime() - now.getTime() + 1000);
+}
+
+function hashText(value) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
 }
 
 function blankForm() {
@@ -61,7 +96,7 @@ function scoreToMood(score) {
   return moodOptions.find((option) => option.value === Number(score)) || moodOptions[2];
 }
 
-function pickDailyAffirmation(themes, customAffirmations = []) {
+function pickDailyAffirmation(themes, customAffirmations = [], dateKey = affirmationDateKey()) {
   const selected = themes?.length ? themes : ["Confidence"];
   const customPool = customAffirmations
     .filter((affirmation) => selected.includes(affirmation.theme))
@@ -69,8 +104,8 @@ function pickDailyAffirmation(themes, customAffirmations = []) {
     .filter(Boolean);
   const pool = customPool.length ? customPool : selected.flatMap((theme) => affirmations[theme] || []);
   const options = pool.length ? pool : affirmations.Confidence;
-  const dayNumber = Math.floor(new Date(`${todayIso()}T00:00:00`).getTime() / 86400000);
-  return options[dayNumber % options.length];
+  const pickIndex = hashText(`${dateKey}:${selected.join("|")}`) % options.length;
+  return options[pickIndex];
 }
 
 function resourceIcon(category = "") {
@@ -91,6 +126,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
   const [resourceForm, setResourceForm] = useState({ title: "", category: "Video", description: "", url: "" });
   const [reminders, setReminders] = useState([]);
   const [selectedHorizon, setSelectedHorizon] = useState(3);
+  const [affirmationKey, setAffirmationKey] = useState(() => affirmationDateKey());
   const [futureText, setFutureText] = useState("");
   const [allowSupportAlerts, setAllowSupportAlerts] = useState(false);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -109,7 +145,10 @@ export function MindsetScreen({ role = "normal_user", user }) {
     }
     return streak;
   }, [logs]);
-  const dailyAffirmation = useMemo(() => pickDailyAffirmation(form.affirmation_themes, customAffirmations), [customAffirmations, form.affirmation_themes]);
+  const dailyAffirmation = useMemo(
+    () => pickDailyAffirmation(form.affirmation_themes, customAffirmations, affirmationKey),
+    [affirmationKey, customAffirmations, form.affirmation_themes]
+  );
   const selectedReminder = reminders.find((reminder) => Number(reminder.horizon_months) === Number(selectedHorizon));
   const dueReminders = reminders.filter((reminder) => reminder.status === "hidden" && reminder.due_date <= logDate && reminder.message);
 
@@ -190,6 +229,33 @@ export function MindsetScreen({ role = "normal_user", user }) {
       alive = false;
     };
   }, [loadMindset]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setAffirmationKey(affirmationDateKey());
+    }, msUntilNextAffirmationRefresh());
+
+    return () => window.clearTimeout(timer);
+  }, [affirmationKey]);
+
+  useEffect(() => {
+    if (!dailyAffirmation || !user?.id || user.id === "demo-user" || !isAffirmationRefreshReady()) return;
+
+    const storageKey = `movementz:daily-affirmation-push:${user.id}:${affirmationKey}`;
+    if (window.localStorage.getItem(storageKey)) return;
+
+    sendPhonePushToUser({
+      recipientId: user.id,
+      title: "Daily affirmation",
+      body: dailyAffirmation,
+      url: "/?tab=mindset",
+      type: "affirmation"
+    }).then(() => {
+      window.localStorage.setItem(storageKey, "sent");
+    }).catch((pushError) => {
+      console.warn("Daily affirmation push failed", pushError);
+    });
+  }, [affirmationKey, dailyAffirmation, user?.id]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
