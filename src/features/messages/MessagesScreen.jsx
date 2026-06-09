@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { sendPhonePushToUser } from "../../lib/pushNotifications.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 function formatMessageTime(value) {
@@ -140,6 +141,16 @@ export function MessagesScreen({ onNotificationsChange, role = "normal_user", us
     setDraft("");
     await Promise.all([loadMessages(selectedPeerId), loadThreads()]);
     onNotificationsChange?.({ silent: true });
+
+    sendPhonePushToUser({
+      recipientId: selectedPeerId,
+      title: `${user.name || "Movementz"} sent you a message`,
+      body: cleanDraft,
+      url: "/?tab=messages",
+      type: "message"
+    }).catch((pushError) => {
+      console.warn("Phone push failed", pushError);
+    });
   }
 
   const hasThreadPicker = role === "coach" || threads.length > 1 || threads.some((thread) => thread.relationship_role === "mutual");

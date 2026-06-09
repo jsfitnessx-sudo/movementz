@@ -51,7 +51,7 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState("");
   const [message, setMessage] = useState("");
-  const signupLink = useMemo(buildSignupLink, []);
+  const signupLink = useMemo(() => buildSignupLink(), []);
 
   const selectedResetProfile = profiles.find((profile) => profile.id === selectedResetId);
   const testProfiles = useMemo(() => {

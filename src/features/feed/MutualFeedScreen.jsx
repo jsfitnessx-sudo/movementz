@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 const blankFeedData = {
@@ -57,7 +57,7 @@ export function MutualFeedScreen({ user }) {
     [feedData.pending_requests]
   );
 
-  async function loadFeed() {
+  const loadFeed = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
       setFeedData(blankFeedData);
       setLoading(false);
@@ -82,9 +82,9 @@ export function MutualFeedScreen({ user }) {
       mutuals: Array.isArray(data?.mutuals) ? data.mutuals : [],
       feed: Array.isArray(data?.feed) ? data.feed : []
     });
-  }
+  }, [user.id]);
 
-  async function loadLeaderboard(metric = leaderboardMetric) {
+  const loadLeaderboard = useCallback(async (metric = leaderboardMetric) => {
     if (!supabase || user.id === "demo-user") {
       setLeaderboard({ metric, rows: [] });
       return;
@@ -101,7 +101,7 @@ export function MutualFeedScreen({ user }) {
       metric: data?.metric || metric,
       rows: Array.isArray(data?.rows) ? data.rows : []
     });
-  }
+  }, [leaderboardMetric, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -111,7 +111,7 @@ export function MutualFeedScreen({ user }) {
     return () => {
       alive = false;
     };
-  }, [user.id]);
+  }, [loadFeed]);
 
   useEffect(() => {
     let alive = true;
@@ -122,7 +122,7 @@ export function MutualFeedScreen({ user }) {
     return () => {
       alive = false;
     };
-  }, [activeView, leaderboardMetric, user.id]);
+  }, [activeView, leaderboardMetric, loadLeaderboard]);
 
   async function searchMutuals() {
     const term = searchText.trim();

@@ -97,7 +97,7 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
     () => (profileForm.full_name || profileForm.email || "M").slice(0, 1).toUpperCase(),
     [profileForm.email, profileForm.full_name]
   );
-  const signupLink = useMemo(buildSignupLink, []);
+  const signupLink = useMemo(() => buildSignupLink(), []);
 
   useEffect(() => {
     Promise.resolve().then(() => setProfileForm(toProfileForm(profile, user)));

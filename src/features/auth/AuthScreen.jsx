@@ -42,7 +42,7 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
   }, [mode]);
 
   useEffect(() => {
-    setMode(initialMode);
+    Promise.resolve().then(() => setMode(initialMode));
   }, [initialMode]);
 
   function updateField(field, value) {

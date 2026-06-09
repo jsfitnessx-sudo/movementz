@@ -12,8 +12,10 @@ export function AppLayout({
   onNotificationsRead,
   onRoleChange,
   onProfileClick,
+  onPushEnable,
   onSignOut,
   onTabChange,
+  pushStatus = {},
   role,
   tabs,
   user
@@ -66,6 +68,27 @@ export function AppLayout({
             </div>
             <button className="icon-button" onClick={onNotificationsOpen} type="button" aria-label="Close notifications">x</button>
           </div>
+          <div className="phone-push-panel">
+            <div>
+              <strong>Phone notifications</strong>
+              <span>
+                {pushStatus.subscribed
+                  ? "Enabled on this device."
+                  : pushStatus.permission === "denied"
+                    ? "Blocked in phone/browser settings."
+                    : "Get message and check-in alerts on your phone."}
+              </span>
+            </div>
+            <button
+              className="primary-action compact"
+              disabled={!pushStatus.supported || pushStatus.enabling || pushStatus.subscribed || pushStatus.permission === "denied"}
+              onClick={onPushEnable}
+              type="button"
+            >
+              {pushStatus.enabling ? "Enabling..." : pushStatus.subscribed ? "Enabled" : "Enable"}
+            </button>
+          </div>
+          {pushStatus.message ? <p className={pushStatus.error ? "form-message error" : "form-message success"}>{pushStatus.message}</p> : null}
           {unreadTotal > 0 ? (
             <button
               className="text-button compact"

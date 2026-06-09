@@ -20,6 +20,7 @@ import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.
 import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
 import { movementzIconSrc } from "../lib/brandAssets.js";
+import { enablePhonePushNotifications, getPushStatus } from "../lib/pushNotifications.js";
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
 
 async function loadProfile(authUser) {
@@ -113,6 +114,15 @@ export function App() {
     open: false,
     badges: {}
   });
+  const [pushStatus, setPushStatus] = useState({
+    supported: false,
+    permission: "default",
+    subscribed: false,
+    configured: false,
+    enabling: false,
+    message: "",
+    error: false
+  });
   const notificationCountRef = useRef(0);
   const effectiveRole = previewAccount?.role || role;
   const tabs = useMemo(() => roleTabs[effectiveRole] ?? roleTabs.normal_user, [effectiveRole]);
@@ -193,6 +203,47 @@ export function App() {
 
   const toggleNotifications = useCallback(() => {
     setNotificationSummary((current) => ({ ...current, open: !current.open }));
+  }, []);
+
+  const refreshPushStatus = useCallback(async ({ silent = true } = {}) => {
+    if (!session?.user?.id || previewAccount) return;
+    try {
+      const nextStatus = await getPushStatus();
+      setPushStatus((current) => ({
+        ...current,
+        ...nextStatus,
+        message: silent ? current.message : current.message,
+        error: false
+      }));
+    } catch {
+      setPushStatus((current) => ({
+        ...current,
+        supported: false,
+        message: silent ? current.message : "Phone notifications are not available on this device.",
+        error: true
+      }));
+    }
+  }, [previewAccount, session?.user?.id]);
+
+  const handleEnablePush = useCallback(async () => {
+    setPushStatus((current) => ({ ...current, enabling: true, message: "", error: false }));
+    try {
+      const nextStatus = await enablePhonePushNotifications();
+      setPushStatus((current) => ({
+        ...current,
+        ...nextStatus,
+        enabling: false,
+        message: "Phone notifications enabled on this device.",
+        error: false
+      }));
+    } catch (pushError) {
+      setPushStatus((current) => ({
+        ...current,
+        enabling: false,
+        message: pushError.message,
+        error: true
+      }));
+    }
   }, []);
 
   async function handleNotificationSelect(notification) {
@@ -324,6 +375,24 @@ export function App() {
     };
   }, [loadNotifications, previewAccount, session?.user?.id]);
 
+  useEffect(() => {
+    if (!session?.user?.id || previewAccount) return undefined;
+    let alive = true;
+    Promise.resolve().then(async () => {
+      if (alive) await refreshPushStatus();
+    });
+    return () => {
+      alive = false;
+    };
+  }, [previewAccount, refreshPushStatus, session?.user?.id]);
+
+  useEffect(() => {
+    const requestedTab = new URLSearchParams(window.location.search).get("tab");
+    if (!requestedTab || !tabs.some((tab) => tab.id === requestedTab)) return;
+    setActiveTab(requestedTab);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }, [tabs]);
+
   function handleDemoLogin(nextRole) {
     setRole(nextRole);
     setActiveTab((roleTabs[nextRole] ?? roleTabs.normal_user)[0].id);
@@ -444,7 +513,9 @@ export function App() {
       onNotificationsRead={markNotificationsRead}
       onRoleChange={setRole}
       onProfileClick={() => setActiveTab("profile")}
+      onPushEnable={handleEnablePush}
       onSignOut={handleSignOut}
+      pushStatus={pushStatus}
       role={effectiveRole}
       tabs={tabs}
       user={user}

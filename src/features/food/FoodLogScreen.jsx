@@ -232,7 +232,7 @@ export function FoodLogScreen({ role, user }) {
 
   useEffect(() => {
     if (!supabase || !searchText.trim() || searchText.trim().length < 2) {
-      setFoodResults([]);
+      Promise.resolve().then(() => setFoodResults([]));
       return undefined;
     }
 

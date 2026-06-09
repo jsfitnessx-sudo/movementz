@@ -383,6 +383,35 @@ button {
   gap: 8px;
 }
 
+.phone-push-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 8%, var(--panel));
+}
+
+.phone-push-panel strong,
+.phone-push-panel span {
+  display: block;
+}
+
+.phone-push-panel strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.phone-push-panel span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .notification-list button {
   display: grid;
   gap: 4px;
