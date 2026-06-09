@@ -7349,6 +7349,384 @@ button {
   line-height: 1.02;
 }
 
+.appointments-screen,
+.admin-list-screen {
+  max-width: 1040px;
+}
+
+.calendar-panel,
+.day-detail-panel,
+.calendar-form,
+.admin-directory-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.calendar-head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+}
+
+.calendar-head h2 {
+  margin: 0;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendar-weekdays span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-grid button {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 5px;
+  min-height: 82px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  padding: 8px;
+}
+
+.calendar-grid button.muted {
+  opacity: 0.42;
+}
+
+.calendar-grid button.active {
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 1px var(--teal);
+}
+
+.calendar-grid i {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--teal);
+}
+
+.calendar-grid i.task {
+  background: var(--gold);
+}
+
+.calendar-grid i.reminder {
+  background: var(--blue);
+}
+
+.calendar-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  gap: 14px;
+}
+
+.calendar-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.calendar-item.done {
+  opacity: 0.62;
+}
+
+.calendar-item div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.calendar-item span,
+.calendar-item em,
+.calendar-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.calendar-item strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.calendar-form input,
+.calendar-form select,
+.calendar-form textarea,
+.directory-search {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.calendar-form textarea {
+  min-height: 82px;
+  padding: 12px;
+}
+
+.admin-directory-list,
+.coach-directory-list {
+  display: grid;
+  gap: 9px;
+}
+
+.admin-directory-list article,
+.coach-directory-list article {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(120px, 0.7fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr);
+  gap: 10px;
+  align-items: center;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.coach-directory-list article {
+  grid-template-columns: minmax(180px, 1fr) minmax(170px, 0.8fr) minmax(190px, 1fr) 120px;
+}
+
+.admin-directory-list div,
+.coach-directory-list div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-directory-list strong,
+.coach-directory-list strong,
+.coach-directory-list p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-directory-list span,
+.admin-directory-list em,
+.coach-directory-list span,
+.coach-directory-list em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-directory-list em,
+.coach-directory-list em {
+  color: var(--teal);
+  font-weight: 900;
+  text-transform: capitalize;
+}
+
+.weekly-focus-locked,
+.future-reminder-status {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--teal) 40%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--teal) 8%, transparent);
+}
+
+.weekly-focus-locked span,
+.future-reminder-status span,
+.future-reminder-status em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.future-reminder-status strong {
+  color: var(--teal);
+}
+
+.home-reminder-card,
+.home-gratitude-feed {
+  display: grid;
+  gap: 10px;
+}
+
+.home-reminder-card article,
+.home-gratitude-feed article {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.home-reminder-card span,
+.home-reminder-card em,
+.home-gratitude-feed span {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.coach-confirmation-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.coach-confirmation-card strong {
+  white-space: normal;
+}
+
+.app-shell:has(.mobile-number-pad) .nav-floating-wrap {
+  display: none;
+}
+
+.builder-refresh-action {
+  font-size: 0;
+}
+
+.builder-refresh-action::before {
+  content: "Refresh";
+  font-size: 12px;
+}
+
+.nav-floating-trigger {
+  width: 54px;
+  height: 54px;
+  border-color: color-mix(in srgb, var(--blue) 70%, transparent);
+  background: #9ec8ff;
+  font-size: 28px;
+}
+
+.floating-icon {
+  width: 46px;
+  height: 46px;
+  background: #9ec8ff;
+}
+
+.nav-floating-menu {
+  gap: 10px;
+}
+
+.nav-floating-menu button {
+  grid-template-columns: minmax(0, max-content) 46px;
+  gap: 10px;
+  font-size: 15px;
+}
+
+@media (max-width: 720px) {
+  .calendar-detail-grid,
+  .admin-directory-list article,
+  .coach-directory-list article {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-grid {
+    gap: 4px;
+  }
+
+  .calendar-grid button {
+    min-height: 58px;
+    padding: 6px;
+  }
+
+  .suggestion-picker .mini-actions {
+    display: flex;
+    justify-content: stretch;
+  }
+
+  .suggestion-picker .mini-actions .builder-refresh-action {
+    flex: 1 1 auto;
+    min-height: 38px;
+    font-size: 13px;
+  }
+
+  .suggestion-picker .mini-actions .remove-action {
+    flex: 0 0 auto;
+  }
+
+  .session-set-head,
+  .session-set-row {
+    grid-template-columns: 28px minmax(0, 0.9fr) minmax(0, 0.9fr) 46px;
+    gap: 5px;
+    padding: 6px;
+  }
+
+  .session-set-row input {
+    min-height: 34px;
+    font-size: 15px;
+  }
+
+  .session-set-row .set-toggle {
+    min-height: 34px;
+    font-size: 10px;
+  }
+
+  .session-set-row .danger-link {
+    min-height: 28px;
+    font-size: 11px;
+  }
+
+  .mobile-number-pad {
+    grid-template-rows: repeat(4, 54px);
+    gap: 6px;
+    padding: 9px 12px;
+  }
+
+  .mobile-number-pad button {
+    border-radius: 12px;
+    font-size: 28px;
+  }
+
+  .mobile-number-pad .keypad-hide {
+    font-size: 22px;
+  }
+
+  .mobile-number-pad .keypad-delete {
+    font-size: 20px;
+  }
+
+  .mobile-number-pad .keypad-next {
+    font-size: 22px;
+  }
+
+  .session-end-actions {
+    padding-bottom: 280px;
+  }
+}
+
 .workout-card p,
 .compact-help {
   font-size: 12px;

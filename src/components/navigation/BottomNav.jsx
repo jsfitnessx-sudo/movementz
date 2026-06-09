@@ -2,7 +2,7 @@ import { useState } from "react";
 
 export function BottomNav({ activeTab, badges = {}, onTabChange, tabs }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const preferredOverflowIds = new Set(["habits", "progress", "feed", "food", "mindset"]);
+  const preferredOverflowIds = new Set(["habits", "progress", "feed", "mindset", "food"]);
   const visibleTabs = tabs.filter((tab) => !preferredOverflowIds.has(tab.id)).slice(0, 5);
   const visibleIds = new Set(visibleTabs.map((tab) => tab.id));
   const overflowTabs = tabs.filter((tab) => !visibleIds.has(tab.id));

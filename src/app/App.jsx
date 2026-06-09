@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
+import { AdminCoachesScreen } from "../features/admin/AdminCoachesScreen.jsx";
 import { AdminSettingsScreen } from "../features/admin/AdminSettingsScreen.jsx";
+import { AdminUsersScreen } from "../features/admin/AdminUsersScreen.jsx";
+import { AppointmentsScreen } from "../features/appointments/AppointmentsScreen.jsx";
 import { AuthScreen } from "../features/auth/AuthScreen.jsx";
 import { ClientsScreen } from "../features/clients/ClientsScreen.jsx";
 import { MutualFeedScreen } from "../features/feed/MutualFeedScreen.jsx";
@@ -581,6 +584,12 @@ export function App() {
         <MutualFeedScreen user={user} />
       ) : activeTab === "food" ? (
         <FoodLogScreen role={effectiveRole} user={user} />
+      ) : activeTab === "appointments" && effectiveRole === "coach" ? (
+        <AppointmentsScreen user={user} />
+      ) : activeTab === "users" && effectiveRole === "admin" ? (
+        <AdminUsersScreen />
+      ) : activeTab === "coaches" && effectiveRole === "admin" ? (
+        <AdminCoachesScreen />
       ) : activeTab === "requests" && effectiveRole === "admin" ? (
         <AdminRequestsScreen user={user} />
       ) : activeTab === "settings" && effectiveRole === "admin" ? (

@@ -35,6 +35,13 @@ function todayIso() {
   return localDateKey(new Date());
 }
 
+function startOfWeekIso(value = new Date()) {
+  const date = new Date(value);
+  const day = date.getDay() || 7;
+  date.setDate(date.getDate() - day + 1);
+  return localDateKey(date);
+}
+
 function localDateKey(value) {
   const date = new Date(value);
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -90,6 +97,18 @@ function dueDateFromMonths(months) {
   const due = new Date();
   due.setMonth(due.getMonth() + Number(months));
   return due.toISOString().slice(0, 10);
+}
+
+function formatReminderCountdown(dueDate) {
+  if (!dueDate) return "";
+  const today = new Date(`${todayIso()}T00:00:00`);
+  const due = new Date(`${dueDate}T00:00:00`);
+  const days = Math.max(0, Math.ceil((due.getTime() - today.getTime()) / 86400000));
+  const months = Math.floor(days / 30);
+  const remainingDays = days % 30;
+  if (days === 0) return "Due today";
+  if (!months) return `${remainingDays} day${remainingDays === 1 ? "" : "s"} left`;
+  return `${months} month${months === 1 ? "" : "s"} ${remainingDays} day${remainingDays === 1 ? "" : "s"} left`;
 }
 
 function scoreToMood(score) {
@@ -151,6 +170,9 @@ export function MindsetScreen({ role = "normal_user", user }) {
   );
   const selectedReminder = reminders.find((reminder) => Number(reminder.horizon_months) === Number(selectedHorizon));
   const dueReminders = reminders.filter((reminder) => reminder.status === "hidden" && reminder.due_date <= logDate && reminder.message);
+  const currentWeekStart = startOfWeekIso();
+  const currentWeekFocus = logs.find((log) => log.weekly_focus && log.log_date >= currentWeekStart);
+  const weeklyFocusLocked = Boolean(currentWeekFocus);
 
   const loadMindset = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
@@ -285,7 +307,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
       mood_score: Number(form.mood_score) || 3,
       mood_note: form.mood_note || null,
       support_need: form.support_need || null,
-      weekly_focus: form.weekly_focus || null,
+      weekly_focus: weeklyFocusLocked ? currentWeekFocus.weekly_focus : form.weekly_focus || null,
       affirmation: dailyAffirmation,
       affirmation_themes: form.affirmation_themes || [],
       gratitude: form.gratitude || null,
@@ -331,7 +353,7 @@ export function MindsetScreen({ role = "normal_user", user }) {
       return;
     }
 
-    setMessage(skipped ? "Reminder marked N/A." : `Your ${selectedHorizon}-month reminder is hidden until it is due.`);
+    setMessage(skipped ? "Reminder marked N/A." : `Your ${selectedHorizon}-month reminder is saved and hidden until it is due.`);
     await loadMindset();
   }
 
@@ -485,9 +507,20 @@ export function MindsetScreen({ role = "normal_user", user }) {
 
         <section className="mindset-card why-card">
           <p className="eyebrow">Personal focus</p>
+          {weeklyFocusLocked ? (
+            <div className="weekly-focus-locked">
+              <span>This week's focus is set until Monday</span>
+              <strong>{currentWeekFocus.weekly_focus}</strong>
+            </div>
+          ) : null}
           <label>
             What is your personal focus for the week?
-            <input onChange={(event) => updateField("weekly_focus", event.target.value)} placeholder="This week's focus..." value={form.weekly_focus} />
+            <input
+              disabled={weeklyFocusLocked}
+              onChange={(event) => updateField("weekly_focus", event.target.value)}
+              placeholder="This week's focus..."
+              value={weeklyFocusLocked ? currentWeekFocus.weekly_focus : form.weekly_focus}
+            />
           </label>
           <div className="future-reminder-head">
             <strong>Future self reminders</strong>
@@ -510,11 +543,23 @@ export function MindsetScreen({ role = "normal_user", user }) {
           </div>
           <label>
             Where do you want to be in {selectedHorizon} months?
-            <textarea disabled={selectedReminder?.status === "hidden"} onChange={(event) => setFutureText(event.target.value)} placeholder="Write it, then Movementz will hide it and bring it back on the date." value={futureText} />
+            {selectedReminder ? (
+              <div className="future-reminder-status">
+                <span>{selectedReminder.status === "skipped" ? "Marked N/A" : "Saved"}</span>
+                {selectedReminder.status !== "skipped" ? <strong>{formatReminderCountdown(selectedReminder.due_date)}</strong> : null}
+                {selectedReminder.status !== "skipped" ? <em>Due {formatMindsetDate(selectedReminder.due_date)}</em> : null}
+              </div>
+            ) : null}
+            <textarea
+              disabled={Boolean(selectedReminder)}
+              onChange={(event) => setFutureText(event.target.value)}
+              placeholder="Write it, then Movementz will hide it and bring it back on the date."
+              value={futureText}
+            />
           </label>
           <div className="future-reminder-actions">
-            <button className="primary-action filled" disabled={savingReminder || selectedReminder?.status === "hidden"} onClick={() => saveFutureReminder(false)} type="button">Save + hide</button>
-            <button className="primary-action" disabled={savingReminder} onClick={() => saveFutureReminder(true)} type="button">N/A</button>
+            <button className="primary-action filled" disabled={savingReminder || Boolean(selectedReminder)} onClick={() => saveFutureReminder(false)} type="button">Save + hide</button>
+            <button className="primary-action" disabled={savingReminder || Boolean(selectedReminder)} onClick={() => saveFutureReminder(true)} type="button">N/A</button>
           </div>
         </section>
 

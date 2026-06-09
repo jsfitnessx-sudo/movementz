@@ -416,7 +416,6 @@ export function ProfileScreen({ onProfileSaved, onSignOut, profile, user }) {
                 <div className="coach-confirmation-card" key={coach.coach_id}>
                   <div>
                     <strong>{coach.coach_name}</strong>
-                    <span>{coach.coach_email}</span>
                   </div>
                   <span className={coach.status === "active" ? "status-pill active" : "status-pill"}>
                     {coach.status}

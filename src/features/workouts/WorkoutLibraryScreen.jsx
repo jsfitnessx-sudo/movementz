@@ -2449,7 +2449,7 @@ export function WorkoutLibraryScreen({
     if (!exercise) return;
 
     if (field === "kg") {
-      setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps" });
+      setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps", replaceOnInput: true });
       return;
     }
 
@@ -2457,7 +2457,7 @@ export function WorkoutLibraryScreen({
     playTone("done");
 
     if (rowIndex + 1 < exercise.sessionRows.length) {
-      setActiveNumberInput({ exerciseIndex, rowIndex: rowIndex + 1, field: "kg" });
+      setActiveNumberInput({ exerciseIndex, rowIndex: rowIndex + 1, field: "kg", replaceOnInput: true });
       return;
     }
 
@@ -2490,11 +2490,13 @@ export function WorkoutLibraryScreen({
 
     if (key === "delete") {
       updateActiveNumber(currentValue.slice(0, -1));
+      setActiveNumberInput((current) => current ? { ...current, replaceOnInput: false } : current);
       return;
     }
 
     if (key === "." && currentValue.includes(".")) return;
-    updateActiveNumber(`${currentValue}${key}`);
+    updateActiveNumber(activeNumberInput.replaceOnInput ? key : `${currentValue}${key}`);
+    setActiveNumberInput((current) => current ? { ...current, replaceOnInput: false } : current);
   }
 
   function openSwapExercise(exerciseIndex) {
@@ -3380,7 +3382,7 @@ export function WorkoutLibraryScreen({
                         onChange={(event) =>
                           updateSessionRow(exerciseIndex, rowIndex, "kg", event.target.value)
                         }
-                        onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "kg" })}
+                        onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "kg", replaceOnInput: true })}
                         ref={(element) => {
                           sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-kg`] = element;
                         }}
@@ -3399,7 +3401,7 @@ export function WorkoutLibraryScreen({
                         onChange={(event) =>
                           updateSessionRow(exerciseIndex, rowIndex, "reps", event.target.value)
                         }
-                        onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps" })}
+                        onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps", replaceOnInput: true })}
                         ref={(element) => {
                           sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-reps`] = element;
                         }}
@@ -4291,7 +4293,7 @@ export function WorkoutLibraryScreen({
                     <div className="mini-actions">
                       <button
                         aria-label={`Refresh ${exercise.muscle_group} suggestions`}
-                        className="primary-action compact refresh-action"
+                        className="primary-action compact refresh-action builder-refresh-action"
                         onClick={() => refreshSuggestions(index)}
                         title="Refresh suggestions"
                         type="button"

@@ -14,6 +14,8 @@ const achievementRules = [
 const blankHomeData = {
   weeklyFocus: "",
   gratitude: "",
+  gratitudeLog: [],
+  futureReminders: [],
   moodStreak: 0,
   todayMoodScore: 0,
   habitsTodayPercent: 0,
@@ -253,6 +255,7 @@ export function HomeScreen({ onNavigate, role, user }) {
       const weekStart = startOfWeek(now);
       const monthStart = startOfMonth(now);
       const focusStart = addDays(now, -6);
+      const gratitudeStart = addDays(now, -6);
       const moodStart = addDays(now, -20);
 
       const ownPlanQuery = supabase
@@ -291,12 +294,19 @@ export function HomeScreen({ onNavigate, role, user }) {
           .gte("completed_at", monthStart.toISOString())
           .order("completed_at", { ascending: false })
           .limit(120),
-        ownPlanQuery
+        ownPlanQuery,
+        supabase
+          .from("mindset_future_reminders")
+          .select("id,horizon_months,message,due_date,status")
+          .eq("user_id", user.id)
+          .eq("status", "hidden")
+          .not("message", "is", null)
+          .order("due_date", { ascending: true })
       ];
 
       if (role === "client") requests.push(supabase.rpc("get_my_assigned_plans"));
 
-      const [mindsetResult, habitResult, weekSessionResult, monthSessionResult, ownPlanResult, assignedPlanResult] = await Promise.all(requests);
+      const [mindsetResult, habitResult, weekSessionResult, monthSessionResult, ownPlanResult, remindersResult, assignedPlanResult] = await Promise.all(requests);
       if (!alive) return;
 
       setLoading(false);
@@ -316,6 +326,10 @@ export function HomeScreen({ onNavigate, role, user }) {
       const baseData = {
         weeklyFocus: mindsetLogs.find((log) => log.weekly_focus && log.log_date >= isoDate(focusStart))?.weekly_focus || "",
         gratitude: mindsetLogs.find((log) => log.log_date === today)?.gratitude || "",
+        gratitudeLog: mindsetLogs
+          .filter((log) => log.gratitude && log.log_date >= isoDate(gratitudeStart))
+          .slice(0, 7),
+        futureReminders: remindersResult?.error ? [] : remindersResult?.data || [],
         moodStreak: countMoodStreak(mindsetLogs),
         todayMoodScore: Number(mindsetLogs.find((log) => log.log_date === today)?.mood_score) || 0,
         habitsTodayPercent: Number(habitResult.data?.completion_percent) || 0,
@@ -507,6 +521,45 @@ export function HomeScreen({ onNavigate, role, user }) {
           <strong>{homeData.gratitude || "Log one gratitude today"}</strong>
         </div>
       </div>
+
+      {homeData.futureReminders.length ? (
+        <section className="panel home-reminder-card">
+          <div className="section-row">
+            <div>
+              <p className="eyebrow">Future reminders</p>
+              <h2>Hidden goals</h2>
+            </div>
+            <button className="primary-action compact" onClick={() => onNavigate("mindset")} type="button">Open</button>
+          </div>
+          {homeData.futureReminders.slice(0, 3).map((reminder) => (
+            <article key={reminder.id}>
+              <span>{reminder.horizon_months} months</span>
+              <strong>{reminder.message}</strong>
+              <em>Due {formatActivityDate(reminder.due_date)}</em>
+            </article>
+          ))}
+        </section>
+      ) : null}
+
+      <section className="panel home-gratitude-feed">
+        <div className="section-row">
+          <div>
+            <p className="eyebrow">Gratitude log</p>
+            <h2>Last 7 days</h2>
+          </div>
+          <button className="primary-action compact" onClick={() => onNavigate("mindset")} type="button">Add</button>
+        </div>
+        {homeData.gratitudeLog.length ? (
+          homeData.gratitudeLog.map((log) => (
+            <article key={log.log_date}>
+              <span>{formatActivityDate(log.log_date)}</span>
+              <strong>{log.gratitude}</strong>
+            </article>
+          ))
+        ) : (
+          <p className="compact-help">No gratitude entries from the last 7 days yet.</p>
+        )}
+      </section>
 
       <section className="panel home-achievement-card">
         <div className="section-row">

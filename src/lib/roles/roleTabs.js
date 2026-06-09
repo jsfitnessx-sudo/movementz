@@ -19,7 +19,7 @@ export const roleTabs = {
     { id: "habits", label: "Habits", icon: "\u2713" },
     { id: "progress", label: "Progress", icon: "\u{1F4CA}" },
     { id: "feed", label: "Feed", icon: "\u{1F30D}" },
-    { id: "food", label: "Food", icon: "\u{1F37D}" },
+    { id: "food", label: "Nutrition", icon: "N" },
     { id: "mindset", label: "Mindset", icon: "\u{1F499}" }
   ],
   coach: [
@@ -30,7 +30,7 @@ export const roleTabs = {
     { id: "messages", label: "Messages", icon: "\u2709" },
     { id: "feed", label: "Feed", icon: "\u{1F30D}" },
     { id: "progress", label: "Progress", icon: "\u{1F4CA}" },
-    { id: "appointments", label: "Appts", icon: "\u{1F4C6}" }
+    { id: "appointments", label: "Calendar", icon: "\u{1F4C6}" }
   ],
   admin: [
     { id: "home", label: "Home", icon: "\u{1F3E0}" },
