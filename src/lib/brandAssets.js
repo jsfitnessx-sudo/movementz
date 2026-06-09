@@ -12,8 +12,12 @@ export function buildSignupLink() {
   return buildAppUrl("/?signup=user");
 }
 
-export function buildAuthRedirectUrl() {
-  return buildAppUrl("/");
+export function buildCoachInviteLink(inviteCode) {
+  return buildAppUrl(`/?coach_invite=${encodeURIComponent(inviteCode || "")}`);
+}
+
+export function buildAuthRedirectUrl(path = "/") {
+  return buildAppUrl(path);
 }
 
 export async function copyTextToClipboard(text) {

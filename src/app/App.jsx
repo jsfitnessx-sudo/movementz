@@ -100,11 +100,13 @@ export function App() {
     const signupMode = new URLSearchParams(window.location.search).get("signup");
     return signupMode === "user" ? signupMode : "";
   }, []);
+  const coachInviteCode = useMemo(() => new URLSearchParams(window.location.search).get("coach_invite") || "", []);
   const [booting, setBooting] = useState(hasSupabaseConfig);
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [role, setRole] = useState(getInitialRole);
   const [pendingInviteCode, setPendingInviteCode] = useState(() => new URLSearchParams(window.location.search).get("invite") || "");
+  const [pendingCoachInviteCode, setPendingCoachInviteCode] = useState(coachInviteCode);
   const [claimedInviteCode, setClaimedInviteCode] = useState("");
   const [pendingInvite, setPendingInvite] = useState(null);
   const [handlingInvite, setHandlingInvite] = useState(false);
@@ -363,6 +365,38 @@ export function App() {
   }, [claimedInviteCode, previewInviteIfNeeded, pendingInviteCode, session]);
 
   useEffect(() => {
+    if (!session?.user || !pendingCoachInviteCode || !supabase) return undefined;
+
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      const { error } = await supabase.rpc("accept_admin_coach_invite", {
+        invite_code_input: pendingCoachInviteCode
+      });
+
+      if (!alive) return;
+
+      if (error) {
+        setAppMessage(error.message);
+        return;
+      }
+
+      const nextProfile = await loadProfile(session.user);
+      if (!alive) return;
+      setProfile(nextProfile);
+      setRole(nextProfile?.role || "normal_user");
+      setActiveTab((roleTabs[nextProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
+      setPendingCoachInviteCode("");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setAppMessage("Coach access confirmed.");
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [pendingCoachInviteCode, session]);
+
+  useEffect(() => {
     if (!session?.user?.id || previewAccount) return undefined;
     let alive = true;
     Promise.resolve().then(() => {
@@ -409,14 +443,29 @@ export function App() {
 
   async function handleAuthComplete(nextSession) {
     if (!nextSession?.user) return;
-    if (forcedSignupMode) {
+    const nextProfile = await loadProfile(nextSession.user);
+    let resolvedProfile = nextProfile;
+
+    if (pendingCoachInviteCode && supabase) {
+      const { error } = await supabase.rpc("accept_admin_coach_invite", {
+        invite_code_input: pendingCoachInviteCode
+      });
+      if (error) {
+        setAppMessage(error.message);
+      } else {
+        resolvedProfile = await loadProfile(nextSession.user);
+        setAppMessage("Coach access confirmed.");
+        setPendingCoachInviteCode("");
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } else if (forcedSignupMode) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    const nextProfile = await loadProfile(nextSession.user);
-    setProfile(nextProfile);
-    setRole(nextProfile?.role || "normal_user");
+
+    setProfile(resolvedProfile);
+    setRole(resolvedProfile?.role || "normal_user");
     setSession(nextSession);
-    setActiveTab((roleTabs[nextProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
+    setActiveTab((roleTabs[resolvedProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
     await previewInviteIfNeeded(nextSession);
   }
 
@@ -502,7 +551,14 @@ export function App() {
   }
 
   if (!session) {
-    return <AuthScreen initialMode={forcedSignupMode || "login"} onAuthComplete={handleAuthComplete} onDemoLogin={handleDemoLogin} />;
+    return (
+      <AuthScreen
+        coachInviteCode={pendingCoachInviteCode}
+        initialMode={pendingCoachInviteCode ? "coach" : forcedSignupMode || "login"}
+        onAuthComplete={handleAuthComplete}
+        onDemoLogin={handleDemoLogin}
+      />
+    );
   }
 
   return (

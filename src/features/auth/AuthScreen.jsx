@@ -25,7 +25,7 @@ const blankForm = {
   aboutMe: ""
 };
 
-export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin }) {
+export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuthComplete, onDemoLogin }) {
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState(blankForm);
   const [experienceAreas, setExperienceAreas] = useState([]);
@@ -33,7 +33,7 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const isCoachSignup = false;
+  const isCoachSignup = mode === "coach" && Boolean(coachInviteCode);
   const heading = useMemo(() => {
     if (!hasSupabaseConfig) return "Preview Movementz";
     if (mode === "login") return "Welcome back";
@@ -118,7 +118,7 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
       password: form.password,
       options: {
         data: metadata,
-        emailRedirectTo: buildAuthRedirectUrl()
+        emailRedirectTo: buildAuthRedirectUrl(coachInviteCode ? `/?coach_invite=${encodeURIComponent(coachInviteCode)}` : "/")
       }
     });
 
@@ -191,6 +191,15 @@ export function AuthScreen({ initialMode = "login", onAuthComplete, onDemoLogin 
           >
             User
           </button>
+          {coachInviteCode ? (
+            <button
+              className={mode === "coach" ? "active" : ""}
+              type="button"
+              onClick={() => setMode("coach")}
+            >
+              Coach
+            </button>
+          ) : null}
         </div>
 
         <form className="auth-form" onSubmit={mode === "login" ? handleLogin : handleSignup}>

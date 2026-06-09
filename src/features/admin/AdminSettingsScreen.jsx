@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { buildAuthRedirectUrl, buildSignupLink, copyTextToClipboard } from "../../lib/brandAssets.js";
+import { buildAuthRedirectUrl, buildCoachInviteLink, buildSignupLink, copyTextToClipboard } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const resourceCategories = ["Featured", "Video", "Podcast", "Article", "Support"];
@@ -46,6 +46,8 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
   const [affirmations, setAffirmations] = useState([]);
   const [affirmationDraft, setAffirmationDraft] = useState(blankAffirmation);
   const [profiles, setProfiles] = useState([]);
+  const [coachInviteEmail, setCoachInviteEmail] = useState("");
+  const [coachInviteLink, setCoachInviteLink] = useState("");
   const [passwordResetEmail, setPasswordResetEmail] = useState("");
   const [selectedResetId, setSelectedResetId] = useState("");
   const [resetConfirm, setResetConfirm] = useState("");
@@ -271,6 +273,35 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setMessage(copied ? "Signup link copied." : signupLink);
   }
 
+  async function createCoachInvite(event) {
+    event.preventDefault();
+    if (!supabase) return;
+
+    setSaving("coach-invite");
+    setMessage("");
+
+    const { data, error } = await supabase.rpc("create_admin_coach_invite", {
+      invite_email: coachInviteEmail.trim() || null
+    });
+
+    setSaving("");
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-31-admin-coach-invites.sql in Supabase.`);
+      return;
+    }
+
+    const inviteCode = data?.[0]?.invite_code;
+    const nextLink = buildCoachInviteLink(inviteCode);
+    setCoachInviteLink(nextLink);
+    setMessage("Free coach invite created.");
+  }
+
+  async function copyCoachInvite() {
+    const copied = await copyTextToClipboard(coachInviteLink);
+    setMessage(copied ? "Coach invite link copied." : coachInviteLink);
+  }
+
   async function sendPasswordReset(event) {
     event.preventDefault();
     if (!supabase || !passwordResetEmail.trim()) return;
@@ -328,6 +359,33 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
             Copy
           </button>
         </div>
+      </section>
+
+      <section className="panel admin-settings-panel signup-link-panel">
+        <div>
+          <p className="eyebrow">Free coach testing</p>
+          <h2>Admin coach invite</h2>
+          <p>Create a one-time coach signup link for a friend testing the coach dashboard.</p>
+        </div>
+        <form className="copy-link-row" onSubmit={createCoachInvite}>
+          <input
+            onChange={(event) => setCoachInviteEmail(event.target.value)}
+            placeholder="Optional: lock to coach@email.com"
+            type="email"
+            value={coachInviteEmail}
+          />
+          <button className="primary-action filled" disabled={saving === "coach-invite"} type="submit">
+            {saving === "coach-invite" ? "Creating..." : "Create"}
+          </button>
+        </form>
+        {coachInviteLink ? (
+          <div className="copy-link-row">
+            <input readOnly value={coachInviteLink} />
+            <button className="primary-action filled" onClick={copyCoachInvite} type="button">
+              Copy
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="panel admin-settings-panel signup-link-panel">
