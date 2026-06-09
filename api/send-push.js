@@ -53,17 +53,16 @@ export default async function handler(request, response) {
     return;
   }
 
-  const token = String(request.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const authHeader = request.headers.authorization || request.headers.Authorization || "";
+  const token = String(authHeader).replace(/^Bearer\s+/i, "");
   if (!token) {
     json(response, 401, { error: "Missing auth token." });
     return;
   }
 
-  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } }
-  });
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey);
-  const { data: userData, error: userError } = await userClient.auth.getUser();
+  const authClient = createClient(supabaseUrl, supabaseAnonKey);
+  const { data: userData, error: userError } = await authClient.auth.getUser(token);
   const senderId = userData?.user?.id;
 
   if (userError || !senderId) {
