@@ -100,6 +100,7 @@ export function App() {
     const signupMode = new URLSearchParams(window.location.search).get("signup");
     return signupMode === "user" ? signupMode : "";
   }, []);
+  const requestedTabRef = useRef(new URLSearchParams(window.location.search).get("tab") || "");
   const coachInviteCode = useMemo(() => new URLSearchParams(window.location.search).get("coach_invite") || "", []);
   const [booting, setBooting] = useState(hasSupabaseConfig);
   const [session, setSession] = useState(null);
@@ -140,6 +141,13 @@ export function App() {
     name: previewAccount.name,
     avatarUrl: previewAccount.avatarUrl
   } : accountUser, [accountUser, previewAccount]);
+
+  useEffect(() => {
+    const requestedTab = requestedTabRef.current;
+    if (!requestedTab || !tabs.some((tab) => tab.id === requestedTab)) return;
+    setActiveTab(requestedTab);
+    requestedTabRef.current = "";
+  }, [tabs]);
   const effectiveProfile = useMemo(() => previewAccount ? {
     id: previewAccount.id,
     email: previewAccount.email,

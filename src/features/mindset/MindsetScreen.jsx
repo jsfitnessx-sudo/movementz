@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { sendPhonePushToUser } from "../../lib/pushNotifications.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const moodOptions = [
@@ -53,10 +52,6 @@ function affirmationDateKey(value = new Date()) {
   const date = new Date(value);
   if (date.getHours() < 10) date.setDate(date.getDate() - 1);
   return localDateKey(date);
-}
-
-function isAffirmationRefreshReady(value = new Date()) {
-  return new Date(value).getHours() >= 10;
 }
 
 function msUntilNextAffirmationRefresh() {
@@ -259,25 +254,6 @@ export function MindsetScreen({ role = "normal_user", user }) {
 
     return () => window.clearTimeout(timer);
   }, [affirmationKey]);
-
-  useEffect(() => {
-    if (!dailyAffirmation || !user?.id || user.id === "demo-user" || !isAffirmationRefreshReady()) return;
-
-    const storageKey = `movementz:daily-affirmation-push:${user.id}:${affirmationKey}`;
-    if (window.localStorage.getItem(storageKey)) return;
-
-    sendPhonePushToUser({
-      recipientId: user.id,
-      title: "Daily affirmation",
-      body: dailyAffirmation,
-      url: "/?tab=mindset",
-      type: "affirmation"
-    }).then(() => {
-      window.localStorage.setItem(storageKey, "sent");
-    }).catch((pushError) => {
-      console.warn("Daily affirmation push failed", pushError);
-    });
-  }, [affirmationKey, dailyAffirmation, user?.id]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));

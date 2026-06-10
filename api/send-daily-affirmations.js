@@ -104,8 +104,8 @@ export default async function handler(request, response) {
 
   const { dateKey, hour } = sydneyParts();
   const force = request.query?.force === "1";
-  if (!force && hour !== 10) {
-    json(response, 200, { skipped: true, reason: "Not Sydney 10am.", dateKey, hour });
+  if (!force && hour !== 10 && hour !== 11) {
+    json(response, 200, { skipped: true, reason: "Not Sydney 10am/11am cron window.", dateKey, hour });
     return;
   }
 

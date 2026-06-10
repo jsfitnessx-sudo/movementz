@@ -16,6 +16,37 @@ const hiitTargetTypes = [
 ];
 const CATALOG_SEARCH_LIMIT = 8;
 const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
+const recoverableWorkoutModes = new Set(["setup", "editor", "quick-log", "session", "hiit-session", "hiit-for-time"]);
+
+function readRecoveryState(key) {
+  if (!key || typeof window === "undefined") return null;
+  try {
+    const saved = window.localStorage.getItem(key);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    return parsed?.version === 1 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeRecoveryState(key, value) {
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Local recovery is best-effort and should never block the workout flow.
+  }
+}
+
+function clearRecoveryState(key) {
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures; the app can still continue normally.
+  }
+}
 
 function loadCanvasImage(src) {
   return new Promise((resolve) => {
@@ -564,6 +595,12 @@ export function WorkoutLibraryScreen({
   const [message, setMessage] = useState("");
   const hiitLastBeepRef = useRef("");
   const audioContextRef = useRef(null);
+  const recoveryHydratedRef = useRef(false);
+  const recoveryKey = useMemo(() => {
+    if (!user?.id) return "";
+    const context = embedded || autoStartWorkout ? "embedded" : "main";
+    return `movementz:workout-recovery:${user.id}:${context}`;
+  }, [autoStartWorkout, embedded, user?.id]);
 
   const editingWorkout = useMemo(
     () => workouts.find((workout) => workout.id === editingId),
@@ -917,6 +954,51 @@ export function WorkoutLibraryScreen({
       round: totalRounds
     };
   }, [playTone]);
+
+  useEffect(() => {
+    const recovered = readRecoveryState(recoveryKey);
+    if (recovered?.mode && recoverableWorkoutModes.has(recovered.mode)) {
+      if (autoStartWorkout) {
+        autoStartedWorkoutRef.current = autoStartWorkout.autoStartKey || `${autoStartWorkout.id || "workout"}-${autoStartWorkout.name || ""}`;
+      }
+      Promise.resolve().then(() => {
+        setMode(recovered.mode);
+        setEditingId(recovered.editingId || null);
+        setSetup(recovered.setup || createDefaultSetup());
+        setForm(recovered.form || createEmptyForm());
+        setQuickLogForm(recovered.quickLogForm || createQuickLogForm());
+        setActiveWorkout(recovered.activeWorkout || null);
+        setHiitInterval(recovered.hiitInterval || null);
+        setHiitForTime(recovered.hiitForTime || null);
+        setCompletedSession(null);
+        setActiveNumberInput(null);
+        setMessage("Restored your unfinished workout.");
+      });
+    }
+    recoveryHydratedRef.current = true;
+  }, [autoStartWorkout, recoveryKey]);
+
+  useEffect(() => {
+    if (!recoveryHydratedRef.current || !recoveryKey) return;
+
+    if (!recoverableWorkoutModes.has(mode)) {
+      clearRecoveryState(recoveryKey);
+      return;
+    }
+
+    writeRecoveryState(recoveryKey, {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      mode,
+      editingId,
+      setup,
+      form,
+      quickLogForm,
+      activeWorkout,
+      hiitInterval,
+      hiitForTime
+    });
+  }, [activeWorkout, editingId, form, hiitForTime, hiitInterval, mode, quickLogForm, recoveryKey, setup]);
 
   useEffect(() => {
     const load = Promise.resolve().then(async () => {

@@ -4,6 +4,37 @@ import { WorkoutLibraryScreen } from "../workouts/WorkoutLibraryScreen.jsx";
 
 const blockPeriods = [4, 6, 8, 10, 12, 16];
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const recoverablePlanModes = new Set(["builder", "workout-builder", "plan-workout-session"]);
+
+function readPlanRecoveryState(key) {
+  if (!key || typeof window === "undefined") return null;
+  try {
+    const saved = window.localStorage.getItem(key);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    return parsed?.version === 1 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePlanRecoveryState(key, value) {
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Best-effort local recovery only.
+  }
+}
+
+function clearPlanRecoveryState(key) {
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 function createBuilder() {
   return {
@@ -96,6 +127,11 @@ export function PlansScreen({ role = "normal_user", user }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const planStartCounterRef = useRef(0);
+  const recoveryHydratedRef = useRef(false);
+  const recoveryKey = useMemo(
+    () => user?.id ? `movementz:plan-recovery:${user.id}` : "",
+    [user?.id]
+  );
 
   const importedWorkoutIds = useMemo(
     () => new Set(builder.workouts.map((workout) => workout.workout_template_id).filter(Boolean)),
@@ -198,6 +234,42 @@ export function PlansScreen({ role = "normal_user", user }) {
 
     setAssignedPlans(data || []);
   }, [role, user.id]);
+
+  useEffect(() => {
+    const recovered = readPlanRecoveryState(recoveryKey);
+    if (recovered?.mode && recoverablePlanModes.has(recovered.mode)) {
+      Promise.resolve().then(() => {
+        setBuilder(recovered.builder || createBuilder());
+        setEditingPlanId(recovered.editingPlanId || null);
+        setShowImport(Boolean(recovered.showImport));
+        setActivePlanWorkout(recovered.activePlanWorkout || null);
+        setSelectedPlan(recovered.selectedPlan || null);
+        setMode(recovered.mode);
+        setMessage("Restored your unfinished plan.");
+      });
+    }
+    recoveryHydratedRef.current = true;
+  }, [recoveryKey]);
+
+  useEffect(() => {
+    if (!recoveryHydratedRef.current || !recoveryKey) return;
+
+    if (!recoverablePlanModes.has(mode)) {
+      clearPlanRecoveryState(recoveryKey);
+      return;
+    }
+
+    writePlanRecoveryState(recoveryKey, {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      mode,
+      builder,
+      editingPlanId,
+      showImport,
+      activePlanWorkout,
+      selectedPlan
+    });
+  }, [activePlanWorkout, builder, editingPlanId, mode, recoveryKey, selectedPlan, showImport]);
 
   useEffect(() => {
     let alive = true;
