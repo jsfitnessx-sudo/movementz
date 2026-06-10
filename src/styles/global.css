@@ -1237,10 +1237,10 @@ button {
 }
 
 .exercise-editor-active {
-  border-color: color-mix(in srgb, var(--teal) 78%, #ffffff);
-  background: color-mix(in srgb, var(--teal) 13%, #0b151e);
+  border-color: color-mix(in srgb, var(--gold) 78%, #ffffff);
+  background: color-mix(in srgb, var(--gold) 12%, #0b151e);
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--teal) 28%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--gold) 30%, transparent),
     0 12px 28px rgba(0, 0, 0, 0.24);
 }
 
@@ -1257,6 +1257,10 @@ button {
   height: 2px;
   border-radius: 0 0 999px 999px;
   background: color-mix(in srgb, var(--teal) 52%, var(--line));
+}
+
+.exercise-editor-active::before {
+  background: color-mix(in srgb, var(--gold) 76%, var(--line));
 }
 
 .exercise-editor-head {
@@ -1315,19 +1319,20 @@ button {
 }
 
 .suggestion-picker .mini-actions {
-  display: none;
+  display: flex;
+  justify-content: stretch;
 }
 
 .exercise-search-field input {
-  border-color: color-mix(in srgb, #ffffff 56%, var(--line));
-  background: #edf3f7;
-  color: #07111a;
+  border-color: color-mix(in srgb, var(--gold) 58%, #ffffff);
+  background: #fff6cf;
+  color: #161109;
   font-size: 15px;
-  box-shadow: 0 0 0 1px rgba(237, 243, 247, 0.08);
+  box-shadow: 0 0 0 1px rgba(255, 246, 207, 0.08);
 }
 
 .exercise-search-field input::placeholder {
-  color: #52616f;
+  color: #62583d;
   font-size: 15px;
 }
 
@@ -1341,6 +1346,13 @@ button {
 
 .builder-confirm-action {
   min-height: 42px;
+}
+
+.builder-custom-request-action {
+  min-height: 42px;
+  border-color: color-mix(in srgb, var(--gold) 58%, var(--line));
+  background: color-mix(in srgb, var(--gold) 10%, var(--field));
+  color: color-mix(in srgb, var(--gold) 82%, #ffffff);
 }
 
 .muscle-label {
@@ -7862,6 +7874,10 @@ button {
 }
 
 .builder-refresh-action {
+  width: 100%;
+  min-height: 38px;
+  border-color: color-mix(in srgb, var(--logo-blue) 48%, var(--line));
+  background: color-mix(in srgb, var(--logo-blue) 10%, var(--field));
   font-size: 0;
 }
 

@@ -218,12 +218,11 @@ function createMuscleTargets() {
 }
 
 function createExerciseForMuscle(muscle, index, defaultSets = 4, overrides = {}) {
-  const options = exerciseLibrary[muscle] || [];
   return {
     ...emptyExercise,
     muscle_group: muscle,
     sets: defaultSets,
-    exercise_name: options[index % options.length] || "",
+    exercise_name: "",
     suggestionOffset: index,
     ...overrides
   };
@@ -4895,6 +4894,14 @@ export function WorkoutLibraryScreen({
                         </button>
                       ))}
                     </div>
+                  ) : exercise.search.trim() ? (
+                    <button
+                      className="primary-action compact builder-custom-request-action"
+                      onClick={() => chooseExercise(index, exercise.search, true, true)}
+                      type="button"
+                    >
+                      Request YouTube link + choose this
+                    </button>
                   ) : null}
 
                   {!isConfirmed ? (
