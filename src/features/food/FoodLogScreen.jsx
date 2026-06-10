@@ -337,31 +337,17 @@ export function FoodLogScreen({ role, user }) {
 
   async function logFood() {
     if (!supabase || user.id === "demo-user") return;
-    const foodName = (selectedFood?.name || form.food_name || searchText).trim();
-    if (!foodName) {
-      setMessage("Add a food name first.");
-      return;
-    }
-
-    const quantity = Math.max(0, Number(form.quantity) || 0);
-    if (!quantity) {
-      setMessage("Add a quantity.");
-      return;
-    }
+    const foodName = (selectedFood?.name || form.food_name || searchText).trim() || "Nutrition entry";
+    const quantity = Math.max(0, Number(form.quantity) || (selectedFood ? 1 : 0));
 
     const nutrition = selectedFood
-      ? selectedNutrition
+      ? calculateFromFood(selectedFood, quantity || 1, form.unit)
       : {
           calories: Math.round(numberOrZero(form.calories)),
           protein_g: roundMacro(form.protein_g),
           carbs_g: roundMacro(form.carbs_g),
           fat_g: roundMacro(form.fat_g)
         };
-
-    if (!nutrition.calories) {
-      setMessage("Add calories for this food.");
-      return;
-    }
 
     setSaving(true);
     setMessage("");

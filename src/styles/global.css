@@ -1231,6 +1231,11 @@ button {
     0 8px 20px rgba(0, 0, 0, 0.16);
 }
 
+.exercise-editor-alt {
+  border-color: color-mix(in srgb, var(--teal) 22%, var(--line));
+  background: #101d28;
+}
+
 .exercise-editor::before {
   content: "";
   position: absolute;
@@ -1301,6 +1306,24 @@ button {
   display: none;
 }
 
+.exercise-search-field input {
+  border-color: color-mix(in srgb, #ffffff 56%, var(--line));
+  background: #edf3f7;
+  color: #07111a;
+  box-shadow: 0 0 0 1px rgba(237, 243, 247, 0.08);
+}
+
+.exercise-search-field input::placeholder {
+  color: #52616f;
+}
+
+.builder-metric-grid input,
+.builder-rest-grid input,
+.builder-target-grid input {
+  border-color: color-mix(in srgb, var(--logo-blue) 32%, var(--line));
+  background: #172736;
+}
+
 .muscle-label {
   margin: 0;
   color: var(--muted);
@@ -1366,6 +1389,10 @@ button {
 
 .form-grid.four {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.form-grid.one {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .primary-action.compact {
@@ -3286,9 +3313,31 @@ button {
   font-size: 26px;
 }
 
+.for-time-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.station-split-action {
+  min-width: 132px;
+  min-height: 62px;
+  border-color: color-mix(in srgb, #41d36f 86%, #ffffff);
+  border-radius: 14px;
+  background: #41d36f;
+  color: #04120a;
+  font-size: 14px;
+  line-height: 1.05;
+}
+
+.station-split-action:disabled {
+  opacity: 0.56;
+}
+
 .for-time-top-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   width: min(680px, 100%);
 }
@@ -6983,6 +7032,11 @@ button {
     gap: 8px;
   }
 
+  .exercise-editor .form-grid.one {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
   .exercise-editor label {
     gap: 6px;
     font-size: 10px;
@@ -7051,8 +7105,20 @@ button {
     font-size: 22px;
   }
 
+  .for-time-title-row {
+    grid-template-columns: minmax(0, 1fr) 116px;
+    gap: 10px;
+  }
+
+  .station-split-action {
+    min-width: 0;
+    min-height: 64px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+
   .for-time-top-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .for-time-current-card {
@@ -7834,6 +7900,12 @@ button {
   .suggestion-picker .mini-actions .builder-refresh-action {
     flex: 1 1 auto;
     min-height: 38px;
+    border-color: color-mix(in srgb, var(--logo-blue) 48%, var(--line));
+    background: color-mix(in srgb, var(--logo-blue) 10%, var(--field));
+    font-size: 0;
+  }
+
+  .suggestion-picker .mini-actions .builder-refresh-action::before {
     font-size: 13px;
   }
 

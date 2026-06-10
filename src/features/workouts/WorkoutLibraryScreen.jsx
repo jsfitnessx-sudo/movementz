@@ -3376,7 +3376,31 @@ export function WorkoutLibraryScreen({
           <div className="screen-heading library-heading">
             <div>
               <p className="eyebrow">HIIT for time</p>
-              <h1>{activeWorkout.name}</h1>
+              <div className="for-time-title-row">
+                <h1>{activeWorkout.name}</h1>
+                {isComplete ? (
+                  <button
+                    className="primary-action filled station-split-action"
+                    onClick={() => {
+                      setActiveWorkout(null);
+                      setHiitForTime(null);
+                      setMode("list");
+                    }}
+                    type="button"
+                  >
+                    Done
+                  </button>
+                ) : (
+                  <button
+                    className="primary-action filled station-split-action"
+                    disabled={!canCompleteStation}
+                    onClick={completeForTimeStation}
+                    type="button"
+                  >
+                    Station split
+                  </button>
+                )}
+              </div>
               <p>
                 Exercise {Math.min(hiitForTime.exerciseIndex + 1, totalExercises)}/{totalExercises} - Goal{" "}
                 {formatClock(goalSeconds)}
@@ -3405,29 +3429,9 @@ export function WorkoutLibraryScreen({
             </div>
           </div>
 
-          <div className="for-time-top-actions">
-            {isComplete ? (
-              <button
-                className="primary-action filled station-complete-action"
-                onClick={() => {
-                  setActiveWorkout(null);
-                  setHiitForTime(null);
-                  setMode("list");
-                }}
-                type="button"
-              >
-                Done
-              </button>
-            ) : (
+          {!isComplete ? (
+            <div className="for-time-top-actions">
               <>
-                <button
-                  className="primary-action filled station-complete-action"
-                  disabled={!canCompleteStation}
-                  onClick={completeForTimeStation}
-                  type="button"
-                >
-                  Complete station
-                </button>
                 <button className="primary-action" onClick={toggleForTimeTimer} type="button">
                   {hiitForTime.running
                     ? "Pause"
@@ -3439,8 +3443,8 @@ export function WorkoutLibraryScreen({
                   Finish
                 </button>
               </>
-            )}
-          </div>
+            </div>
+          ) : null}
 
           {currentExercise ? (
             <div className="for-time-current-card">
@@ -4416,7 +4420,7 @@ export function WorkoutLibraryScreen({
               <div className="muscle-picker setup-card">
                 <div>
                   <p className="eyebrow">Area focus</p>
-                  <h2>Pick the focus, then choose total exercises</h2>
+                  <h2>Select the focus, then choose total exercises</h2>
                 </div>
 
                 <div className="muscle-chip-list">
@@ -4471,7 +4475,7 @@ export function WorkoutLibraryScreen({
           <div className="muscle-picker setup-card">
             <div>
               <p className="eyebrow">Muscle groups</p>
-              <h2>Pick muscles, then choose how many exercises</h2>
+              <h2>Select muscles, then choose how many exercises</h2>
             </div>
 
             <div className="muscle-chip-list">
@@ -4600,7 +4604,7 @@ export function WorkoutLibraryScreen({
               const isExerciseMenuOpen = openBuilderExerciseMenu === index;
 
               return (
-                <div className="exercise-editor" key={`${index}-${exercise.id || "new"}`}>
+                <div className={index % 2 === 1 ? "exercise-editor exercise-editor-alt" : "exercise-editor"} key={`${index}-${exercise.id || "new"}`}>
                   <div className="exercise-editor-head">
                     <div>
                       <strong>Exercise {index + 1}</strong>
@@ -4629,15 +4633,6 @@ export function WorkoutLibraryScreen({
                               Demo
                             </button>
                           ) : null}
-                          <button
-                            onClick={() => {
-                              setOpenBuilderExerciseMenu(null);
-                              refreshSuggestions(index);
-                            }}
-                            type="button"
-                          >
-                            Refresh suggestions
-                          </button>
                           <button
                             className="danger-text"
                             onClick={() => {
@@ -4679,22 +4674,15 @@ export function WorkoutLibraryScreen({
                         aria-label={`Refresh ${exercise.muscle_group} suggestions`}
                         className="primary-action compact refresh-action builder-refresh-action"
                         onClick={() => refreshSuggestions(index)}
-                        title="Refresh suggestions"
+                        title="Refresh"
                         type="button"
                       >
                         ↻
                       </button>
-                      <button
-                        className="danger-link remove-action"
-                        onClick={() => removeExercise(index)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
                     </div>
                   </div>
 
-                  <label>
+                  <label className="exercise-search-field">
                     Search or type exercise
                     <input
                       onChange={(event) => updateExercise(index, "search", event.target.value)}
@@ -4742,7 +4730,7 @@ export function WorkoutLibraryScreen({
                           ))}
                         </div>
                       </div>
-                      <div className="form-grid two">
+                      <div className="form-grid one builder-target-grid">
                         <label>
                           Target value
                           <input
@@ -4752,19 +4740,11 @@ export function WorkoutLibraryScreen({
                             value={exercise.target_value}
                           />
                         </label>
-                        <label>
-                          Tip
-                          <input
-                            onChange={(event) => updateExercise(index, "tip", event.target.value)}
-                            placeholder="Optional cue"
-                            value={exercise.tip}
-                          />
-                        </label>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="form-grid four">
+                      <div className="form-grid three builder-metric-grid">
                         <label>
                           Sets
                           <input
@@ -4775,21 +4755,15 @@ export function WorkoutLibraryScreen({
                           />
                         </label>
                         <label>
-                          Rep min
+                          Reps
                           <input
                             min="0"
-                            onChange={(event) => updateExercise(index, "rep_min", event.target.value)}
+                            onChange={(event) => {
+                              updateExercise(index, "rep_min", event.target.value);
+                              updateExercise(index, "rep_max", event.target.value);
+                            }}
                             type="number"
                             value={exercise.rep_min}
-                          />
-                        </label>
-                        <label>
-                          Rep max
-                          <input
-                            min="0"
-                            onChange={(event) => updateExercise(index, "rep_max", event.target.value)}
-                            type="number"
-                            value={exercise.rep_max}
                           />
                         </label>
                         <label>
@@ -4804,7 +4778,7 @@ export function WorkoutLibraryScreen({
                         </label>
                       </div>
 
-                      <div className="form-grid two">
+                      <div className="form-grid one builder-rest-grid">
                         <label>
                           Rest sec
                           <input
@@ -4812,14 +4786,6 @@ export function WorkoutLibraryScreen({
                             onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
                             type="number"
                             value={exercise.rest_seconds}
-                          />
-                        </label>
-                        <label>
-                          Tip
-                          <input
-                            onChange={(event) => updateExercise(index, "tip", event.target.value)}
-                            placeholder="Optional cue"
-                            value={exercise.tip}
                           />
                         </label>
                       </div>
