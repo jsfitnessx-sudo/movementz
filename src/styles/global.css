@@ -1236,6 +1236,18 @@ button {
   background: #101d28;
 }
 
+.exercise-editor-active {
+  border-color: color-mix(in srgb, var(--teal) 78%, #ffffff);
+  background: color-mix(in srgb, var(--teal) 13%, #0b151e);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--teal) 28%, transparent),
+    0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.exercise-editor-confirmed {
+  border-color: color-mix(in srgb, var(--teal) 36%, var(--line));
+}
+
 .exercise-editor::before {
   content: "";
   position: absolute;
@@ -1310,18 +1322,25 @@ button {
   border-color: color-mix(in srgb, #ffffff 56%, var(--line));
   background: #edf3f7;
   color: #07111a;
+  font-size: 15px;
   box-shadow: 0 0 0 1px rgba(237, 243, 247, 0.08);
 }
 
 .exercise-search-field input::placeholder {
   color: #52616f;
+  font-size: 15px;
 }
 
 .builder-metric-grid input,
 .builder-rest-grid input,
 .builder-target-grid input {
-  border-color: color-mix(in srgb, var(--logo-blue) 32%, var(--line));
-  background: #172736;
+  border-color: color-mix(in srgb, #ffffff 56%, var(--line));
+  background: #edf3f7;
+  color: #07111a;
+}
+
+.builder-confirm-action {
+  min-height: 42px;
 }
 
 .muscle-label {
@@ -7847,7 +7866,7 @@ button {
 }
 
 .builder-refresh-action::before {
-  content: "Refresh";
+  content: "Refresh exercises";
   font-size: 12px;
 }
 

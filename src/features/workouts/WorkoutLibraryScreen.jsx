@@ -187,6 +187,7 @@ const emptyExercise = {
   target_type: "reps",
   target_value: 10,
   search: "",
+  selection_confirmed: false,
   suggestionOffset: 0
 };
 
@@ -587,6 +588,7 @@ export function WorkoutLibraryScreen({
   const [searchingAssignClients, setSearchingAssignClients] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [openBuilderExerciseMenu, setOpenBuilderExerciseMenu] = useState(null);
+  const [activeBuilderExerciseIndex, setActiveBuilderExerciseIndex] = useState(0);
   const sessionInputRefs = useRef({});
   const autoStartedWorkoutRef = useRef("");
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -970,6 +972,7 @@ export function WorkoutLibraryScreen({
         setActiveWorkout(recovered.activeWorkout || null);
         setHiitInterval(recovered.hiitInterval || null);
         setHiitForTime(recovered.hiitForTime || null);
+        setActiveBuilderExerciseIndex(Number(recovered.activeBuilderExerciseIndex) || 0);
         setCompletedSession(null);
         setActiveNumberInput(null);
         setMessage("Restored your unfinished workout.");
@@ -996,9 +999,10 @@ export function WorkoutLibraryScreen({
       quickLogForm,
       activeWorkout,
       hiitInterval,
-      hiitForTime
+      hiitForTime,
+      activeBuilderExerciseIndex
     });
-  }, [activeWorkout, editingId, form, hiitForTime, hiitInterval, mode, quickLogForm, recoveryKey, setup]);
+  }, [activeBuilderExerciseIndex, activeWorkout, editingId, form, hiitForTime, hiitInterval, mode, quickLogForm, recoveryKey, setup]);
 
   useEffect(() => {
     const load = Promise.resolve().then(async () => {
@@ -1574,6 +1578,7 @@ export function WorkoutLibraryScreen({
       hiit_focus_area: setup.hiit_focus_area,
       exercises
     });
+    setActiveBuilderExerciseIndex(0);
     setMessage("");
     setMode("editor");
   }
@@ -1608,9 +1613,11 @@ export function WorkoutLibraryScreen({
         target_type: exercise.target_type || "reps",
         target_value: exercise.target_value || exercise.rep_min || 10,
         search: "",
+        selection_confirmed: true,
         suggestionOffset: 0
       }))
     });
+    setActiveBuilderExerciseIndex(0);
     setMessage("");
     setMode("editor");
   }
@@ -1675,17 +1682,26 @@ export function WorkoutLibraryScreen({
   }
 
   function updateExercise(index, field, value) {
+    setActiveBuilderExerciseIndex(index);
     setForm((current) => ({
       ...current,
       exercises: current.exercises.map((exercise, exerciseIndex) =>
-        exerciseIndex === index ? { ...exercise, [field]: value } : exercise
+        exerciseIndex === index
+          ? {
+              ...exercise,
+              [field]: value,
+              ...(field === "search" ? { selection_confirmed: false } : {})
+            }
+          : exercise
       )
     }));
   }
 
   function chooseExercise(index, exerciseName, clearSearch = false, isTypedCustom = false) {
     const cleanExerciseName = exerciseName.trim();
+    if (!cleanExerciseName) return;
     const isCustomExercise = isTypedCustom || !knownExerciseKeys.has(toExerciseKey(cleanExerciseName));
+    setActiveBuilderExerciseIndex(index);
 
     setForm((current) => ({
       ...current,
@@ -1695,7 +1711,8 @@ export function WorkoutLibraryScreen({
               ...exercise,
               exercise_name: cleanExerciseName,
               is_custom_exercise: isCustomExercise,
-              search: clearSearch ? "" : exercise.search
+              search: clearSearch ? "" : exercise.search,
+              selection_confirmed: false
             }
           : exercise
       )
@@ -1703,7 +1720,47 @@ export function WorkoutLibraryScreen({
     setMessage("");
   }
 
+  function confirmBuilderExercise(index) {
+    const exercise = form.exercises[index];
+    if (!exercise) return;
+
+    const typedName = exercise.search.trim();
+    if (!exercise.exercise_name.trim() && typedName) {
+      const isCustomExercise = !knownExerciseKeys.has(toExerciseKey(typedName));
+      setForm((current) => ({
+        ...current,
+        exercises: current.exercises.map((currentExercise, exerciseIndex) =>
+          exerciseIndex === index
+            ? {
+                ...currentExercise,
+                exercise_name: typedName,
+                is_custom_exercise: isCustomExercise,
+                search: "",
+                selection_confirmed: true
+              }
+            : currentExercise
+        )
+      }));
+      setMessage("");
+      return;
+    }
+
+    if (!exercise.exercise_name.trim()) {
+      setMessage("Select or search an exercise first.");
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((currentExercise, exerciseIndex) =>
+        exerciseIndex === index ? { ...currentExercise, selection_confirmed: true, search: "" } : currentExercise
+      )
+    }));
+    setMessage("");
+  }
+
   function refreshSuggestions(index) {
+    setActiveBuilderExerciseIndex(index);
     setForm((current) => ({
       ...current,
       exercises: current.exercises.map((exercise, exerciseIndex) =>
@@ -1956,6 +2013,15 @@ export function WorkoutLibraryScreen({
 
     if (cleanExercises.length === 0) {
       setMessage("Add at least one exercise.");
+      return;
+    }
+
+    const firstUnconfirmedIndex = form.exercises.findIndex(
+      (exercise) => exercise.exercise_name.trim() && !exercise.selection_confirmed
+    );
+    if (firstUnconfirmedIndex >= 0) {
+      setActiveBuilderExerciseIndex(firstUnconfirmedIndex);
+      setMessage(`Confirm Exercise ${firstUnconfirmedIndex + 1} before saving.`);
       return;
     }
 
@@ -2847,6 +2913,36 @@ export function WorkoutLibraryScreen({
     setMessage("Exercise skipped for this session.");
   }
 
+  function addExerciseToActiveSession() {
+    const exerciseName = window.prompt("Exercise name");
+    const cleanExerciseName = exerciseName?.trim();
+    if (!cleanExerciseName) return;
+
+    setActiveWorkout((current) => {
+      if (!current) return current;
+      const nextPosition = (current.workout_template_exercises || []).length + 1;
+      return {
+        ...current,
+        workout_template_exercises: [
+          ...(current.workout_template_exercises || []),
+          {
+            id: `session-extra-${Date.now()}`,
+            position: nextPosition,
+            exercise_name: cleanExerciseName,
+            original_exercise_name: cleanExerciseName,
+            muscle_group: "Extra",
+            sets: 1,
+            rep_min: "",
+            rep_max: "",
+            previousSets: [],
+            sessionRows: createSessionRows({ sets: 1, rep_min: "", start_kg: "" }, [])
+          }
+        ]
+      };
+    });
+    setMessage("");
+  }
+
   async function finishActiveSession() {
     if (!activeWorkout) return;
 
@@ -3593,6 +3689,9 @@ export function WorkoutLibraryScreen({
               <h1>{activeWorkout.name}</h1>
               <p>Add or remove sets as the real workout changes.</p>
             </div>
+            <button className="primary-action compact" onClick={addExerciseToActiveSession} type="button">
+              Add Exercise
+            </button>
           </div>
 
         {message ? <p className="form-message error">{message}</p> : null}
@@ -4684,9 +4783,20 @@ export function WorkoutLibraryScreen({
                   ]).slice(0, 5)
                 : [];
               const isExerciseMenuOpen = openBuilderExerciseMenu === index;
+              const isConfirmed = Boolean(exercise.selection_confirmed);
+              const isActiveBuilderExercise = activeBuilderExerciseIndex === index && !isConfirmed;
 
               return (
-                <div className={index % 2 === 1 ? "exercise-editor exercise-editor-alt" : "exercise-editor"} key={`${index}-${exercise.id || "new"}`}>
+                <div
+                  className={[
+                    "exercise-editor",
+                    index % 2 === 1 ? "exercise-editor-alt" : "",
+                    isActiveBuilderExercise ? "exercise-editor-active" : "",
+                    isConfirmed ? "exercise-editor-confirmed" : ""
+                  ].filter(Boolean).join(" ")}
+                  key={`${index}-${exercise.id || "new"}`}
+                  onClick={() => setActiveBuilderExerciseIndex(index)}
+                >
                   <div className="exercise-editor-head">
                     <div>
                       <strong>Exercise {index + 1}</strong>
@@ -4756,7 +4866,7 @@ export function WorkoutLibraryScreen({
                         aria-label={`Refresh ${exercise.muscle_group} suggestions`}
                         className="primary-action compact refresh-action builder-refresh-action"
                         onClick={() => refreshSuggestions(index)}
-                        title="Refresh"
+                        title="Refresh exercises"
                         type="button"
                       >
                         ↻
@@ -4785,17 +4895,19 @@ export function WorkoutLibraryScreen({
                         </button>
                       ))}
                     </div>
-                  ) : exercise.search ? (
+                  ) : null}
+
+                  {!isConfirmed ? (
                     <button
-                      className="primary-action compact"
-                      onClick={() => chooseExercise(index, exercise.search, true, true)}
+                      className="primary-action filled builder-confirm-action"
+                      onClick={() => confirmBuilderExercise(index)}
                       type="button"
                     >
-                      Add "{exercise.search}" to my options
+                      Confirm exercise
                     </button>
                   ) : null}
 
-                  {form.workout_type === "hiit" ? (
+                  {isConfirmed && form.workout_type === "hiit" ? (
                     <>
                       <div className="target-type-picker">
                         <p className="eyebrow">Target</p>
@@ -4824,18 +4936,9 @@ export function WorkoutLibraryScreen({
                         </label>
                       </div>
                     </>
-                  ) : (
+                  ) : isConfirmed ? (
                     <>
-                      <div className="form-grid three builder-metric-grid">
-                        <label>
-                          Sets
-                          <input
-                            min="1"
-                            onChange={(event) => updateExercise(index, "sets", event.target.value)}
-                            type="number"
-                            value={exercise.sets}
-                          />
-                        </label>
+                      <div className="form-grid two builder-metric-grid">
                         <label>
                           Reps
                           <input
@@ -4872,7 +4975,7 @@ export function WorkoutLibraryScreen({
                         </label>
                       </div>
                     </>
-                  )}
+                  ) : null}
                 </div>
               );
             })}
