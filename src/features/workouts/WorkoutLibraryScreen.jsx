@@ -159,6 +159,15 @@ const emptyExercise = {
   suggestionOffset: 0
 };
 
+const quickWorkoutTypes = [
+  { value: "strength", label: "Strength" },
+  { value: "run", label: "Run" },
+  { value: "cardio", label: "Cardio" },
+  { value: "other", label: "Other" }
+];
+
+const runTypes = ["Easy", "Long", "Short", "Tempo", "Interval", "Sprint"];
+
 const demoWorkouts = [
   {
     id: "demo-strength",
@@ -442,6 +451,60 @@ function createEmptyForm() {
   };
 }
 
+function createQuickStrengthExercise() {
+  return { exercise_name: "", kg: "", reps: "" };
+}
+
+function createQuickCardioMachine() {
+  return { machine: "", calories: "", meters: "", reps: "" };
+}
+
+function createQuickLogForm() {
+  return {
+    name: "",
+    types: ["strength"],
+    overallDuration: "",
+    strengthExercises: [createQuickStrengthExercise()],
+    run: {
+      runType: "Easy",
+      km: "",
+      pace: "",
+      zone: "",
+      laps: "",
+      lapDistance: "",
+      duration: ""
+    },
+    cardioMachines: [createQuickCardioMachine()],
+    other: {
+      notes: "",
+      duration: "",
+      reps: "",
+      meters: "",
+      calories: ""
+    }
+  };
+}
+
+function minutesToSeconds(value) {
+  return Math.max(0, Math.round((Number(value) || 0) * 60));
+}
+
+function buildQuickNotes(form) {
+  const notes = [];
+  if (form.types.includes("run")) {
+    notes.push(`Run: ${form.run.runType || "Run"}${form.run.km ? `, ${form.run.km}km` : ""}${form.run.pace ? `, pace ${form.run.pace}` : ""}${form.run.zone ? `, zone ${form.run.zone}` : ""}${form.run.laps ? `, ${form.run.laps} laps` : ""}${form.run.lapDistance ? `, lap ${form.run.lapDistance}` : ""}${form.run.duration ? `, ${form.run.duration} min` : ""}`);
+  }
+  if (form.types.includes("cardio")) {
+    form.cardioMachines.filter((machine) => machine.machine || machine.calories || machine.meters || machine.reps).forEach((machine, index) => {
+      notes.push(`Cardio ${index + 1}: ${machine.machine || "Machine"}${machine.calories ? `, ${machine.calories} cal` : ""}${machine.meters ? `, ${machine.meters}m` : ""}${machine.reps ? `, ${machine.reps} reps` : ""}`);
+    });
+  }
+  if (form.types.includes("other")) {
+    notes.push(`Other: ${form.other.notes || "Notes"}${form.other.duration ? `, ${form.other.duration} min` : ""}${form.other.reps ? `, ${form.other.reps} reps` : ""}${form.other.meters ? `, ${form.other.meters}m` : ""}${form.other.calories ? `, ${form.other.calories} cal` : ""}`);
+  }
+  return notes.join("\n");
+}
+
 export function WorkoutLibraryScreen({
   autoStartWorkout = null,
   embedded = false,
@@ -465,6 +528,7 @@ export function WorkoutLibraryScreen({
   const [setup, setSetup] = useState(createDefaultSetup);
   const [form, setForm] = useState(createEmptyForm);
   const [activeWorkout, setActiveWorkout] = useState(null);
+  const [quickLogForm, setQuickLogForm] = useState(createQuickLogForm);
   const [hiitInterval, setHiitInterval] = useState(null);
   const [hiitForTime, setHiitForTime] = useState(null);
   const [activeNumberInput, setActiveNumberInput] = useState(null);
@@ -1198,6 +1262,174 @@ export function WorkoutLibraryScreen({
     setSetup(createDefaultSetup());
     setMessage("");
     setMode("setup");
+  }
+
+  function startQuickLog() {
+    setQuickLogForm(createQuickLogForm());
+    setMessage("");
+    setMode("quick-log");
+  }
+
+  function toggleQuickType(type) {
+    setQuickLogForm((current) => {
+      const nextTypes = current.types.includes(type)
+        ? current.types.filter((item) => item !== type)
+        : [...current.types, type];
+      return { ...current, types: nextTypes.length ? nextTypes : [type] };
+    });
+  }
+
+  function updateQuickField(field, value) {
+    setQuickLogForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateQuickNested(section, field, value) {
+    setQuickLogForm((current) => ({
+      ...current,
+      [section]: { ...current[section], [field]: value }
+    }));
+  }
+
+  function updateQuickStrength(index, field, value) {
+    setQuickLogForm((current) => ({
+      ...current,
+      strengthExercises: current.strengthExercises.map((exercise, currentIndex) =>
+        currentIndex === index ? { ...exercise, [field]: value } : exercise
+      )
+    }));
+  }
+
+  function updateQuickCardio(index, field, value) {
+    setQuickLogForm((current) => ({
+      ...current,
+      cardioMachines: current.cardioMachines.map((machine, currentIndex) =>
+        currentIndex === index ? { ...machine, [field]: value } : machine
+      )
+    }));
+  }
+
+  async function saveQuickWorkout(event) {
+    event.preventDefault();
+    const selectedTypes = quickLogForm.types;
+    const sessionName = quickLogForm.name.trim() || "Quick workout";
+    const completedAt = new Date().toISOString();
+    const durationSeconds = minutesToSeconds(quickLogForm.overallDuration || quickLogForm.run.duration || quickLogForm.other.duration);
+    const startedAt = new Date(new Date(completedAt).getTime() - durationSeconds * 1000).toISOString();
+    const strengthRows = selectedTypes.includes("strength")
+      ? quickLogForm.strengthExercises.filter((exercise) => exercise.exercise_name || exercise.kg || exercise.reps)
+      : [];
+    const cardioRows = selectedTypes.includes("cardio")
+      ? quickLogForm.cardioMachines.filter((machine) => machine.machine || machine.calories || machine.meters || machine.reps)
+      : [];
+    const hasRun = selectedTypes.includes("run");
+    const hasOther = selectedTypes.includes("other");
+    const totalVolumeKg = strengthRows.reduce((sum, exercise) => sum + (Number(exercise.kg) || 0) * (Number(exercise.reps) || 0), 0);
+    const completedSets = strengthRows.length + cardioRows.reduce((sum, machine) => sum + (Number(machine.reps) ? 1 : 0), 0);
+    const totalExercises = strengthRows.length + cardioRows.length + (hasRun ? 1 : 0) + (hasOther ? 1 : 0);
+
+    if (!totalExercises) {
+      setMessage("Add at least one quick workout detail before saving.");
+      return;
+    }
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Quick workout logged.");
+      setMode("list");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const { data: sessionLog, error: sessionError } = await supabase
+      .from("session_logs")
+      .insert({
+        owner_id: user.id,
+        workout_template_id: null,
+        name: sessionName,
+        notes: buildQuickNotes(quickLogForm) || null,
+        workout_type: selectedTypes.length === 1 ? selectedTypes[0] : "mixed",
+        status: "completed",
+        started_at: startedAt,
+        completed_at: completedAt,
+        duration_seconds: durationSeconds,
+        total_exercises: totalExercises,
+        completed_sets: completedSets,
+        total_volume_kg: totalVolumeKg
+      })
+      .select("id")
+      .single();
+
+    if (sessionError) {
+      setSaving(false);
+      setMessage(`${sessionError.message}. Run supabase/phase-3-session-logging.sql in Supabase.`);
+      return;
+    }
+
+    const exerciseRows = [
+      ...strengthRows.map((exercise, index) => ({
+        position: index + 1,
+        exercise_name: exercise.exercise_name || `Strength ${index + 1}`,
+        muscle_group: "Strength",
+        target_sets: 1
+      })),
+      ...(hasRun ? [{
+        position: strengthRows.length + 1,
+        exercise_name: `${quickLogForm.run.runType || "Run"} run`,
+        muscle_group: "Run"
+      }] : []),
+      ...cardioRows.map((machine, index) => ({
+        position: strengthRows.length + (hasRun ? 1 : 0) + index + 1,
+        exercise_name: machine.machine || `Cardio ${index + 1}`,
+        muscle_group: "Cardio"
+      })),
+      ...(hasOther ? [{
+        position: strengthRows.length + (hasRun ? 1 : 0) + cardioRows.length + 1,
+        exercise_name: "Other",
+        muscle_group: "Other"
+      }] : [])
+    ].map((row) => ({ ...row, session_id: sessionLog.id }));
+
+    if (exerciseRows.length) {
+      const { data: insertedExercises, error: exerciseError } = await supabase
+        .from("session_log_exercises")
+        .insert(exerciseRows)
+        .select("id,position,muscle_group");
+
+      if (exerciseError) {
+        setSaving(false);
+        setMessage(exerciseError.message);
+        return;
+      }
+
+      const setRows = [];
+      strengthRows.forEach((exercise, index) => {
+        const inserted = insertedExercises.find((row) => row.position === index + 1);
+        if (!inserted) return;
+        setRows.push({
+          session_exercise_id: inserted.id,
+          set_number: 1,
+          kg: exercise.kg === "" ? null : Number(exercise.kg),
+          reps: exercise.reps === "" ? null : Number(exercise.reps),
+          completed: true
+        });
+      });
+
+      if (setRows.length) {
+        const { error: setError } = await supabase.from("session_log_sets").insert(setRows);
+        if (setError) {
+          setSaving(false);
+          setMessage(setError.message);
+          return;
+        }
+      }
+    }
+
+    setSaving(false);
+    setQuickLogForm(createQuickLogForm());
+    setMessage("Quick workout logged.");
+    await loadRecentSessions();
+    setMode("list");
   }
 
   function closeBuilder() {
@@ -3803,6 +4035,173 @@ export function WorkoutLibraryScreen({
     );
   }
 
+  if (mode === "quick-log") {
+    return (
+      <section className="screen-stack workout-library quick-log-screen">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">Log one-off workout</p>
+            <h1>Quick workout</h1>
+            <p>For off-plan sessions that still need to count in your stats.</p>
+          </div>
+          <button className="primary-action compact" onClick={() => setMode("list")} type="button">
+            Cancel
+          </button>
+        </div>
+
+        {message ? <p className={message.includes("logged") ? "form-message success" : "form-message error"}>{message}</p> : null}
+
+        <form className="quick-log-form" onSubmit={saveQuickWorkout}>
+          <section className="panel quick-log-panel">
+            <p className="eyebrow">Name of session</p>
+            <input
+              onChange={(event) => updateQuickField("name", event.target.value)}
+              placeholder="e.g. Lunch run, Push session, Garage cardio"
+              value={quickLogForm.name}
+            />
+            <p className="eyebrow">Session type</p>
+            <div className="quick-type-grid">
+              {quickWorkoutTypes.map((type) => (
+                <button
+                  className={quickLogForm.types.includes(type.value) ? "active" : ""}
+                  key={type.value}
+                  onClick={() => toggleQuickType(type.value)}
+                  type="button"
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {quickLogForm.types.includes("strength") ? (
+            <section className="panel quick-log-panel">
+              <p className="eyebrow">Strength</p>
+              {quickLogForm.strengthExercises.map((exercise, index) => (
+                <div className="quick-repeat-block" key={`strength-${index}`}>
+                  <strong>Exercise {index + 1}</strong>
+                  <input
+                    onChange={(event) => updateQuickStrength(index, "exercise_name", event.target.value)}
+                    placeholder="Exercise name"
+                    value={exercise.exercise_name}
+                  />
+                  <div className="form-grid two">
+                    <input
+                      inputMode="decimal"
+                      onChange={(event) => updateQuickStrength(index, "kg", event.target.value)}
+                      placeholder="Weight kg"
+                      value={exercise.kg}
+                    />
+                    <input
+                      inputMode="numeric"
+                      onChange={(event) => updateQuickStrength(index, "reps", event.target.value)}
+                      placeholder="Reps"
+                      value={exercise.reps}
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                className="primary-action compact"
+                onClick={() => setQuickLogForm((current) => ({
+                  ...current,
+                  strengthExercises: [...current.strengthExercises, createQuickStrengthExercise()]
+                }))}
+                type="button"
+              >
+                + Add exercise
+              </button>
+            </section>
+          ) : null}
+
+          {quickLogForm.types.includes("run") ? (
+            <section className="panel quick-log-panel">
+              <p className="eyebrow">Run</p>
+              <label>
+                Type
+                <select value={quickLogForm.run.runType} onChange={(event) => updateQuickNested("run", "runType", event.target.value)}>
+                  {runTypes.map((type) => <option key={type}>{type}</option>)}
+                </select>
+              </label>
+              <div className="form-grid three">
+                <input inputMode="decimal" onChange={(event) => updateQuickNested("run", "km", event.target.value)} placeholder="Km" value={quickLogForm.run.km} />
+                <input onChange={(event) => updateQuickNested("run", "pace", event.target.value)} placeholder="Pace" value={quickLogForm.run.pace} />
+                <input onChange={(event) => updateQuickNested("run", "zone", event.target.value)} placeholder="Zone" value={quickLogForm.run.zone} />
+              </div>
+              <div className="form-grid three">
+                <input inputMode="numeric" onChange={(event) => updateQuickNested("run", "laps", event.target.value)} placeholder="Laps" value={quickLogForm.run.laps} />
+                <input inputMode="decimal" onChange={(event) => updateQuickNested("run", "lapDistance", event.target.value)} placeholder="Lap distance" value={quickLogForm.run.lapDistance} />
+                <input inputMode="decimal" onChange={(event) => updateQuickNested("run", "duration", event.target.value)} placeholder="Duration min" value={quickLogForm.run.duration} />
+              </div>
+            </section>
+          ) : null}
+
+          {quickLogForm.types.includes("cardio") ? (
+            <section className="panel quick-log-panel">
+              <p className="eyebrow">Cardio</p>
+              {quickLogForm.cardioMachines.map((machine, index) => (
+                <div className="quick-repeat-block" key={`cardio-${index}`}>
+                  <strong>Cardio machine {index + 1}</strong>
+                  <input
+                    onChange={(event) => updateQuickCardio(index, "machine", event.target.value)}
+                    placeholder="Machine or cardio type"
+                    value={machine.machine}
+                  />
+                  <div className="form-grid three">
+                    <input inputMode="numeric" onChange={(event) => updateQuickCardio(index, "calories", event.target.value)} placeholder="Cal" value={machine.calories} />
+                    <input inputMode="numeric" onChange={(event) => updateQuickCardio(index, "meters", event.target.value)} placeholder="Meters" value={machine.meters} />
+                    <input inputMode="numeric" onChange={(event) => updateQuickCardio(index, "reps", event.target.value)} placeholder="Reps" value={machine.reps} />
+                  </div>
+                </div>
+              ))}
+              <button
+                className="primary-action compact"
+                onClick={() => setQuickLogForm((current) => ({
+                  ...current,
+                  cardioMachines: [...current.cardioMachines, createQuickCardioMachine()]
+                }))}
+                type="button"
+              >
+                + Add cardio machine
+              </button>
+            </section>
+          ) : null}
+
+          {quickLogForm.types.includes("other") ? (
+            <section className="panel quick-log-panel">
+              <p className="eyebrow other">Other</p>
+              <textarea
+                onChange={(event) => updateQuickNested("other", "notes", event.target.value)}
+                placeholder="Write what you did..."
+                value={quickLogForm.other.notes}
+              />
+              <div className="form-grid four">
+                <input inputMode="decimal" onChange={(event) => updateQuickNested("other", "duration", event.target.value)} placeholder="Duration min" value={quickLogForm.other.duration} />
+                <input inputMode="numeric" onChange={(event) => updateQuickNested("other", "reps", event.target.value)} placeholder="Reps" value={quickLogForm.other.reps} />
+                <input inputMode="numeric" onChange={(event) => updateQuickNested("other", "meters", event.target.value)} placeholder="Meters" value={quickLogForm.other.meters} />
+                <input inputMode="numeric" onChange={(event) => updateQuickNested("other", "calories", event.target.value)} placeholder="Cal" value={quickLogForm.other.calories} />
+              </div>
+            </section>
+          ) : null}
+
+          <section className="panel quick-log-panel">
+            <p className="eyebrow">Overall duration</p>
+            <input
+              inputMode="decimal"
+              onChange={(event) => updateQuickField("overallDuration", event.target.value)}
+              placeholder="Duration in minutes"
+              value={quickLogForm.overallDuration}
+            />
+          </section>
+
+          <button className="primary-action filled" disabled={saving} type="submit">
+            {saving ? "Logging..." : "Log Workout"}
+          </button>
+        </form>
+      </section>
+    );
+  }
+
   if (mode === "setup") {
     return (
       <section className="screen-stack workout-library">
@@ -4450,9 +4849,14 @@ export function WorkoutLibraryScreen({
           <h1>Workouts</h1>
           <p>Create workouts once, start them later, or use them inside plans.</p>
         </div>
-        <button className="primary-action filled" onClick={startNewWorkout} type="button">
-          Build Workout
-        </button>
+        <div className="workout-heading-actions">
+          <button className="primary-action filled build-workout-action" onClick={startNewWorkout} type="button">
+            Build Workout
+          </button>
+          <button className="primary-action quick-workout-action" onClick={startQuickLog} type="button">
+            Quick Workout
+          </button>
+        </div>
       </div>
 
       {message ? <p className="form-message error">{message}</p> : null}

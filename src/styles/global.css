@@ -821,6 +821,23 @@ button {
   align-items: center;
 }
 
+.workout-heading-actions {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(120px, auto);
+  gap: 10px;
+  align-items: center;
+}
+
+.build-workout-action {
+  min-width: 180px;
+}
+
+.quick-workout-action {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
 .library-toolbar,
 .section-row,
 .workout-card-head,
@@ -841,6 +858,79 @@ button {
 .workout-editor {
   display: grid;
   gap: 16px;
+}
+
+.quick-log-screen {
+  max-width: 720px;
+}
+
+.quick-log-form,
+.quick-log-panel,
+.quick-repeat-block {
+  display: grid;
+  gap: 12px;
+}
+
+.quick-log-panel {
+  border-color: color-mix(in srgb, var(--teal) 42%, var(--line));
+}
+
+.quick-log-panel input,
+.quick-log-panel select,
+.quick-log-panel textarea {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.quick-log-panel textarea {
+  min-height: 104px;
+  padding: 12px;
+}
+
+.quick-log-panel label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.quick-type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-type-grid button {
+  min-height: 36px;
+  border: 1px solid var(--teal);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--teal);
+  font-weight: 900;
+}
+
+.quick-type-grid button.active {
+  background: color-mix(in srgb, var(--teal) 18%, transparent);
+  color: var(--text);
+}
+
+.quick-repeat-block {
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--field) 70%, transparent);
+}
+
+.quick-repeat-block > strong {
+  color: var(--text);
+  font-size: 13px;
 }
 
 .workout-editor label,
@@ -5402,6 +5492,16 @@ button {
   max-width: 760px;
 }
 
+.home-build-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.75fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.home-build-actions .primary-action.filled {
+  min-height: 46px;
+}
+
 .home-quick-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5496,7 +5596,7 @@ button {
 
 .coach-home-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.65fr) minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -6539,6 +6639,37 @@ button {
   .form-grid.three,
   .form-grid.four {
     grid-template-columns: 1fr;
+  }
+
+  .workout-heading-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(112px, 0.42fr);
+    gap: 8px;
+  }
+
+  .build-workout-action {
+    min-height: 52px;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  .quick-workout-action {
+    min-height: 52px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .home-build-actions,
+  .coach-home-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .home-build-actions .primary-action,
+  .coach-home-actions .primary-action {
+    min-height: 44px;
+  }
+
+  .quick-type-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .library-toolbar,

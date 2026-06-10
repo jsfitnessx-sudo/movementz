@@ -112,6 +112,7 @@ export function App() {
   const [handlingInvite, setHandlingInvite] = useState(false);
   const [previewAccount, setPreviewAccount] = useState(null);
   const [appMessage, setAppMessage] = useState("");
+  const [workoutIntent, setWorkoutIntent] = useState("");
   const [notificationSummary, setNotificationSummary] = useState({
     unread_total: 0,
     unread_messages: 0,
@@ -538,6 +539,16 @@ export function App() {
     setActiveTab(nextAccount ? (roleTabs[nextAccount.role] ?? roleTabs.normal_user)[0].id : "settings");
   }
 
+  function handleTabChange(tabId) {
+    setWorkoutIntent("");
+    setActiveTab(tabId);
+  }
+
+  function handleNavigate(tabId, intent = "") {
+    if (tabId === "workouts") setWorkoutIntent(intent);
+    setActiveTab(tabId);
+  }
+
   if (booting) {
     return (
       <main className="auth-screen">
@@ -565,7 +576,7 @@ export function App() {
     <AppLayout
       activeTab={activeTab}
       canPreviewRole={session.user.id === "demo-user"}
-      onTabChange={setActiveTab}
+      onTabChange={handleTabChange}
       notificationSummary={notificationSummary}
       onNotificationSelect={handleNotificationSelect}
       onNotificationsOpen={toggleNotifications}
@@ -610,11 +621,11 @@ export function App() {
         </div>
       ) : null}
       {activeTab === "home" ? (
-        <HomeScreen onNavigate={setActiveTab} role={effectiveRole} user={user} />
+        <HomeScreen onNavigate={handleNavigate} role={effectiveRole} user={user} />
       ) : activeTab === "templates" ? (
         <PublicTemplateLibraryScreen onBack={() => setActiveTab("home")} user={user} />
       ) : activeTab === "today" ? (
-        <TodayScreen onNavigate={setActiveTab} role={effectiveRole} user={user} />
+        <TodayScreen onNavigate={handleNavigate} role={effectiveRole} user={user} />
       ) : activeTab === "profile" ? (
         <ProfileScreen
           onProfileSaved={handleProfileSaved}
@@ -623,7 +634,11 @@ export function App() {
           user={user}
         />
       ) : activeTab === "workouts" ? (
-        <WorkoutLibraryScreen role={effectiveRole} user={user} />
+        <WorkoutLibraryScreen
+          initialMode={workoutIntent === "quick" ? "quick-log" : workoutIntent === "build" ? "setup" : "list"}
+          role={effectiveRole}
+          user={user}
+        />
       ) : activeTab === "plans" ? (
         <PlansScreen role={effectiveRole} user={user} />
       ) : activeTab === "clients" && effectiveRole === "coach" ? (

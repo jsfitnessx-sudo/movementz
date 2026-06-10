@@ -369,8 +369,11 @@ export function HomeScreen({ onNavigate, role, user }) {
         {coachLoading ? <p className="form-message success">Loading coach dashboard...</p> : null}
 
         <div className="coach-home-actions">
-          <button className="primary-action" onClick={() => onNavigate("workouts")} type="button">
+          <button className="primary-action" onClick={() => onNavigate("workouts", "build")} type="button">
             + Build Workout
+          </button>
+          <button className="primary-action compact" onClick={() => onNavigate("workouts", "quick")} type="button">
+            + Quick Workout
           </button>
           <button className="primary-action filled" onClick={() => onNavigate("plans")} type="button">
             + Build Plan
@@ -469,6 +472,18 @@ export function HomeScreen({ onNavigate, role, user }) {
 
       {message ? <p className="form-message error">{message}</p> : null}
       {loading ? <p className="form-message success">Loading home...</p> : null}
+
+      <div className="home-build-actions">
+        <button className="primary-action filled" onClick={() => onNavigate("workouts", "build")} type="button">
+          + Build Workout
+        </button>
+        <button className="primary-action compact" onClick={() => onNavigate("workouts", "quick")} type="button">
+          + Quick Workout
+        </button>
+        <button className="primary-action" onClick={() => onNavigate("plans")} type="button">
+          + Build Plan
+        </button>
+      </div>
 
       <button className="panel home-template-cta" onClick={() => onNavigate("templates")} type="button">
         <div>
