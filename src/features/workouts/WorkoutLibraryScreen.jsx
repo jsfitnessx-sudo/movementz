@@ -2615,20 +2615,31 @@ export function WorkoutLibraryScreen({
     if (!activeWorkout || !hiitForTime) return;
 
     const exercises = activeWorkout.workout_template_exercises || [];
-    const currentExercise = exercises[hiitForTime.exerciseIndex];
+    const exerciseCount = exercises.length;
+    const totalRounds = Math.max(1, Number(activeWorkout.hiit_rounds) || 1);
+    const totalStations = exerciseCount * totalRounds;
+    const currentStationIndex = Math.min(
+      hiitForTime.completedStations.length,
+      Math.max(totalStations - 1, 0)
+    );
+    const currentExerciseIndex = exerciseCount ? currentStationIndex % exerciseCount : 0;
+    const currentExercise = exercises[currentExerciseIndex];
     if (!currentExercise || hiitForTime.phase !== "active") return;
 
     const completedStation = {
-      exerciseIndex: hiitForTime.exerciseIndex,
+      exerciseIndex: currentExerciseIndex,
       exerciseName: currentExercise.exercise_name,
+      round: Math.floor(currentStationIndex / Math.max(exerciseCount, 1)) + 1,
       durationSeconds: hiitForTime.stationElapsedSeconds,
       completedAtSeconds: hiitForTime.elapsedSeconds
     };
-    const nextExerciseIndex = hiitForTime.exerciseIndex + 1;
-    playTone(nextExerciseIndex >= exercises.length ? "done" : "start");
     const completedStations = [...hiitForTime.completedStations, completedStation];
+    const nextStationIndex = completedStations.length;
+    const isFinalStation = nextStationIndex >= totalStations;
+    const nextExerciseIndex = exerciseCount ? nextStationIndex % exerciseCount : 0;
+    playTone(isFinalStation ? "done" : "start");
 
-    if (nextExerciseIndex >= exercises.length) {
+    if (isFinalStation) {
       await finishForTimeSession(completedStations);
       return;
     }
@@ -2637,12 +2648,12 @@ export function WorkoutLibraryScreen({
       current
         ? {
             ...current,
-            running: nextExerciseIndex < exercises.length,
-            phase: nextExerciseIndex < exercises.length ? "active" : current.phase,
-            exerciseIndex: Math.min(nextExerciseIndex, Math.max(exercises.length - 1, 0)),
+            running: true,
+            phase: "active",
+            exerciseIndex: nextExerciseIndex,
             stationElapsedSeconds: 0,
             completedStations,
-            complete: nextExerciseIndex >= exercises.length
+            complete: false
           }
         : current
     );
@@ -3533,10 +3544,15 @@ export function WorkoutLibraryScreen({
 
   if (mode === "hiit-for-time" && activeWorkout && hiitForTime) {
     const exercises = activeWorkout.workout_template_exercises || [];
-    const currentExercise = exercises[hiitForTime.exerciseIndex] || exercises[0];
-    const totalExercises = exercises.length || 1;
+    const exerciseCount = exercises.length || 1;
+    const totalRounds = Math.max(1, Number(activeWorkout.hiit_rounds) || 1);
+    const totalStations = exerciseCount * totalRounds;
     const completedCount = hiitForTime.completedStations.length;
-    const remainingStations = Math.max(totalExercises - completedCount, 0);
+    const currentStationIndex = Math.min(completedCount, Math.max(totalStations - 1, 0));
+    const currentExerciseIndex = exerciseCount ? currentStationIndex % exerciseCount : 0;
+    const currentRound = Math.floor(currentStationIndex / exerciseCount) + 1;
+    const currentExercise = exercises[currentExerciseIndex] || exercises[0];
+    const remainingStations = Math.max(totalStations - completedCount, 0);
     const goalSeconds = Math.max(1, Number(activeWorkout.hiit_goal_seconds) || 1);
     const timeLeft = goalSeconds - hiitForTime.elapsedSeconds;
     const averageNeeded = remainingStations > 0 ? Math.max(0, Math.ceil(timeLeft / remainingStations)) : 0;
@@ -3579,7 +3595,7 @@ export function WorkoutLibraryScreen({
                 )}
               </div>
               <p>
-                Exercise {Math.min(hiitForTime.exerciseIndex + 1, totalExercises)}/{totalExercises} - Goal{" "}
+                Round {Math.min(currentRound, totalRounds)}/{totalRounds} - Station {Math.min(currentStationIndex + 1, totalStations)}/{totalStations} - Goal{" "}
                 {formatClock(goalSeconds)}
               </p>
             </div>
@@ -3652,7 +3668,7 @@ export function WorkoutLibraryScreen({
                 return (
                   <article className="for-time-split" key={`${station.exerciseIndex}-${station.completedAtSeconds}`}>
                     <div>
-                      <span>Split {index + 1}</span>
+                      <span>{station.round ? `Round ${station.round} - ` : ""}Split {index + 1}</span>
                       <strong>{station.exerciseName}</strong>
                       {previousSplit ? (
                         <em>{formatSplitDelta(station.durationSeconds, previousSplit.durationSeconds)}</em>
