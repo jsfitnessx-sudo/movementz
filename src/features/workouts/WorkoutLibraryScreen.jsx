@@ -4853,7 +4853,7 @@ export function WorkoutLibraryScreen({
           <button className="primary-action filled build-workout-action" onClick={startNewWorkout} type="button">
             Build Workout
           </button>
-          <button className="primary-action quick-workout-action" onClick={startQuickLog} type="button">
+          <button className="primary-action filled quick-workout-action" onClick={startQuickLog} type="button">
             Quick Workout
           </button>
         </div>

@@ -369,14 +369,14 @@ export function HomeScreen({ onNavigate, role, user }) {
         {coachLoading ? <p className="form-message success">Loading coach dashboard...</p> : null}
 
         <div className="coach-home-actions">
-          <button className="primary-action" onClick={() => onNavigate("workouts", "build")} type="button">
+          <button className="primary-action filled build-home-action" onClick={() => onNavigate("workouts", "build")} type="button">
             + Build Workout
           </button>
-          <button className="primary-action compact" onClick={() => onNavigate("workouts", "quick")} type="button">
-            + Quick Workout
-          </button>
-          <button className="primary-action filled" onClick={() => onNavigate("plans")} type="button">
+          <button className="primary-action filled build-home-action" onClick={() => onNavigate("plans")} type="button">
             + Build Plan
+          </button>
+          <button className="primary-action filled compact quick-home-action" onClick={() => onNavigate("workouts", "quick")} type="button">
+            + Quick Workout
           </button>
         </div>
 
@@ -474,14 +474,14 @@ export function HomeScreen({ onNavigate, role, user }) {
       {loading ? <p className="form-message success">Loading home...</p> : null}
 
       <div className="home-build-actions">
-        <button className="primary-action filled" onClick={() => onNavigate("workouts", "build")} type="button">
+        <button className="primary-action filled build-home-action" onClick={() => onNavigate("workouts", "build")} type="button">
           + Build Workout
         </button>
-        <button className="primary-action compact" onClick={() => onNavigate("workouts", "quick")} type="button">
-          + Quick Workout
-        </button>
-        <button className="primary-action" onClick={() => onNavigate("plans")} type="button">
+        <button className="primary-action filled build-home-action" onClick={() => onNavigate("plans")} type="button">
           + Build Plan
+        </button>
+        <button className="primary-action filled compact quick-home-action" onClick={() => onNavigate("workouts", "quick")} type="button">
+          + Quick Workout
         </button>
       </div>
 

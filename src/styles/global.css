@@ -838,6 +838,12 @@ button {
   font-size: 12px;
 }
 
+.workout-heading-actions .quick-workout-action.filled {
+  border-color: #4fcac1;
+  background: #4fcac1;
+  color: #061017;
+}
+
 .library-toolbar,
 .section-row,
 .workout-card-head,
@@ -5494,12 +5500,27 @@ button {
 
 .home-build-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.75fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(120px, 0.72fr);
   gap: 10px;
 }
 
-.home-build-actions .primary-action.filled {
+.home-build-actions .primary-action,
+.coach-home-actions .primary-action {
+  border-color: #4fcac1;
+  background: #4fcac1;
+  color: #061017;
+}
+
+.home-build-actions .build-home-action,
+.coach-home-actions .build-home-action {
   min-height: 46px;
+}
+
+.home-build-actions .quick-home-action,
+.coach-home-actions .quick-home-action {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 12px;
 }
 
 .home-quick-grid {
@@ -5596,7 +5617,7 @@ button {
 
 .coach-home-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(120px, 0.65fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(120px, 0.62fr);
   gap: 10px;
 }
 
@@ -6660,16 +6681,27 @@ button {
 
   .home-build-actions,
   .coach-home-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(92px, 0.56fr);
+    gap: 7px;
   }
 
   .home-build-actions .primary-action,
   .coach-home-actions .primary-action {
-    min-height: 44px;
+    min-height: 42px;
+    padding: 0 6px;
+    font-size: 11px;
+    white-space: normal;
+    line-height: 1.1;
+  }
+
+  .home-build-actions .quick-home-action,
+  .coach-home-actions .quick-home-action {
+    min-height: 42px;
+    font-size: 10px;
   }
 
   .quick-type-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .library-toolbar,
@@ -7740,6 +7772,10 @@ button {
   display: none;
 }
 
+.app-shell:has(.quick-log-screen) .nav-floating-wrap {
+  display: none;
+}
+
 .builder-refresh-action {
   font-size: 0;
 }
@@ -8576,5 +8612,135 @@ button {
 
   .food-history-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .quick-log-screen {
+    gap: 12px;
+  }
+
+  .quick-log-screen .screen-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+  }
+
+  .quick-log-screen .screen-heading h1 {
+    font-size: 30px;
+  }
+
+  .quick-log-screen .screen-heading p:not(.eyebrow) {
+    font-size: 14px;
+    line-height: 1.25;
+  }
+
+  .quick-log-screen .screen-heading .primary-action {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .quick-log-form,
+  .quick-log-panel,
+  .quick-repeat-block {
+    gap: 9px;
+  }
+
+  .quick-log-panel {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .quick-log-panel .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.13em;
+  }
+
+  .quick-log-panel input,
+  .quick-log-panel select,
+  .quick-log-panel textarea {
+    min-height: 36px;
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 14px;
+  }
+
+  .quick-log-panel textarea {
+    min-height: 72px;
+    padding: 10px;
+  }
+
+  .quick-log-panel label {
+    gap: 5px;
+    font-size: 10px;
+  }
+
+  .quick-type-grid {
+    gap: 6px;
+  }
+
+  .quick-type-grid button {
+    min-height: 32px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
+
+  .quick-repeat-block {
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .quick-repeat-block > strong {
+    font-size: 12px;
+  }
+
+  .quick-log-panel .form-grid.two,
+  .quick-log-panel .form-grid.three,
+  .quick-log-panel .form-grid.four {
+    gap: 7px;
+  }
+
+  .quick-log-panel .form-grid.two,
+  .quick-log-panel .form-grid.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-log-panel .form-grid.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .quick-log-panel .primary-action.compact {
+    min-height: 36px;
+    font-size: 12px;
+  }
+
+  .quick-log-form > .primary-action.filled {
+    min-height: 42px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 390px) {
+  .home-build-actions,
+  .coach-home-actions {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(76px, 0.5fr);
+    gap: 5px;
+  }
+
+  .home-build-actions .primary-action,
+  .coach-home-actions .primary-action {
+    min-height: 40px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
+
+  .home-build-actions .quick-home-action,
+  .coach-home-actions .quick-home-action {
+    font-size: 9px;
+  }
+
+  .quick-log-panel .form-grid.three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
