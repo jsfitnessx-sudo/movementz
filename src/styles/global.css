@@ -217,6 +217,31 @@ button {
   color: var(--teal);
 }
 
+.workout-recovery-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-color: color-mix(in srgb, var(--gold) 62%, var(--line));
+  background: color-mix(in srgb, var(--gold) 10%, var(--panel));
+  padding: 12px;
+}
+
+.workout-recovery-banner h2 {
+  margin: 2px 0 4px;
+  font-size: 18px;
+}
+
+.workout-recovery-banner p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.workout-recovery-banner .primary-action {
+  flex: 0 0 auto;
+}
+
 .auth-actions button,
 .primary-action {
   min-height: 44px;
@@ -7912,6 +7937,16 @@ button {
 }
 
 @media (max-width: 720px) {
+  .workout-recovery-banner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .workout-recovery-banner .primary-action {
+    width: 100%;
+  }
+
   .calendar-detail-grid,
   .admin-directory-list article,
   .coach-directory-list article {

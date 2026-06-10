@@ -594,6 +594,7 @@ export function WorkoutLibraryScreen({
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [recoveryNotice, setRecoveryNotice] = useState("");
   const hiitLastBeepRef = useRef("");
   const audioContextRef = useRef(null);
   const recoveryHydratedRef = useRef(false);
@@ -974,7 +975,8 @@ export function WorkoutLibraryScreen({
         setActiveBuilderExerciseIndex(Number(recovered.activeBuilderExerciseIndex) || 0);
         setCompletedSession(null);
         setActiveNumberInput(null);
-        setMessage("Restored your unfinished workout.");
+        setRecoveryNotice("Restored your unfinished workout.");
+        setMessage("");
       });
     }
     recoveryHydratedRef.current = true;
@@ -1002,6 +1004,19 @@ export function WorkoutLibraryScreen({
       activeBuilderExerciseIndex
     });
   }, [activeBuilderExerciseIndex, activeWorkout, editingId, form, hiitForTime, hiitInterval, mode, quickLogForm, recoveryKey, setup]);
+
+  useEffect(() => {
+    if (!recoverableWorkoutModes.has(mode)) return undefined;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [mode]);
 
   useEffect(() => {
     const load = Promise.resolve().then(async () => {
@@ -1418,6 +1433,8 @@ export function WorkoutLibraryScreen({
     }
 
     if (!supabase || user.id === "demo-user") {
+      clearRecoveryState(recoveryKey);
+      setRecoveryNotice("");
       setMessage("Quick workout logged.");
       setMode("list");
       return;
@@ -1512,12 +1529,19 @@ export function WorkoutLibraryScreen({
 
     setSaving(false);
     setQuickLogForm(createQuickLogForm());
+    clearRecoveryState(recoveryKey);
+    setRecoveryNotice("");
     setMessage("Quick workout logged.");
     await loadRecentSessions();
     setMode("list");
   }
 
   function closeBuilder() {
+    const shouldClose = window.confirm("Leave this workout without saving? This draft will be discarded.");
+    if (!shouldClose) return;
+
+    clearRecoveryState(recoveryKey);
+    setRecoveryNotice("");
     if (embedded && onClose) {
       onClose();
       return;
@@ -2048,6 +2072,8 @@ export function WorkoutLibraryScreen({
           ? current.map((workout) => (workout.id === editingId ? demoWorkout : workout))
           : [demoWorkout, ...current]
       );
+      clearRecoveryState(recoveryKey);
+      setRecoveryNotice("");
       if (onWorkoutSaved) {
         onWorkoutSaved(demoWorkout);
         return;
@@ -2154,6 +2180,8 @@ export function WorkoutLibraryScreen({
       setMessage(customRequestResult.created ? "Workout saved. Custom exercise sent for review." : "");
     }
     if (onWorkoutSaved) {
+      clearRecoveryState(recoveryKey);
+      setRecoveryNotice("");
       onWorkoutSaved({
         id: templateId,
         name: cleanName,
@@ -2174,6 +2202,8 @@ export function WorkoutLibraryScreen({
       });
       return;
     }
+    clearRecoveryState(recoveryKey);
+    setRecoveryNotice("");
     setMode("list");
   }
 
@@ -2751,6 +2781,8 @@ export function WorkoutLibraryScreen({
     });
 
     setHiitForTime((current) => (current ? { ...current, running: false, phase: "complete", complete: true } : current));
+    clearRecoveryState(recoveryKey);
+    setRecoveryNotice("");
     playTone("done");
     setSaving(false);
     setMode("complete");
@@ -2977,6 +3009,8 @@ export function WorkoutLibraryScreen({
         durationSeconds,
         ...summary
       });
+      clearRecoveryState(recoveryKey);
+      setRecoveryNotice("");
       setSaving(false);
       setMode("complete");
       return;
@@ -3058,6 +3092,8 @@ export function WorkoutLibraryScreen({
       durationSeconds,
       ...summary
     });
+    clearRecoveryState(recoveryKey);
+    setRecoveryNotice("");
     setSaving(false);
     setMode("complete");
   }
@@ -3104,6 +3140,7 @@ export function WorkoutLibraryScreen({
     const shouldCancel = window.confirm("End this workout without saving it to history?");
     if (!shouldCancel) return;
 
+    clearRecoveryState(recoveryKey);
     setActiveWorkout(null);
     setHiitInterval(null);
     setHiitForTime(null);
@@ -3112,7 +3149,53 @@ export function WorkoutLibraryScreen({
     setSwapTargetIndex(null);
     setSwapSearch("");
     setMessage("");
+    setRecoveryNotice("");
     setMode("list");
+  }
+
+  function discardRecoveredWorkout() {
+    const shouldDiscard = window.confirm("Discard this unfinished workout and clear the saved recovery?");
+    if (!shouldDiscard) return;
+
+    clearRecoveryState(recoveryKey);
+    setEditingId(null);
+    setSetup(createDefaultSetup());
+    setForm(createEmptyForm());
+    setQuickLogForm(createQuickLogForm());
+    setActiveWorkout(null);
+    setHiitInterval(null);
+    setHiitForTime(null);
+    setActiveNumberInput(null);
+    setOpenSessionMenu(null);
+    setSwapTargetIndex(null);
+    setSwapSearch("");
+    setCompletedSession(null);
+    setRecoveryNotice("");
+    setMessage("Unfinished workout discarded.");
+    setMode("list");
+  }
+
+  function renderRecoveryBanner(contextLabel = "Workout progress") {
+    if (!recoverableWorkoutModes.has(mode)) return null;
+
+    const isActiveSession = mode === "session" || mode === "hiit-session" || mode === "hiit-for-time";
+    const title = isActiveSession ? "Active workout in progress" : contextLabel;
+    const body = isActiveSession
+      ? "This workout is being saved on this device until you finish it or discard it."
+      : "This draft is being saved on this device until you save it or discard it.";
+
+    return (
+      <div className="panel workout-recovery-banner">
+        <div>
+          <p className="eyebrow">{recoveryNotice ? "Recovered" : "Autosaved"}</p>
+          <h2>{title}</h2>
+          <p>{recoveryNotice || body}</p>
+        </div>
+        <button className="primary-action compact danger" onClick={discardRecoveredWorkout} type="button">
+          Discard
+        </button>
+      </div>
+    );
   }
 
   function handleSharePhoto(event) {
@@ -3468,6 +3551,8 @@ export function WorkoutLibraryScreen({
             </div>
           </div>
 
+          {renderRecoveryBanner()}
+
           {message ? <p className="form-message error">{message}</p> : null}
 
           <div className={isRest ? "hiit-timer-card rest" : "hiit-timer-card work"}>
@@ -3601,6 +3686,8 @@ export function WorkoutLibraryScreen({
             </div>
           </div>
 
+          {renderRecoveryBanner()}
+
           {message ? <p className="form-message error">{message}</p> : null}
 
           <div className="for-time-stat-grid">
@@ -3708,6 +3795,8 @@ export function WorkoutLibraryScreen({
               Add Exercise
             </button>
           </div>
+
+          {renderRecoveryBanner()}
 
         {message ? <p className="form-message error">{message}</p> : null}
 
@@ -4244,10 +4333,12 @@ export function WorkoutLibraryScreen({
             <h1>Quick workout</h1>
             <p>For off-plan sessions that still need to count in your stats.</p>
           </div>
-          <button className="primary-action compact" onClick={() => setMode("list")} type="button">
+          <button className="primary-action compact" onClick={discardRecoveredWorkout} type="button">
             Cancel
           </button>
         </div>
+
+        {renderRecoveryBanner("Quick workout draft")}
 
         {message ? <p className={message.includes("logged") ? "form-message success" : "form-message error"}>{message}</p> : null}
 
@@ -4410,6 +4501,8 @@ export function WorkoutLibraryScreen({
           <h1>Build workout</h1>
           <p>Choose the workout type and setup first, then pick exercises from quick options.</p>
         </div>
+
+        {renderRecoveryBanner("Workout build in progress")}
 
         <div className="workout-editor panel">
           <div className="library-toolbar">
@@ -4738,11 +4831,13 @@ export function WorkoutLibraryScreen({
           <p>Use the quick options, refresh them, search, or type a requested exercise name.</p>
         </div>
 
+        {renderRecoveryBanner("Workout build in progress")}
+
         <form className="workout-editor panel" onSubmit={saveWorkout}>
           <div className="library-toolbar">
             <button
               className="primary-action"
-              onClick={() => (editingId ? setMode("list") : setMode("setup"))}
+              onClick={() => (editingId ? discardRecoveredWorkout() : setMode("setup"))}
               type="button"
             >
               Back
