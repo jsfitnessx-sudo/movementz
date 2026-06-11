@@ -16,6 +16,12 @@ function timeLabel(value) {
   return new Date(value).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
+function addDays(dateKey, days) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return localDateKey(date);
+}
+
 function buildMonthDays(date) {
   const first = new Date(date.getFullYear(), date.getMonth(), 1);
   const startOffset = first.getDay();
@@ -46,15 +52,16 @@ function blankForm(selectedDate) {
   };
 }
 
-function expandCalendarItems(items, days) {
+function expandCalendarItems(items, days, exclusionsByItem) {
   const visibleDays = new Set(days.map((day) => day.key));
   const expanded = [];
 
   for (const item of items) {
     const startDate = localDateKey(new Date(item.starts_at));
     const recurrenceUntil = item.recurrence_until || startDate;
+    const excludedDates = exclusionsByItem[item.id] || new Set();
     if (item.item_type !== "checkin" || item.recurrence_frequency !== "weekly") {
-      if (visibleDays.has(startDate)) expanded.push({ ...item, occurrence_date: startDate, occurrence_key: item.id });
+      if (visibleDays.has(startDate) && !excludedDates.has(startDate)) expanded.push({ ...item, occurrence_date: startDate, occurrence_key: item.id });
       continue;
     }
 
@@ -62,7 +69,7 @@ function expandCalendarItems(items, days) {
     const endDate = new Date(`${recurrenceUntil}T00:00:00`);
     while (nextDate <= endDate) {
       const key = localDateKey(nextDate);
-      if (visibleDays.has(key)) {
+      if (visibleDays.has(key) && !excludedDates.has(key)) {
         expanded.push({ ...item, starts_at: `${key}T${new Date(item.starts_at).toTimeString().slice(0, 8)}`, occurrence_date: key, occurrence_key: `${item.id}-${key}` });
       }
       nextDate.setDate(nextDate.getDate() + 7);
@@ -77,13 +84,22 @@ export function AppointmentsScreen({ user }) {
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()));
   const [clients, setClients] = useState([]);
   const [items, setItems] = useState([]);
+  const [exclusions, setExclusions] = useState([]);
   const [form, setForm] = useState(() => blankForm(localDateKey(new Date())));
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   const days = useMemo(() => buildMonthDays(monthDate), [monthDate]);
-  const calendarItems = useMemo(() => expandCalendarItems(items, days), [days, items]);
+  const exclusionsByItem = useMemo(() => {
+    return exclusions.reduce((grouped, exclusion) => {
+      if (!grouped[exclusion.calendar_item_id]) grouped[exclusion.calendar_item_id] = new Set();
+      grouped[exclusion.calendar_item_id].add(exclusion.occurrence_date);
+      return grouped;
+    }, {});
+  }, [exclusions]);
+  const calendarItems = useMemo(() => expandCalendarItems(items, days, exclusionsByItem), [days, exclusionsByItem, items]);
   const itemsByDay = useMemo(() => {
     return calendarItems.reduce((grouped, item) => {
       const key = item.occurrence_date || localDateKey(new Date(item.starts_at));
@@ -107,7 +123,9 @@ export function AppointmentsScreen({ user }) {
 
       const start = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
       const end = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
-      const [clientResult, itemResult] = await Promise.all([
+      const visibleStart = days[0]?.key || localDateKey(start);
+      const visibleEnd = days[days.length - 1]?.key || localDateKey(end);
+      const [clientResult, itemResult, exclusionResult] = await Promise.all([
         supabase.rpc("get_my_coach_clients"),
         supabase
           .from("coach_calendar_items")
@@ -115,7 +133,13 @@ export function AppointmentsScreen({ user }) {
           .eq("coach_id", user.id)
           .lte("starts_at", end.toISOString())
           .or(`recurrence_until.is.null,recurrence_until.gte.${localDateKey(start)}`)
-          .order("starts_at", { ascending: true })
+          .order("starts_at", { ascending: true }),
+        supabase
+          .from("coach_calendar_item_exclusions")
+          .select("calendar_item_id,occurrence_date")
+          .eq("coach_id", user.id)
+          .gte("occurrence_date", visibleStart)
+          .lte("occurrence_date", visibleEnd)
       ]);
 
       if (!alive) return;
@@ -133,12 +157,19 @@ export function AppointmentsScreen({ user }) {
       } else {
         setItems(itemResult.data || []);
       }
+
+      if (exclusionResult.error) {
+        setExclusions([]);
+        setMessage(`${exclusionResult.error.message}. Run supabase/phase-34-calendar-checkin-deletes.sql in Supabase.`);
+      } else {
+        setExclusions(exclusionResult.data || []);
+      }
     });
 
     return () => {
       alive = false;
     };
-  }, [monthDate, user.id]);
+  }, [calendarRefreshKey, days, monthDate, user.id]);
 
   function changeMonth(direction) {
     const next = new Date(monthDate);
@@ -187,8 +218,7 @@ export function AppointmentsScreen({ user }) {
 
     setMessage("Calendar item saved.");
     setForm(blankForm(form.date));
-    const refreshMonth = new Date(monthDate);
-    setMonthDate(new Date(refreshMonth));
+    setCalendarRefreshKey((current) => current + 1);
   }
 
   async function markDone(item) {
@@ -205,6 +235,88 @@ export function AppointmentsScreen({ user }) {
     setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: item.status === "done" ? "scheduled" : "done" } : entry));
   }
 
+  async function deleteCheckinOccurrence(item) {
+    if (!supabase || user.id === "demo-user") return;
+    if (item.item_type !== "checkin") return;
+    if ((item.occurrence_date || selectedDate) < localDateKey(new Date())) {
+      setMessage("Only future check-ins can be deleted from the calendar.");
+      return;
+    }
+
+    const occurrenceDate = item.occurrence_date || localDateKey(new Date(item.starts_at));
+    const confirmed = window.confirm(`Delete this check-in on ${occurrenceDate}?`);
+    if (!confirmed) return;
+
+    setMessage("");
+
+    if (item.recurrence_frequency === "weekly") {
+      const { error } = await supabase.from("coach_calendar_item_exclusions").upsert(
+        {
+          calendar_item_id: item.id,
+          coach_id: user.id,
+          client_id: item.client_id,
+          occurrence_date: occurrenceDate,
+          reason: "coach_deleted"
+        },
+        { onConflict: "calendar_item_id,occurrence_date" }
+      );
+
+      if (error) {
+        setMessage(`${error.message}. Run supabase/phase-34-calendar-checkin-deletes.sql in Supabase.`);
+        return;
+      }
+    } else {
+      const { error } = await supabase
+        .from("coach_calendar_items")
+        .update({ status: "cancelled" })
+        .eq("id", item.id)
+        .eq("coach_id", user.id);
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+    }
+
+    setMessage("Check-in date deleted.");
+    setCalendarRefreshKey((current) => current + 1);
+  }
+
+  async function deleteFutureCheckins(item) {
+    if (!supabase || user.id === "demo-user") return;
+    if (item.item_type !== "checkin") return;
+    const fromDate = item.occurrence_date || localDateKey(new Date(item.starts_at));
+    if (fromDate < localDateKey(new Date())) {
+      setMessage("Only future check-ins can be deleted from the calendar.");
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete this check-in and all future check-ins from ${fromDate}?`);
+    if (!confirmed) return;
+
+    setMessage("");
+    const startDate = localDateKey(new Date(item.starts_at));
+    let query = supabase.from("coach_calendar_items").update({ status: "cancelled" }).eq("id", item.id).eq("coach_id", user.id);
+
+    if (item.recurrence_frequency === "weekly" && fromDate > startDate) {
+      query = supabase
+        .from("coach_calendar_items")
+        .update({ recurrence_until: addDays(fromDate, -7) })
+        .eq("id", item.id)
+        .eq("coach_id", user.id);
+    }
+
+    const { error } = await query;
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setMessage("Future check-ins deleted.");
+    setCalendarRefreshKey((current) => current + 1);
+  }
+
   return (
     <section className="screen-stack appointments-screen">
       <div className="screen-heading library-heading">
@@ -215,7 +327,7 @@ export function AppointmentsScreen({ user }) {
         </div>
       </div>
 
-      {message ? <p className={message.includes("saved") ? "form-message success" : "form-message error"}>{message}</p> : null}
+      {message ? <p className={message.includes("saved") || message.includes("deleted") ? "form-message success" : "form-message error"}>{message}</p> : null}
       {loading ? <p className="form-message success">Loading calendar...</p> : null}
 
       <section className="panel calendar-panel">
@@ -266,9 +378,17 @@ export function AppointmentsScreen({ user }) {
                 {item.item_type === "checkin" && item.recurrence_frequency === "weekly" ? <em>Weekly until {item.recurrence_until}</em> : null}
                 {item.notes ? <p>{item.notes}</p> : null}
               </div>
-              <button className="primary-action compact" onClick={() => markDone(item)} type="button">
-                {item.status === "done" ? "Undo" : "Done"}
-              </button>
+              <div className="calendar-item-actions">
+                <button className="primary-action compact" onClick={() => markDone(item)} type="button">
+                  {item.status === "done" ? "Undo" : "Done"}
+                </button>
+                {item.item_type === "checkin" && item.occurrence_date >= localDateKey(new Date()) ? (
+                  <>
+                    <button className="danger-link" onClick={() => deleteCheckinOccurrence(item)} type="button">Delete date</button>
+                    <button className="danger-link" onClick={() => deleteFutureCheckins(item)} type="button">Delete future</button>
+                  </>
+                ) : null}
+              </div>
             </article>
           )) : <p className="compact-help">No appointments, tasks or reminders for this day.</p>}
         </section>

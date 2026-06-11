@@ -8201,6 +8201,18 @@ button {
   min-width: 0;
 }
 
+.calendar-item-actions {
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+}
+
+.calendar-item-actions .danger-link {
+  min-height: 28px;
+  padding: 0;
+  text-align: right;
+}
+
 .calendar-item span,
 .calendar-item em,
 .calendar-item p {
@@ -8478,6 +8490,14 @@ button {
   .calendar-grid button {
     min-height: 58px;
     padding: 6px;
+  }
+
+  .calendar-item-actions {
+    justify-items: stretch;
+  }
+
+  .calendar-item-actions .danger-link {
+    text-align: center;
   }
 
   .suggestion-picker .mini-actions {
