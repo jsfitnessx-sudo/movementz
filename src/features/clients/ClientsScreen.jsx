@@ -34,6 +34,11 @@ function formatShortDate(value) {
   return new Date(value).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+function formatCheckinDate(value) {
+  if (!value) return "";
+  return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
 function formatDuration(seconds) {
   const total = Math.max(0, Number(seconds) || 0);
   const minutes = Math.floor(total / 60);
@@ -81,6 +86,10 @@ function measurementChanges(tracker, checkins) {
   return measurementFields
     .map(([field, label]) => ({ label, value: deltaLabel(tracker[field], latest[field], "cm") }))
     .filter((item) => item.value !== "-");
+}
+
+function checkinAnswer(row, key) {
+  return row?.responses?.[key] || "";
 }
 
 function habitPercent(habit) {
@@ -266,6 +275,7 @@ export function ClientsScreen({ profile, user }) {
   const [clientTracker, setClientTracker] = useState(null);
   const [clientCheckinCount, setClientCheckinCount] = useState(0);
   const [clientCheckins, setClientCheckins] = useState([]);
+  const [clientCoachCheckins, setClientCoachCheckins] = useState([]);
   const [clientAssignedPlans, setClientAssignedPlans] = useState([]);
   const [clientLatestWorkout, setClientLatestWorkout] = useState(null);
   const [clientWorkoutCount, setClientWorkoutCount] = useState(0);
@@ -277,6 +287,7 @@ export function ClientsScreen({ profile, user }) {
   const [clientFoodSummary, setClientFoodSummary] = useState(null);
   const [clientFoodError, setClientFoodError] = useState("");
   const [clientProgressError, setClientProgressError] = useState("");
+  const [clientCoachCheckinsOpen, setClientCoachCheckinsOpen] = useState(false);
   const [clientChartsOpen, setClientChartsOpen] = useState(false);
   const [clientPhotosOpen, setClientPhotosOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -295,6 +306,7 @@ export function ClientsScreen({ profile, user }) {
     [activeClients, selectedClientId]
   );
   const latestClientCheckin = useMemo(() => latestCheckin(clientCheckins), [clientCheckins]);
+  const latestCoachCheckin = useMemo(() => clientCoachCheckins[0] || null, [clientCoachCheckins]);
   const clientCheckinPercent = useMemo(() => trackerWeekPercent(clientTracker, clientCheckins), [clientCheckins, clientTracker]);
   const clientWeightChange = useMemo(
     () => deltaLabel(clientTracker?.start_weight_kg, latestClientCheckin?.weight_kg, "kg"),
@@ -405,6 +417,7 @@ export function ClientsScreen({ profile, user }) {
       setClientTracker(null);
       setClientCheckinCount(0);
       setClientCheckins([]);
+      setClientCoachCheckins([]);
       setClientAssignedPlans([]);
       setClientLatestWorkout(null);
       setClientWorkoutCount(0);
@@ -416,6 +429,7 @@ export function ClientsScreen({ profile, user }) {
       setClientFoodSummary(null);
       setClientFoodError("");
       setClientProgressError("");
+      setClientCoachCheckinsOpen(false);
       setLoadingPhotos(false);
       return;
     }
@@ -438,6 +452,25 @@ export function ClientsScreen({ profile, user }) {
       setClientFoodSummary(data || null);
       setClientFoodError("");
     };
+
+    const loadCoachCheckins = async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 28);
+      const sinceDate = since.toISOString().slice(0, 10);
+
+      const { data, error } = await supabase
+        .from("coach_checkin_responses")
+        .select("id,occurrence_date,responses,notes,submitted_at,coach_calendar_items(title,notes)")
+        .eq("coach_id", user.id)
+        .eq("client_id", clientId)
+        .gte("occurrence_date", sinceDate)
+        .order("occurrence_date", { ascending: false })
+        .limit(12);
+
+      setClientCoachCheckins(error ? [] : data || []);
+    };
+
+    await loadCoachCheckins();
 
     const { data: summary, error: summaryError } = await supabase.rpc("get_coach_client_progress_summary", {
       target_client_id: clientId
@@ -777,6 +810,62 @@ export function ClientsScreen({ profile, user }) {
               </div>
             ) : (
               <p className="compact-help">No active assigned plans yet.</p>
+            )}
+          </section>
+
+          <section className="client-progress-card coach-checkin-review">
+            <div className="client-section-title">
+              <div>
+                <p className="eyebrow">Check-ins</p>
+                <span>Scheduled coach check-ins from the last 4 weeks.</span>
+              </div>
+              <button
+                className="primary-action compact"
+                disabled={!clientCoachCheckins.length}
+                onClick={() => setClientCoachCheckinsOpen((open) => !open)}
+                type="button"
+              >
+                {clientCoachCheckinsOpen ? "Hide" : "Open"}
+              </button>
+            </div>
+            {latestCoachCheckin ? (
+              <>
+                <article className="coach-checkin-latest">
+                  <div>
+                    <span>{formatCheckinDate(latestCoachCheckin.occurrence_date)}</span>
+                    <strong>{latestCoachCheckin.coach_calendar_items?.title || "Coach check-in"}</strong>
+                    <em>Submitted {formatShortDate(latestCoachCheckin.submitted_at)}</em>
+                  </div>
+                  <div className="coach-checkin-score-grid">
+                    <span>Energy <strong>{checkinAnswer(latestCoachCheckin, "energy") || "-"}/5</strong></span>
+                    <span>Mood <strong>{checkinAnswer(latestCoachCheckin, "mood") || "-"}/5</strong></span>
+                  </div>
+                  <div className="coach-checkin-answer-list">
+                    {checkinAnswer(latestCoachCheckin, "win") ? <p><strong>Win</strong>{checkinAnswer(latestCoachCheckin, "win")}</p> : null}
+                    {checkinAnswer(latestCoachCheckin, "challenge") ? <p><strong>Challenge</strong>{checkinAnswer(latestCoachCheckin, "challenge")}</p> : null}
+                    {checkinAnswer(latestCoachCheckin, "question") ? <p><strong>Question</strong>{checkinAnswer(latestCoachCheckin, "question")}</p> : null}
+                    {latestCoachCheckin.notes ? <p><strong>Notes</strong>{latestCoachCheckin.notes}</p> : null}
+                  </div>
+                </article>
+                {clientCoachCheckinsOpen ? (
+                  <div className="coach-checkin-list">
+                    {clientCoachCheckins.slice(1).length ? clientCoachCheckins.slice(1).map((checkin) => (
+                      <article className="coach-checkin-row" key={checkin.id}>
+                        <div>
+                          <strong>{checkin.coach_calendar_items?.title || "Coach check-in"}</strong>
+                          <span>{formatCheckinDate(checkin.occurrence_date)}</span>
+                        </div>
+                        <span>Energy {checkinAnswer(checkin, "energy") || "-"}/5</span>
+                        <span>Mood {checkinAnswer(checkin, "mood") || "-"}/5</span>
+                      </article>
+                    )) : (
+                      <p className="compact-help">No earlier submitted check-ins in the last 4 weeks.</p>
+                    )}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="compact-help">No scheduled check-ins submitted in the last 4 weeks.</p>
             )}
           </section>
 

@@ -77,6 +77,7 @@ export function TodayScreen({ role, user }) {
   const [coachLinks, setCoachLinks] = useState([]);
   const [dueCheckins, setDueCheckins] = useState([]);
   const [checkinDrafts, setCheckinDrafts] = useState({});
+  const [editingCheckins, setEditingCheckins] = useState(() => new Set());
   const [activeScheduleWorkout, setActiveScheduleWorkout] = useState(null);
   const [selectedDay, setSelectedDay] = useState(
     new Date().toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3)
@@ -201,7 +202,7 @@ export function TodayScreen({ role, user }) {
         setCheckinDrafts((current) => {
           const next = { ...current };
           for (const checkin of checkins) {
-            if (next[checkin.id]) continue;
+            if (next[checkin.id] && !checkin.response_id) continue;
             const responses = checkin.responses || {};
             next[checkin.id] = {
               energy: responses.energy || "",
@@ -287,6 +288,11 @@ export function TodayScreen({ role, user }) {
     }
 
     setMessage("Check-in submitted.");
+    setEditingCheckins((current) => {
+      const next = new Set(current);
+      next.delete(checkin.id);
+      return next;
+    });
     await loadSchedule();
   }
 
@@ -309,7 +315,7 @@ export function TodayScreen({ role, user }) {
         <p>{formatTodayDate()}</p>
       </div>
 
-      {message ? <p className="form-message error">{message}</p> : null}
+      {message ? <p className={message.includes("submitted") ? "form-message success" : "form-message error"}>{message}</p> : null}
       {loading ? <p className="form-message success">Loading schedule...</p> : null}
 
       <div className="schedule-day-tabs prototype-day-tabs" role="tablist" aria-label="Training days">
@@ -342,6 +348,8 @@ export function TodayScreen({ role, user }) {
           {dueCheckins.map((checkin) => {
             const draft = checkinDrafts[checkin.id] || {};
             const submitted = Boolean(checkin.response_id);
+            const editing = editingCheckins.has(checkin.id);
+            const showForm = !submitted || editing;
             return (
               <article className={submitted ? "today-checkin-card submitted" : "today-checkin-card"} key={`${checkin.id}-${checkin.occurrence_date}`}>
                 <div className="schedule-card-top">
@@ -349,35 +357,53 @@ export function TodayScreen({ role, user }) {
                   <span className={submitted ? "status-pill" : "status-pill gold-pill"}>{submitted ? "Submitted" : "Due"}</span>
                 </div>
                 <p className="compact-help">{checkin.notes || `Coach check-in from ${checkin.coach_name}`}</p>
-                <div className="today-checkin-grid">
-                  <label>
-                    Energy 1-5
-                    <input inputMode="numeric" value={draft.energy} onChange={(event) => updateCheckinDraft(checkin.id, "energy", event.target.value)} />
-                  </label>
-                  <label>
-                    Mood 1-5
-                    <input inputMode="numeric" value={draft.mood} onChange={(event) => updateCheckinDraft(checkin.id, "mood", event.target.value)} />
-                  </label>
-                </div>
-                <label>
-                  Win
-                  <textarea value={draft.win} onChange={(event) => updateCheckinDraft(checkin.id, "win", event.target.value)} placeholder="What went well?" />
-                </label>
-                <label>
-                  Challenge
-                  <textarea value={draft.challenge} onChange={(event) => updateCheckinDraft(checkin.id, "challenge", event.target.value)} placeholder="What felt hard?" />
-                </label>
-                <label>
-                  Question for coach
-                  <textarea value={draft.question} onChange={(event) => updateCheckinDraft(checkin.id, "question", event.target.value)} placeholder="Anything you want help with?" />
-                </label>
-                <label>
-                  Extra notes
-                  <textarea value={draft.notes} onChange={(event) => updateCheckinDraft(checkin.id, "notes", event.target.value)} placeholder="Optional" />
-                </label>
-                <button className="primary-action filled" onClick={() => submitCheckin(checkin)} type="button">
-                  {submitted ? "Update Check-In" : "Submit Check-In"}
-                </button>
+                {submitted && !showForm ? (
+                  <>
+                    <div className="today-checkin-summary">
+                      <span>Energy <strong>{draft.energy || "-"}/5</strong></span>
+                      <span>Mood <strong>{draft.mood || "-"}/5</strong></span>
+                    </div>
+                    {draft.win ? <p className="today-checkin-answer"><strong>Win</strong>{draft.win}</p> : null}
+                    {draft.challenge ? <p className="today-checkin-answer"><strong>Challenge</strong>{draft.challenge}</p> : null}
+                    {draft.question ? <p className="today-checkin-answer"><strong>Question</strong>{draft.question}</p> : null}
+                    {draft.notes ? <p className="today-checkin-answer"><strong>Notes</strong>{draft.notes}</p> : null}
+                    <button className="primary-action" onClick={() => setEditingCheckins((current) => new Set(current).add(checkin.id))} type="button">
+                      Edit Check-In
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="today-checkin-grid">
+                      <label>
+                        Energy 1-5
+                        <input inputMode="numeric" value={draft.energy} onChange={(event) => updateCheckinDraft(checkin.id, "energy", event.target.value)} />
+                      </label>
+                      <label>
+                        Mood 1-5
+                        <input inputMode="numeric" value={draft.mood} onChange={(event) => updateCheckinDraft(checkin.id, "mood", event.target.value)} />
+                      </label>
+                    </div>
+                    <label>
+                      Win
+                      <textarea value={draft.win} onChange={(event) => updateCheckinDraft(checkin.id, "win", event.target.value)} placeholder="What went well?" />
+                    </label>
+                    <label>
+                      Challenge
+                      <textarea value={draft.challenge} onChange={(event) => updateCheckinDraft(checkin.id, "challenge", event.target.value)} placeholder="What felt hard?" />
+                    </label>
+                    <label>
+                      Question for coach
+                      <textarea value={draft.question} onChange={(event) => updateCheckinDraft(checkin.id, "question", event.target.value)} placeholder="Anything you want help with?" />
+                    </label>
+                    <label>
+                      Extra notes
+                      <textarea value={draft.notes} onChange={(event) => updateCheckinDraft(checkin.id, "notes", event.target.value)} placeholder="Optional" />
+                    </label>
+                    <button className="primary-action filled" onClick={() => submitCheckin(checkin)} type="button">
+                      {submitted ? "Update Check-In" : "Submit Check-In"}
+                    </button>
+                  </>
+                )}
               </article>
             );
           })}
