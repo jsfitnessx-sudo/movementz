@@ -323,6 +323,44 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setMessage(`Password reset email sent to ${passwordResetEmail.trim()}.`);
   }
 
+  async function sendDailyAffirmationsNow() {
+    if (!supabase) return;
+
+    setSaving("daily-affirmation-push");
+    setMessage("");
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      setSaving("");
+      setMessage("Could not confirm admin login. Sign out and back in, then try again.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/send-daily-affirmations?force=1", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      setSaving("");
+      if (!response.ok) {
+        setMessage(payload.error || "Daily affirmation send failed.");
+        return;
+      }
+
+      setMessage(
+        `Daily affirmation sent to ${payload.sentUsers || 0} user${payload.sentUsers === 1 ? "" : "s"} / ${payload.sentDevices || 0} device${payload.sentDevices === 1 ? "" : "s"}. Failed devices: ${payload.failedDevices || 0}.`
+      );
+    } catch {
+      setSaving("");
+      setMessage("Daily affirmation send failed. Check Vercel logs for details.");
+    }
+  }
+
   return (
     <section className="screen-stack admin-settings-screen">
       <div className="screen-heading library-heading">
@@ -405,6 +443,22 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
             {saving === "password-reset" ? "Sending..." : "Send"}
           </button>
         </form>
+      </section>
+
+      <section className="panel admin-settings-panel signup-link-panel">
+        <div>
+          <p className="eyebrow">Daily affirmation push</p>
+          <h2>Send now</h2>
+          <p>Manually trigger today&apos;s daily affirmation notification if the scheduled cron misses.</p>
+        </div>
+        <button
+          className="primary-action filled"
+          disabled={saving === "daily-affirmation-push"}
+          onClick={sendDailyAffirmationsNow}
+          type="button"
+        >
+          {saving === "daily-affirmation-push" ? "Sending..." : "Send Daily Affirmation"}
+        </button>
       </section>
 
       <section className="panel admin-settings-panel">

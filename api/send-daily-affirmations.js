@@ -89,27 +89,44 @@ export default async function handler(request, response) {
     return;
   }
 
-  const cronSecret = process.env.CRON_SECRET || "";
-  const requestSecret = request.headers["x-cron-secret"] || request.query?.secret || "";
-  const isVercelCron = request.headers["x-vercel-cron"] === "1";
-  if (!isVercelCron && (!cronSecret || requestSecret !== cronSecret)) {
-    json(response, 401, { error: "Unauthorized." });
-    return;
-  }
-
   if (!supabaseUrl || !supabaseServiceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
     json(response, 501, { error: "Daily affirmation push is not configured." });
     return;
   }
 
+  const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+  const cronSecret = process.env.CRON_SECRET || "";
+  const requestSecret = request.headers["x-cron-secret"] || request.query?.secret || "";
+  const isVercelCron = request.headers["x-vercel-cron"] === "1";
+  const authHeader = request.headers.authorization || request.headers.Authorization || "";
+  const token = String(authHeader).replace(/^Bearer\s+/i, "");
+  let isAdminTrigger = false;
+
+  if (token) {
+    const { data: userData } = await serviceClient.auth.getUser(token);
+    const userId = userData?.user?.id;
+    if (userId) {
+      const { data: profile } = await serviceClient
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
+      isAdminTrigger = profile?.role === "admin";
+    }
+  }
+
+  if (!isVercelCron && !isAdminTrigger && (!cronSecret || requestSecret !== cronSecret)) {
+    json(response, 401, { error: "Unauthorized." });
+    return;
+  }
+
   const { dateKey, hour } = sydneyParts();
-  const force = request.query?.force === "1";
+  const force = request.query?.force === "1" || isAdminTrigger;
   if (!force && hour !== 10 && hour !== 11) {
     json(response, 200, { skipped: true, reason: "Not Sydney 10am/11am cron window.", dateKey, hour });
     return;
   }
 
-  const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey);
   const { data: subscriptions, error: subscriptionError } = await serviceClient
     .from("push_subscriptions")
     .select("id,user_id,endpoint,p256dh,auth")
