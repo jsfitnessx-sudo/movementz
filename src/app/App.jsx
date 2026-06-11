@@ -17,9 +17,11 @@ import { PlansScreen } from "../features/plans/PlansScreen.jsx";
 import { ProfileScreen } from "../features/profile/ProfileScreen.jsx";
 import { ProgressPhotosScreen } from "../features/progress/ProgressPhotosScreen.jsx";
 import { PlaceholderScreen } from "../features/shared/PlaceholderScreen.jsx";
+import { UpgradePromptScreen } from "../features/shared/UpgradePromptScreen.jsx";
 import { PublicTemplateLibraryScreen } from "../features/templates/PublicTemplateLibraryScreen.jsx";
 import { TodayScreen } from "../features/today/TodayScreen.jsx";
 import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.jsx";
+import { tabIsLocked } from "../lib/access/paidAccess.js";
 import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
 import { movementzIconSrc } from "../lib/brandAssets.js";
@@ -40,7 +42,7 @@ async function loadProfile(authUser) {
     return null;
   }
 
-  if (data) return data;
+  if (data) return { ...data, ...(await loadProfileAccess(authUser.id)) };
 
   const metadata = authUser.user_metadata ?? {};
   const fallbackProfile = {
@@ -61,7 +63,7 @@ async function loadProfile(authUser) {
 
   if (insertError) {
     console.warn("Profile create failed", insertError);
-    return fallbackProfile;
+    return { ...fallbackProfile, ...(await loadProfileAccess(authUser.id)) };
   }
 
   if (fallbackProfile.role === "coach") {
@@ -75,7 +77,23 @@ async function loadProfile(authUser) {
     });
   }
 
-  return insertedProfile;
+  return { ...insertedProfile, ...(await loadProfileAccess(authUser.id)) };
+}
+
+async function loadProfileAccess(userId) {
+  if (!supabase || !userId) return {};
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("access_tier,paid_access_until,admin_granted_paid_access,feature_overrides,stripe_customer_id,stripe_subscription_id,subscription_status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return {};
+  }
+
+  return data || {};
 }
 
 function buildUser(session, profile) {
@@ -132,7 +150,24 @@ export function App() {
   });
   const notificationCountRef = useRef(0);
   const effectiveRole = previewAccount?.role || role;
-  const tabs = useMemo(() => roleTabs[effectiveRole] ?? roleTabs.normal_user, [effectiveRole]);
+  const effectiveProfile = useMemo(() => previewAccount ? {
+    id: previewAccount.id,
+    email: previewAccount.email,
+    full_name: previewAccount.name,
+    role: previewAccount.role,
+    avatar_url: previewAccount.avatarUrl,
+    access_tier: previewAccount.access_tier,
+    paid_access_until: previewAccount.paid_access_until,
+    admin_granted_paid_access: previewAccount.admin_granted_paid_access,
+    feature_overrides: previewAccount.feature_overrides
+  } : profile, [previewAccount, profile]);
+  const tabs = useMemo(
+    () => (roleTabs[effectiveRole] ?? roleTabs.normal_user).map((tab) => ({
+      ...tab,
+      locked: tabIsLocked(tab.id, effectiveProfile, effectiveRole)
+    })),
+    [effectiveProfile, effectiveRole]
+  );
   const [activeTab, setActiveTab] = useState(tabs[0].id);
   const accountUser = useMemo(() => buildUser(session, profile), [session, profile]);
   const user = useMemo(() => previewAccount ? {
@@ -148,13 +183,7 @@ export function App() {
     setActiveTab(requestedTab);
     requestedTabRef.current = "";
   }, [tabs]);
-  const effectiveProfile = useMemo(() => previewAccount ? {
-    id: previewAccount.id,
-    email: previewAccount.email,
-    full_name: previewAccount.name,
-    role: previewAccount.role,
-    avatar_url: previewAccount.avatarUrl
-  } : profile, [previewAccount, profile]);
+  const lockedActiveTab = tabIsLocked(activeTab, effectiveProfile, effectiveRole);
 
   const playNotificationSound = useCallback(() => {
     try {
@@ -629,7 +658,7 @@ export function App() {
         </div>
       ) : null}
       {activeTab === "home" ? (
-        <HomeScreen onNavigate={handleNavigate} role={effectiveRole} user={user} />
+        <HomeScreen onNavigate={handleNavigate} profile={effectiveProfile} role={effectiveRole} user={user} />
       ) : activeTab === "templates" ? (
         <PublicTemplateLibraryScreen onBack={() => setActiveTab("home")} user={user} />
       ) : activeTab === "today" ? (
@@ -651,6 +680,8 @@ export function App() {
         <PlansScreen role={effectiveRole} user={user} />
       ) : activeTab === "clients" && effectiveRole === "coach" ? (
         <ClientsScreen profile={effectiveProfile} user={user} />
+      ) : lockedActiveTab ? (
+        <UpgradePromptScreen featureTab={activeTab} onNavigate={handleNavigate} />
       ) : activeTab === "messages" && (effectiveRole === "coach" || effectiveRole === "client" || effectiveRole === "normal_user") ? (
         <MessagesScreen onNotificationsChange={loadNotifications} role={effectiveRole} user={user} />
       ) : activeTab === "habits" ? (
@@ -666,7 +697,7 @@ export function App() {
       ) : activeTab === "appointments" && effectiveRole === "coach" ? (
         <AppointmentsScreen user={user} />
       ) : activeTab === "users" && effectiveRole === "admin" ? (
-        <AdminUsersScreen />
+        <AdminUsersScreen onPreviewAccount={handlePreviewAccount} />
       ) : activeTab === "coaches" && effectiveRole === "admin" ? (
         <AdminCoachesScreen />
       ) : activeTab === "requests" && effectiveRole === "admin" ? (

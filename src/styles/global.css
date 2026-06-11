@@ -5684,6 +5684,36 @@ button {
   font-weight: 800;
 }
 
+.home-checkin-card.locked {
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
+  background: color-mix(in srgb, var(--gold) 8%, var(--panel));
+  opacity: 0.9;
+}
+
+.home-checkin-card.locked span,
+.home-checkin-card.locked em {
+  color: var(--gold);
+}
+
+.home-upgrade-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  border-color: color-mix(in srgb, var(--gold) 50%, var(--line));
+  background: color-mix(in srgb, var(--gold) 8%, var(--panel));
+}
+
+.home-upgrade-preview h2,
+.home-upgrade-preview p {
+  margin: 0;
+}
+
+.home-upgrade-preview p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .home-achievement-card,
 .home-session-summary {
   display: grid;
@@ -6648,6 +6678,10 @@ button {
   color: var(--teal);
 }
 
+.nav-floating-menu button.locked {
+  color: var(--gold);
+}
+
 .floating-icon,
 .nav-floating-trigger {
   display: grid;
@@ -6699,6 +6733,16 @@ button {
 
 .nav-item.active {
   color: var(--teal);
+}
+
+.nav-item.locked {
+  color: color-mix(in srgb, var(--gold) 70%, var(--muted));
+}
+
+.nav-item.locked .nav-icon,
+.nav-floating-menu button.locked .floating-icon {
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--gold) 18%, #172838);
 }
 
 .nav-icon {
@@ -6815,6 +6859,11 @@ button {
   .coach-home-actions .quick-home-action {
     min-height: 42px;
     font-size: 10px;
+  }
+
+  .home-upgrade-preview {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .quick-type-grid {
@@ -7797,7 +7846,7 @@ button {
 .admin-directory-list article,
 .coach-directory-list article {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 110px minmax(120px, 0.7fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr);
+  grid-template-columns: minmax(180px, 1fr) 92px minmax(120px, 0.65fr) minmax(120px, 0.75fr) minmax(120px, 0.7fr) minmax(160px, 0.8fr);
   gap: 10px;
   align-items: center;
   padding: 11px;
@@ -7844,6 +7893,57 @@ button {
   color: var(--teal);
   font-weight: 900;
   text-transform: capitalize;
+}
+
+.admin-user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: end;
+}
+
+.admin-user-actions .primary-action {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.upgrade-screen {
+  max-width: 680px;
+}
+
+.upgrade-panel {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  border-color: color-mix(in srgb, var(--gold) 50%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--gold) 10%, transparent), transparent 44%),
+    var(--panel);
+}
+
+.upgrade-panel h2,
+.upgrade-panel p {
+  margin: 0;
+}
+
+.upgrade-panel p {
+  color: var(--muted);
+}
+
+.upgrade-lock-mark {
+  display: inline-grid;
+  min-height: 34px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  color: var(--gold);
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .weekly-focus-locked,
@@ -8717,6 +8817,10 @@ button {
 
   .admin-settings-panel h2 {
     font-size: 18px;
+  }
+
+  .admin-user-actions {
+    justify-content: start;
   }
 
   .compact-heading {

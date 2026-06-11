@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { StatCard } from "../../components/ui/StatCard.jsx";
+import { hasFullUserAccess } from "../../lib/access/paidAccess.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const archivedRetentionDays = 30;
@@ -166,9 +167,10 @@ function activityBadge(type) {
   return "Workout";
 }
 
-export function HomeScreen({ onNavigate, role, user }) {
+export function HomeScreen({ onNavigate, profile, role, user }) {
   const isCoach = role === "coach";
   const isClientLike = role === "client" || role === "normal_user";
+  const hasPaidAccess = hasFullUserAccess(profile, role);
   const [coachHomeData, setCoachHomeData] = useState(blankCoachHomeData);
   const [homeData, setHomeData] = useState(blankHomeData);
   const [templatePreview, setTemplatePreview] = useState([]);
@@ -512,12 +514,25 @@ export function HomeScreen({ onNavigate, role, user }) {
           <strong>{homeData.todayMoodScore ? `${homeData.todayMoodScore}/5` : "Log today"}</strong>
           <em>{homeData.moodStreak} day streak</em>
         </button>
-        <button className="home-checkin-card" onClick={() => onNavigate("habits")} type="button">
+        <button className={`home-checkin-card${hasPaidAccess ? "" : " locked"}`} onClick={() => onNavigate("habits")} type="button">
           <span>Habits</span>
-          <strong>{homeData.habitsTodayPercent}%</strong>
-          <em>today complete</em>
+          <strong>{hasPaidAccess ? `${homeData.habitsTodayPercent}%` : "Locked"}</strong>
+          <em>{hasPaidAccess ? "today complete" : "upgrade to unlock"}</em>
         </button>
       </div>
+
+      {!hasPaidAccess ? (
+        <section className="panel home-upgrade-preview">
+          <div>
+            <p className="eyebrow">Paid access</p>
+            <h2>Unlock the full app</h2>
+            <p>Progress, Habits, Feed, Nutrition, Messages and mutual invites unlock after upgrade or admin access.</p>
+          </div>
+          <button className="primary-action filled" onClick={() => onNavigate("progress")} type="button">
+            View upgrade
+          </button>
+        </section>
+      ) : null}
 
       <div className="stats-grid">
         <StatCard label="This week" value={String(homeData.weekWorkoutCount)} tone="gold" />

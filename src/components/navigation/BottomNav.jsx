@@ -21,13 +21,13 @@ export function BottomNav({ activeTab, badges = {}, onTabChange, tabs }) {
             <div className="nav-floating-menu" role="menu">
               {overflowTabs.map((tab) => (
                 <button
-                  className={tab.id === activeTab ? "active" : ""}
+                  className={`${tab.id === activeTab ? "active" : ""}${tab.locked ? " locked" : ""}`}
                   key={tab.id}
                   onClick={() => selectTab(tab.id)}
                   type="button"
                 >
                   <span>{tab.label}</span>
-                  <span className="floating-icon" aria-hidden="true">{tab.icon}</span>
+                  <span className="floating-icon" aria-hidden="true">{tab.locked ? "\u{1F512}" : tab.icon}</span>
                 </button>
               ))}
             </div>
@@ -46,13 +46,13 @@ export function BottomNav({ activeTab, badges = {}, onTabChange, tabs }) {
       <nav className="bottom-nav" aria-label="Main navigation">
         {visibleTabs.map((tab) => (
           <button
-            className={tab.id === activeTab ? "nav-item active" : "nav-item"}
+            className={`nav-item${tab.id === activeTab ? " active" : ""}${tab.locked ? " locked" : ""}`}
             key={tab.id}
             onClick={() => selectTab(tab.id)}
             type="button"
           >
             <span className="nav-icon" aria-hidden="true">
-              {tab.icon}
+              {tab.locked ? "\u{1F512}" : tab.icon}
               {Number(badges[tab.id] || 0) > 0 ? <em className="nav-badge">{badges[tab.id]}</em> : null}
             </span>
             <span>{tab.label}</span>
