@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
-const itemTypes = ["appointment", "task", "reminder"];
+const itemTypes = ["appointment", "task", "reminder", "checkin"];
 
 function localDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -40,8 +40,36 @@ function blankForm(selectedDate) {
     title: "",
     notes: "",
     date: selectedDate,
-    time: "09:00"
+    time: "09:00",
+    recurrence_frequency: "none",
+    recurrence_until: selectedDate
   };
+}
+
+function expandCalendarItems(items, days) {
+  const visibleDays = new Set(days.map((day) => day.key));
+  const expanded = [];
+
+  for (const item of items) {
+    const startDate = localDateKey(new Date(item.starts_at));
+    const recurrenceUntil = item.recurrence_until || startDate;
+    if (item.item_type !== "checkin" || item.recurrence_frequency !== "weekly") {
+      if (visibleDays.has(startDate)) expanded.push({ ...item, occurrence_date: startDate, occurrence_key: item.id });
+      continue;
+    }
+
+    let nextDate = new Date(`${startDate}T00:00:00`);
+    const endDate = new Date(`${recurrenceUntil}T00:00:00`);
+    while (nextDate <= endDate) {
+      const key = localDateKey(nextDate);
+      if (visibleDays.has(key)) {
+        expanded.push({ ...item, starts_at: `${key}T${new Date(item.starts_at).toTimeString().slice(0, 8)}`, occurrence_date: key, occurrence_key: `${item.id}-${key}` });
+      }
+      nextDate.setDate(nextDate.getDate() + 7);
+    }
+  }
+
+  return expanded;
 }
 
 export function AppointmentsScreen({ user }) {
@@ -55,13 +83,14 @@ export function AppointmentsScreen({ user }) {
   const [message, setMessage] = useState("");
 
   const days = useMemo(() => buildMonthDays(monthDate), [monthDate]);
+  const calendarItems = useMemo(() => expandCalendarItems(items, days), [days, items]);
   const itemsByDay = useMemo(() => {
-    return items.reduce((grouped, item) => {
-      const key = localDateKey(new Date(item.starts_at));
+    return calendarItems.reduce((grouped, item) => {
+      const key = item.occurrence_date || localDateKey(new Date(item.starts_at));
       grouped[key] = [...(grouped[key] || []), item];
       return grouped;
     }, {});
-  }, [items]);
+  }, [calendarItems]);
   const selectedItems = itemsByDay[selectedDate] || [];
 
   useEffect(() => {
@@ -82,10 +111,10 @@ export function AppointmentsScreen({ user }) {
         supabase.rpc("get_my_coach_clients"),
         supabase
           .from("coach_calendar_items")
-          .select("id,item_type,title,notes,starts_at,ends_at,status,client_id,profiles:client_id(full_name,email)")
+          .select("id,item_type,title,notes,starts_at,ends_at,status,client_id,recurrence_frequency,recurrence_until,profiles:client_id(full_name,email)")
           .eq("coach_id", user.id)
-          .gte("starts_at", start.toISOString())
-          .lt("starts_at", end.toISOString())
+          .lte("starts_at", end.toISOString())
+          .or(`recurrence_until.is.null,recurrence_until.gte.${localDateKey(start)}`)
           .order("starts_at", { ascending: true })
       ]);
 
@@ -131,6 +160,10 @@ export function AppointmentsScreen({ user }) {
       setMessage("Add a title first.");
       return;
     }
+    if (form.item_type === "checkin" && !form.client_id) {
+      setMessage("Choose a client for the check-in.");
+      return;
+    }
 
     setSaving(true);
     setMessage("");
@@ -141,7 +174,9 @@ export function AppointmentsScreen({ user }) {
       item_type: form.item_type,
       title: form.title.trim(),
       notes: form.notes.trim() || null,
-      starts_at: startsAt.toISOString()
+      starts_at: startsAt.toISOString(),
+      recurrence_frequency: form.item_type === "checkin" ? form.recurrence_frequency : "none",
+      recurrence_until: form.item_type === "checkin" && form.recurrence_frequency === "weekly" ? form.recurrence_until : null
     });
     setSaving(false);
 
@@ -206,7 +241,7 @@ export function AppointmentsScreen({ user }) {
                 type="button"
               >
                 <strong>{day.date.getDate()}</strong>
-                {dayItems.slice(0, 3).map((item) => <i className={item.item_type} key={item.id} />)}
+                {dayItems.slice(0, 3).map((item) => <i className={item.item_type} key={item.occurrence_key || item.id} />)}
               </button>
             );
           })}
@@ -223,11 +258,12 @@ export function AppointmentsScreen({ user }) {
             <span className="status-pill">{selectedItems.length}</span>
           </div>
           {selectedItems.length ? selectedItems.map((item) => (
-            <article className={item.status === "done" ? "calendar-item done" : "calendar-item"} key={item.id}>
+            <article className={item.status === "done" ? "calendar-item done" : "calendar-item"} key={item.occurrence_key || item.id}>
               <div>
                 <span>{item.item_type} - {timeLabel(item.starts_at)}</span>
                 <strong>{item.title}</strong>
                 {item.profiles?.full_name ? <em>{item.profiles.full_name}</em> : null}
+                {item.item_type === "checkin" && item.recurrence_frequency === "weekly" ? <em>Weekly until {item.recurrence_until}</em> : null}
                 {item.notes ? <p>{item.notes}</p> : null}
               </div>
               <button className="primary-action compact" onClick={() => markDone(item)} type="button">
@@ -241,7 +277,18 @@ export function AppointmentsScreen({ user }) {
           <p className="eyebrow">Add item</p>
           <label>
             Type
-            <select value={form.item_type} onChange={(event) => updateForm("item_type", event.target.value)}>
+            <select
+              value={form.item_type}
+              onChange={(event) => {
+                const itemType = event.target.value;
+                setForm((current) => ({
+                  ...current,
+                  item_type: itemType,
+                  title: itemType === "checkin" && !current.title ? "Coach check-in" : current.title,
+                  recurrence_frequency: itemType === "checkin" ? "weekly" : "none"
+                }));
+              }}
+            >
               {itemTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           </label>
@@ -268,8 +315,23 @@ export function AppointmentsScreen({ user }) {
           </label>
           <label>
             Notes
-            <textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} placeholder="Optional detail" />
+            <textarea value={form.notes} onChange={(event) => updateForm("notes", event.target.value)} placeholder={form.item_type === "checkin" ? "Questions or focus for the client check-in..." : "Optional detail"} />
           </label>
+          {form.item_type === "checkin" ? (
+            <div className="form-grid two">
+              <label>
+                Repeat
+                <select value={form.recurrence_frequency} onChange={(event) => updateForm("recurrence_frequency", event.target.value)}>
+                  <option value="none">Once</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </label>
+              <label>
+                End date
+                <input type="date" value={form.recurrence_until} onChange={(event) => updateForm("recurrence_until", event.target.value)} disabled={form.recurrence_frequency !== "weekly"} />
+              </label>
+            </div>
+          ) : null}
           <button className="primary-action filled" disabled={saving} type="submit">
             {saving ? "Saving..." : "Save item"}
           </button>

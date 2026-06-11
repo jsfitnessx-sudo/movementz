@@ -27,6 +27,8 @@ const blankHomeData = {
   sessionsCompletedToday: 0,
   sessionsScheduledToday: 0,
   foodLoggedToday: 0,
+  checkinsDueToday: 0,
+  checkinsSubmittedToday: 0,
   todaySessions: [],
   achievementsUnlocked: 0,
   nextBadges: []
@@ -232,6 +234,18 @@ function buildTodayChecklist(data) {
     });
   }
 
+  if (data.checkinsDueToday > 0) {
+    items.unshift({
+      id: "coach-checkin",
+      label: "Coach check-in",
+      title: data.checkinsSubmittedToday >= data.checkinsDueToday ? "Check-in submitted" : `${data.checkinsDueToday} check-in ${data.checkinsDueToday === 1 ? "due" : "due"}`,
+      detail: data.checkinsSubmittedToday >= data.checkinsDueToday ? "Your coach can review your update." : "Open Today to reply and submit.",
+      complete: data.checkinsSubmittedToday >= data.checkinsDueToday,
+      target: "today",
+      urgent: data.checkinsSubmittedToday < data.checkinsDueToday
+    });
+  }
+
   return items;
 }
 
@@ -388,7 +402,8 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
           .select("id")
           .eq("user_id", user.id)
           .eq("log_date", today)
-          .limit(20)
+          .limit(20),
+        supabase.rpc("get_my_due_checkins", { target_date: today })
       ];
 
       if (role === "client") requests.push(supabase.rpc("get_my_assigned_plans"));
@@ -402,6 +417,7 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
         ownPlanResult,
         remindersResult,
         foodResult,
+        checkinResult,
         assignedPlanResult
       ] = await Promise.all(requests);
       if (!alive) return;
@@ -437,6 +453,8 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
         sessionsCompletedToday: (todaySessionResult.data || []).length,
         sessionsScheduledToday: schedule.todaySessions.length,
         foodLoggedToday: foodResult?.error ? 0 : (foodResult.data || []).length,
+        checkinsDueToday: checkinResult?.error ? 0 : (checkinResult.data || []).length,
+        checkinsSubmittedToday: checkinResult?.error ? 0 : (checkinResult.data || []).filter((checkin) => checkin.response_id).length,
         todaySessions: schedule.todaySessions
       };
 

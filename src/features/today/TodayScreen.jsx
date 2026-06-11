@@ -42,6 +42,21 @@ function formatTodayDate() {
   });
 }
 
+function localDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function dateForWeekday(dayLabel) {
+  const today = new Date();
+  const monday = new Date(today);
+  const day = monday.getDay() || 7;
+  monday.setDate(today.getDate() - day + 1);
+  const index = weekdays.indexOf(dayLabel);
+  const target = new Date(monday);
+  target.setDate(monday.getDate() + Math.max(index, 0));
+  return localDateKey(target);
+}
+
 function normalisePlan(assignment, source) {
   const plan = source === "assigned" ? assignment.plan || {} : assignment;
   const window = getPlanWindow(plan, assignment.assigned_at);
@@ -60,6 +75,8 @@ export function TodayScreen({ role, user }) {
   const [ownPlans, setOwnPlans] = useState([]);
   const [assignedPlans, setAssignedPlans] = useState([]);
   const [coachLinks, setCoachLinks] = useState([]);
+  const [dueCheckins, setDueCheckins] = useState([]);
+  const [checkinDrafts, setCheckinDrafts] = useState({});
   const [activeScheduleWorkout, setActiveScheduleWorkout] = useState(null);
   const [selectedDay, setSelectedDay] = useState(
     new Date().toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3)
@@ -67,6 +84,7 @@ export function TodayScreen({ role, user }) {
   const [loading, setLoading] = useState(Boolean(supabase));
   const [message, setMessage] = useState("");
   const startCounterRef = useRef(0);
+  const selectedDate = useMemo(() => dateForWeekday(selectedDay), [selectedDay]);
 
   const schedulePlans = useMemo(() => {
     return [
@@ -138,10 +156,14 @@ export function TodayScreen({ role, user }) {
 
     const requests = [ownPlanQuery];
     if (role === "client") {
-      requests.push(supabase.rpc("get_my_assigned_plans"), supabase.rpc("get_my_coach_status"));
+      requests.push(
+        supabase.rpc("get_my_assigned_plans"),
+        supabase.rpc("get_my_coach_status"),
+        supabase.rpc("get_my_due_checkins", { target_date: selectedDate })
+      );
     }
 
-    const [ownPlanResult, assignedPlanResult, coachResult] = await Promise.all(requests);
+    const [ownPlanResult, assignedPlanResult, coachResult, checkinResult] = await Promise.all(requests);
 
     setLoading(false);
 
@@ -170,11 +192,35 @@ export function TodayScreen({ role, user }) {
       } else {
         setCoachLinks(coachResult?.data || []);
       }
+
+      if (checkinResult?.error) {
+        setDueCheckins([]);
+      } else {
+        const checkins = checkinResult?.data || [];
+        setDueCheckins(checkins);
+        setCheckinDrafts((current) => {
+          const next = { ...current };
+          for (const checkin of checkins) {
+            if (next[checkin.id]) continue;
+            const responses = checkin.responses || {};
+            next[checkin.id] = {
+              energy: responses.energy || "",
+              mood: responses.mood || "",
+              win: responses.win || "",
+              challenge: responses.challenge || "",
+              question: responses.question || "",
+              notes: checkin.response_notes || ""
+            };
+          }
+          return next;
+        });
+      }
     } else {
       setAssignedPlans([]);
       setCoachLinks([]);
+      setDueCheckins([]);
     }
-  }, [role, user.id]);
+  }, [role, selectedDate, user.id]);
 
   useEffect(() => {
     let alive = true;
@@ -202,6 +248,46 @@ export function TodayScreen({ role, user }) {
       isAssignedPlanWorkout: workout.assigned,
       autoStartKey: `${workout.sourceKey}-${workout.id || workout.workout_template_id}-${startCounterRef.current}`
     });
+  }
+
+  function updateCheckinDraft(checkinId, field, value) {
+    setCheckinDrafts((current) => ({
+      ...current,
+      [checkinId]: {
+        ...(current[checkinId] || {}),
+        [field]: value
+      }
+    }));
+  }
+
+  async function submitCheckin(checkin) {
+    if (!supabase || user.id === "demo-user") return;
+    const draft = checkinDrafts[checkin.id] || {};
+    const { error } = await supabase.from("coach_checkin_responses").upsert(
+      {
+        calendar_item_id: checkin.id,
+        coach_id: checkin.coach_id,
+        client_id: user.id,
+        occurrence_date: checkin.occurrence_date,
+        responses: {
+          energy: draft.energy || null,
+          mood: draft.mood || null,
+          win: draft.win || null,
+          challenge: draft.challenge || null,
+          question: draft.question || null
+        },
+        notes: draft.notes || null
+      },
+      { onConflict: "calendar_item_id,client_id,occurrence_date" }
+    );
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-33-recurring-coach-checkins.sql in Supabase.`);
+      return;
+    }
+
+    setMessage("Check-in submitted.");
+    await loadSchedule();
   }
 
   if (activeScheduleWorkout) {
@@ -242,6 +328,60 @@ export function TodayScreen({ role, user }) {
 
       {role === "client" && coachLinks.length ? (
         <p className="compact-help today-coach-line">Coach: {coachLinks[0].coach_name}</p>
+      ) : null}
+
+      {role === "client" && dueCheckins.length ? (
+        <section className="panel today-checkin-panel">
+          <div className="section-row">
+            <div>
+              <p className="eyebrow">Coach check-ins</p>
+              <h2>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</h2>
+            </div>
+            <span className="status-pill">{dueCheckins.filter((checkin) => checkin.response_id).length}/{dueCheckins.length}</span>
+          </div>
+          {dueCheckins.map((checkin) => {
+            const draft = checkinDrafts[checkin.id] || {};
+            const submitted = Boolean(checkin.response_id);
+            return (
+              <article className={submitted ? "today-checkin-card submitted" : "today-checkin-card"} key={`${checkin.id}-${checkin.occurrence_date}`}>
+                <div className="schedule-card-top">
+                  <p className="schedule-plan-name">{checkin.title}</p>
+                  <span className={submitted ? "status-pill" : "status-pill gold-pill"}>{submitted ? "Submitted" : "Due"}</span>
+                </div>
+                <p className="compact-help">{checkin.notes || `Coach check-in from ${checkin.coach_name}`}</p>
+                <div className="today-checkin-grid">
+                  <label>
+                    Energy 1-5
+                    <input inputMode="numeric" value={draft.energy} onChange={(event) => updateCheckinDraft(checkin.id, "energy", event.target.value)} />
+                  </label>
+                  <label>
+                    Mood 1-5
+                    <input inputMode="numeric" value={draft.mood} onChange={(event) => updateCheckinDraft(checkin.id, "mood", event.target.value)} />
+                  </label>
+                </div>
+                <label>
+                  Win
+                  <textarea value={draft.win} onChange={(event) => updateCheckinDraft(checkin.id, "win", event.target.value)} placeholder="What went well?" />
+                </label>
+                <label>
+                  Challenge
+                  <textarea value={draft.challenge} onChange={(event) => updateCheckinDraft(checkin.id, "challenge", event.target.value)} placeholder="What felt hard?" />
+                </label>
+                <label>
+                  Question for coach
+                  <textarea value={draft.question} onChange={(event) => updateCheckinDraft(checkin.id, "question", event.target.value)} placeholder="Anything you want help with?" />
+                </label>
+                <label>
+                  Extra notes
+                  <textarea value={draft.notes} onChange={(event) => updateCheckinDraft(checkin.id, "notes", event.target.value)} placeholder="Optional" />
+                </label>
+                <button className="primary-action filled" onClick={() => submitCheckin(checkin)} type="button">
+                  {submitted ? "Update Check-In" : "Submit Check-In"}
+                </button>
+              </article>
+            );
+          })}
+        </section>
       ) : null}
 
       <div className="training-schedule-panel prototype-schedule-list">

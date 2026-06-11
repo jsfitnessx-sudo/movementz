@@ -4524,6 +4524,63 @@ button {
   font-size: 14px;
 }
 
+.today-checkin-panel,
+.today-checkin-card {
+  display: grid;
+  gap: 10px;
+}
+
+.today-checkin-panel {
+  border-color: color-mix(in srgb, var(--gold) 40%, var(--line));
+}
+
+.today-checkin-card {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--gold) 32%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--gold) 6%, var(--panel));
+}
+
+.today-checkin-card.submitted {
+  border-color: color-mix(in srgb, var(--teal) 38%, var(--line));
+  background: color-mix(in srgb, var(--teal) 7%, var(--panel));
+}
+
+.today-checkin-card label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.today-checkin-card input,
+.today-checkin-card textarea {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 11px;
+  font: inherit;
+}
+
+.today-checkin-card textarea {
+  min-height: 72px;
+  padding: 10px 11px;
+  resize: vertical;
+  text-transform: none;
+}
+
+.today-checkin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .gold-pill {
   border-color: color-mix(in srgb, var(--gold) 70%, transparent);
   color: var(--gold);
@@ -6685,6 +6742,10 @@ button {
   .home-mindset-card {
     gap: 9px;
   }
+
+  .today-checkin-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .assignment-panel,
@@ -7966,6 +8027,10 @@ button {
 
 .calendar-grid i.reminder {
   background: var(--blue);
+}
+
+.calendar-grid i.checkin {
+  background: var(--danger);
 }
 
 .calendar-detail-grid {
