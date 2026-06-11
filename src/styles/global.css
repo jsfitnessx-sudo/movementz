@@ -5715,6 +5715,109 @@ button {
   font-size: 13px;
 }
 
+.today-checklist-card {
+  display: grid;
+  gap: 12px;
+  border-color: color-mix(in srgb, var(--teal) 42%, var(--line));
+}
+
+.today-checklist-card .section-row > span {
+  display: inline-grid;
+  min-width: 48px;
+  min-height: 34px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--teal) 44%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--teal) 9%, var(--panel));
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.today-checklist-card h2 {
+  margin: 0;
+  color: var(--text);
+}
+
+.today-checklist-list {
+  display: grid;
+  gap: 7px;
+}
+
+.today-checklist-list button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 62px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: rgba(18, 35, 48, 0.58);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.today-checklist-list button.done {
+  border-color: color-mix(in srgb, var(--teal) 36%, var(--line));
+  background: color-mix(in srgb, var(--teal) 8%, var(--panel));
+}
+
+.today-checklist-list button.urgent {
+  border-color: color-mix(in srgb, var(--gold) 52%, var(--line));
+  background: color-mix(in srgb, var(--gold) 8%, var(--panel));
+}
+
+.today-checklist-list i {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: #061017;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.today-checklist-list button.done i {
+  border-color: var(--teal);
+  background: var(--teal);
+}
+
+.today-checklist-list span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.today-checklist-list em {
+  color: var(--teal);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.today-checklist-list strong,
+.today-checklist-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-checklist-list strong {
+  font-size: 14px;
+}
+
+.today-checklist-list small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
 .home-achievement-card,
 .home-session-summary {
   display: grid;
@@ -6471,6 +6574,15 @@ button {
 
   .home-checkin-card strong {
     font-size: 20px;
+  }
+
+  .today-checklist-list button {
+    min-height: 58px;
+    padding: 8px;
+  }
+
+  .today-checklist-list small {
+    white-space: normal;
   }
 
   .home-mindset-card,

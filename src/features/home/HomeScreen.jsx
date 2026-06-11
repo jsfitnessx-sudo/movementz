@@ -24,7 +24,9 @@ const blankHomeData = {
   monthWorkoutCount: 0,
   activePlanCount: 0,
   sessionsCompletedWeek: 0,
+  sessionsCompletedToday: 0,
   sessionsScheduledToday: 0,
+  foodLoggedToday: 0,
   todaySessions: [],
   achievementsUnlocked: 0,
   nextBadges: []
@@ -167,6 +169,72 @@ function activityBadge(type) {
   return "Workout";
 }
 
+function buildTodayChecklist(data) {
+  const dueReminders = data.futureReminders.filter((reminder) => reminder.due_date && reminder.due_date <= isoDate(new Date()));
+  const workoutTitle = data.sessionsScheduledToday
+    ? data.todaySessions.slice(0, 2).map((session) => session.name).join(", ")
+    : "No workout scheduled";
+
+  const items = [
+    {
+      id: "workout",
+      label: "Training",
+      title: workoutTitle,
+      detail: data.sessionsScheduledToday
+        ? `${Math.min(data.sessionsCompletedToday, data.sessionsScheduledToday)} of ${data.sessionsScheduledToday} scheduled sessions completed`
+        : "Start a quick workout if you train off-plan.",
+      complete: data.sessionsScheduledToday ? data.sessionsCompletedToday >= data.sessionsScheduledToday : data.sessionsCompletedToday > 0,
+      target: "today"
+    },
+    {
+      id: "habits",
+      label: "Habits",
+      title: data.habitsTodayPercent ? `${data.habitsTodayPercent}% logged` : "Log daily habits",
+      detail: "Steps, water, protein, sleep, food and mindset.",
+      complete: data.habitsTodayPercent > 0,
+      target: "habits"
+    },
+    {
+      id: "nutrition",
+      label: "Nutrition",
+      title: data.foodLoggedToday ? `${data.foodLoggedToday} food ${data.foodLoggedToday === 1 ? "entry" : "entries"} logged` : "Log food today",
+      detail: "Keep calories and macros up to date.",
+      complete: data.foodLoggedToday > 0,
+      target: "food"
+    },
+    {
+      id: "mood",
+      label: "Mindset",
+      title: data.todayMoodScore ? `Mood checked in: ${data.todayMoodScore}/5` : "Complete mood check-in",
+      detail: "Track stress, recovery and mental state.",
+      complete: data.todayMoodScore > 0,
+      target: "mindset"
+    },
+    {
+      id: "gratitude",
+      label: "Gratitude",
+      title: data.gratitude ? "Gratitude logged" : "Add one gratitude",
+      detail: data.gratitude || "One short reflection keeps the streak alive.",
+      complete: Boolean(data.gratitude),
+      target: "mindset"
+    }
+  ];
+
+  if (dueReminders.length) {
+    items.push({
+      id: "reminders",
+      label: "Reminder",
+      title: `${dueReminders.length} future-self ${dueReminders.length === 1 ? "reminder" : "reminders"} due`,
+      detail: "Open Mindset to review and mark seen.",
+      complete: false,
+      target: "mindset",
+      urgent: true
+    });
+  }
+
+  return items;
+}
+
 export function HomeScreen({ onNavigate, profile, role, user }) {
   const isCoach = role === "coach";
   const isClientLike = role === "client" || role === "normal_user";
@@ -177,6 +245,8 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
   const [loading, setLoading] = useState(Boolean(supabase));
   const [coachLoading, setCoachLoading] = useState(Boolean(supabase));
   const [message, setMessage] = useState("");
+  const todayChecklist = hasPaidAccess && isClientLike ? buildTodayChecklist(homeData) : [];
+  const todayChecklistDone = todayChecklist.filter((item) => item.complete).length;
 
   useEffect(() => {
     let alive = true;
@@ -254,6 +324,7 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
 
       const now = new Date();
       const today = isoDate(now);
+      const tomorrow = isoDate(addDays(now, 1));
       const weekStart = startOfWeek(now);
       const monthStart = startOfMonth(now);
       const focusStart = addDays(now, -6);
@@ -286,6 +357,14 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
           .from("session_logs")
           .select("id,completed_at")
           .eq("owner_id", user.id)
+          .gte("completed_at", `${today}T00:00:00`)
+          .lt("completed_at", `${tomorrow}T00:00:00`)
+          .order("completed_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("session_logs")
+          .select("id,completed_at")
+          .eq("owner_id", user.id)
           .gte("completed_at", weekStart.toISOString())
           .order("completed_at", { ascending: false })
           .limit(50),
@@ -303,12 +382,28 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
           .eq("user_id", user.id)
           .eq("status", "hidden")
           .not("message", "is", null)
-          .order("due_date", { ascending: true })
+          .order("due_date", { ascending: true }),
+        supabase
+          .from("food_log_entries")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("log_date", today)
+          .limit(20)
       ];
 
       if (role === "client") requests.push(supabase.rpc("get_my_assigned_plans"));
 
-      const [mindsetResult, habitResult, weekSessionResult, monthSessionResult, ownPlanResult, remindersResult, assignedPlanResult] = await Promise.all(requests);
+      const [
+        mindsetResult,
+        habitResult,
+        todaySessionResult,
+        weekSessionResult,
+        monthSessionResult,
+        ownPlanResult,
+        remindersResult,
+        foodResult,
+        assignedPlanResult
+      ] = await Promise.all(requests);
       if (!alive) return;
 
       setLoading(false);
@@ -339,7 +434,9 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
         monthWorkoutCount: (monthSessionResult.data || []).length,
         activePlanCount: schedule.activePlanCount,
         sessionsCompletedWeek: (weekSessionResult.data || []).length,
+        sessionsCompletedToday: (todaySessionResult.data || []).length,
         sessionsScheduledToday: schedule.todaySessions.length,
+        foodLoggedToday: foodResult?.error ? 0 : (foodResult.data || []).length,
         todaySessions: schedule.todaySessions
       };
 
@@ -486,6 +583,35 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
           + Quick Workout
         </button>
       </div>
+
+      {hasPaidAccess && isClientLike ? (
+        <section className="panel today-checklist-card">
+          <div className="section-row">
+            <div>
+              <p className="eyebrow">Today checklist</p>
+              <h2>{todayChecklistDone} of {todayChecklist.length} complete</h2>
+            </div>
+            <span>{Math.round((todayChecklistDone / Math.max(todayChecklist.length, 1)) * 100)}%</span>
+          </div>
+          <div className="today-checklist-list">
+            {todayChecklist.map((item) => (
+              <button
+                className={`${item.complete ? "done" : ""}${item.urgent ? " urgent" : ""}`}
+                key={item.id}
+                onClick={() => onNavigate(item.target)}
+                type="button"
+              >
+                <i>{item.complete ? "✓" : ""}</i>
+                <span>
+                  <em>{item.label}</em>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <button className="panel home-template-cta" onClick={() => onNavigate("templates")} type="button">
         <div>
