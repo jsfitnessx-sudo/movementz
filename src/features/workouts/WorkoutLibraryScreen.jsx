@@ -592,6 +592,7 @@ export function WorkoutLibraryScreen({
   const [openBuilderExerciseMenu, setOpenBuilderExerciseMenu] = useState(null);
   const [activeBuilderExerciseIndex, setActiveBuilderExerciseIndex] = useState(0);
   const sessionInputRefs = useRef({});
+  const keypadPointerHandledRef = useRef(0);
   const autoStartedWorkoutRef = useRef("");
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingSessionDetail, setLoadingSessionDetail] = useState(false);
@@ -2952,6 +2953,18 @@ export function WorkoutLibraryScreen({
     updateSessionRow(activeNumberInput.exerciseIndex, activeNumberInput.rowIndex, activeNumberInput.field, value);
   }
 
+  function handleKeypadPointer(event, key) {
+    event.preventDefault();
+    keypadPointerHandledRef.current = window.performance?.now?.() || Date.now();
+    pressKeypad(key);
+  }
+
+  function handleKeypadClick(key) {
+    const now = window.performance?.now?.() || Date.now();
+    if (now - keypadPointerHandledRef.current < 450) return;
+    pressKeypad(key);
+  }
+
   function pressKeypad(key) {
     if (!activeNumberInput || !activeWorkout) return;
 
@@ -2968,8 +2981,6 @@ export function WorkoutLibraryScreen({
       moveToNextNumberInput();
       return;
     }
-
-    playTone("tap");
 
     if (key === "delete") {
       updateActiveNumber(currentValue.slice(0, -1));
@@ -3948,6 +3959,7 @@ export function WorkoutLibraryScreen({
                           updateSessionRow(exerciseIndex, rowIndex, "kg", event.target.value)
                         }
                         onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "kg", replaceOnInput: true })}
+                        readOnly
                         ref={(element) => {
                           sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-kg`] = element;
                         }}
@@ -3967,6 +3979,7 @@ export function WorkoutLibraryScreen({
                           updateSessionRow(exerciseIndex, rowIndex, "reps", event.target.value)
                         }
                         onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps", replaceOnInput: true })}
+                        readOnly
                         ref={(element) => {
                           sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-reps`] = element;
                         }}
@@ -4022,16 +4035,17 @@ export function WorkoutLibraryScreen({
               <button
                 className={key === "delete" ? "keypad-delete" : `keypad-key key-${key === "." ? "decimal" : key}`}
                 key={key}
-                onClick={() => pressKeypad(key)}
+                onClick={() => handleKeypadClick(key)}
+                onPointerDown={(event) => handleKeypadPointer(event, key)}
                 type="button"
               >
                 {key === "delete" ? "⌫" : key}
               </button>
             ))}
-            <button className="keypad-hide" onClick={() => pressKeypad("hide")} type="button">
+            <button className="keypad-hide" onClick={() => handleKeypadClick("hide")} onPointerDown={(event) => handleKeypadPointer(event, "hide")} type="button">
               ˅
             </button>
-            <button className="keypad-next" onClick={() => pressKeypad("next")} type="button">
+            <button className="keypad-next" onClick={() => handleKeypadClick("next")} onPointerDown={(event) => handleKeypadPointer(event, "next")} type="button">
               Next
             </button>
           </div>

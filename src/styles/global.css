@@ -3589,6 +3589,7 @@ button {
   border-radius: 10px;
   background: var(--field);
   color: var(--text);
+  font-size: 16px;
   padding: 0 10px;
   text-align: center;
 }
@@ -7597,14 +7598,17 @@ button {
     backdrop-filter: blur(12px);
   }
 
-  .mobile-number-pad button {
-    border: 0;
-    border-radius: 14px;
-    background: transparent;
-    color: var(--text);
-    font-size: 34px;
-    font-weight: 850;
-  }
+.mobile-number-pad button {
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  font-size: 34px;
+  font-weight: 850;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
 
   .mobile-number-pad .key-1 { grid-column: 1; grid-row: 1; }
   .mobile-number-pad .key-2 { grid-column: 2; grid-row: 1; }
@@ -8104,7 +8108,7 @@ button {
 
   .session-set-row input {
     min-height: 34px;
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .session-set-row .set-toggle {
