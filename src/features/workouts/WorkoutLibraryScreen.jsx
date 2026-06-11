@@ -322,9 +322,10 @@ async function findYouTubeDemo(exerciseName) {
     }));
 }
 
-async function searchExerciseDb({ query = "", muscle = "", limit = CATALOG_SEARCH_LIMIT }) {
+async function searchExerciseDb({ query = "", muscle = "", limit = CATALOG_SEARCH_LIMIT, offset = 0 }) {
   const searchParams = new URLSearchParams({
-    limit: String(limit)
+    limit: String(limit),
+    offset: String(offset)
   });
   if (query.trim()) searchParams.set("query", query.trim());
   if (muscle.trim()) searchParams.set("muscle", muscle.trim());
@@ -572,9 +573,11 @@ export function WorkoutLibraryScreen({
   const [shareMode, setShareMode] = useState("transparent");
   const [sharePhoto, setSharePhoto] = useState("");
   const [customExerciseNames, setCustomExerciseNames] = useState(new Set());
+  const [customExerciseOptions, setCustomExerciseOptions] = useState([]);
   const [catalogExerciseNames, setCatalogExerciseNames] = useState(new Set());
   const [catalogSearchResults, setCatalogSearchResults] = useState({});
   const [exerciseDbSearchResults, setExerciseDbSearchResults] = useState({});
+  const [builderSuggestionExtras, setBuilderSuggestionExtras] = useState({});
   const [swapCatalogResults, setSwapCatalogResults] = useState([]);
   const [swapExerciseDbResults, setSwapExerciseDbResults] = useState([]);
   const [demoVideo, setDemoVideo] = useState(null);
@@ -640,6 +643,23 @@ export function WorkoutLibraryScreen({
     const names = [...getLocalExerciseNames(), ...customExerciseNames, ...catalogExerciseNames, ...exerciseDbNames];
     return new Set(names.map(toExerciseKey));
   }, [catalogExerciseNames, customExerciseNames, exerciseDbSearchResults, swapExerciseDbResults]);
+
+  const getBuilderSuggestions = useCallback((exercise, index) => {
+    const muscle = (exercise.muscle_group || "").toLowerCase();
+    const matchingCustomExercises = customExerciseOptions
+      .filter((option) => !option.muscle_group || option.muscle_group.toLowerCase() === muscle)
+      .map((option) => option.exercise_name);
+    const otherCustomExercises = customExerciseOptions
+      .filter((option) => option.muscle_group && option.muscle_group.toLowerCase() !== muscle)
+      .map((option) => option.exercise_name);
+
+    return uniqueNames([
+      ...getSuggestions(exercise),
+      ...(builderSuggestionExtras[index] || []),
+      ...matchingCustomExercises,
+      ...otherCustomExercises
+    ]).slice(0, 6);
+  }, [builderSuggestionExtras, customExerciseOptions]);
 
   const lastSessionByName = useMemo(() => {
     return Object.fromEntries((recentSessions || []).map((session) => [session.name, session]));
@@ -765,21 +785,41 @@ export function WorkoutLibraryScreen({
   const loadCustomExerciseOptions = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
       setCustomExerciseNames(new Set());
+      setCustomExerciseOptions([]);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("user_exercise_options")
-      .select("exercise_name")
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(150);
+    const [optionResponse, requestResponse] = await Promise.all([
+      supabase
+        .from("user_exercise_options")
+        .select("exercise_name,muscle_group")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(150),
+      supabase
+        .from("exercise_review_requests")
+        .select("exercise_name,muscle_group,status")
+        .eq("requester_id", user.id)
+        .in("status", ["pending", "approved"])
+        .order("created_at", { ascending: false })
+        .limit(150)
+    ]);
 
-    if (error) {
-      return;
-    }
+    const options = [
+      ...(optionResponse.error ? [] : optionResponse.data || []),
+      ...(requestResponse.error ? [] : requestResponse.data || [])
+    ]
+      .filter((exercise) => exercise.exercise_name)
+      .map((exercise) => ({
+        exercise_name: exercise.exercise_name,
+        muscle_group: exercise.muscle_group || ""
+      }));
+    const uniqueOptions = Array.from(
+      new Map(options.map((exercise) => [toExerciseKey(exercise.exercise_name), exercise])).values()
+    );
 
-    setCustomExerciseNames(new Set((data || []).map((exercise) => exercise.exercise_name)));
+    setCustomExerciseOptions(uniqueOptions);
+    setCustomExerciseNames(new Set(uniqueOptions.map((exercise) => exercise.exercise_name)));
   }, [user.id]);
 
   async function openSessionHistory(session) {
@@ -1360,6 +1400,7 @@ export function WorkoutLibraryScreen({
   function startNewWorkout() {
     setEditingId(null);
     setSetup(createDefaultSetup());
+    setBuilderSuggestionExtras({});
     setMessage("");
     setMode("setup");
   }
@@ -1601,6 +1642,7 @@ export function WorkoutLibraryScreen({
       hiit_focus_area: setup.hiit_focus_area,
       exercises
     });
+    setBuilderSuggestionExtras({});
     setActiveBuilderExerciseIndex(0);
     setMessage("");
     setMode("editor");
@@ -1611,6 +1653,7 @@ export function WorkoutLibraryScreen({
     if (!detailedWorkout) return;
 
     setEditingId(detailedWorkout.id);
+    setBuilderSuggestionExtras({});
     setForm({
       name: detailedWorkout.name || "",
       notes: detailedWorkout.notes || "",
@@ -1782,17 +1825,52 @@ export function WorkoutLibraryScreen({
     setMessage("");
   }
 
-  function refreshSuggestions(index) {
+  async function refreshSuggestions(index) {
+    const exercise = form.exercises[index];
+    if (!exercise) return;
+
     setActiveBuilderExerciseIndex(index);
+    const nextOffset = (Number(exercise.suggestionOffset) || 0) + 6;
     setForm((current) => ({
       ...current,
       exercises: current.exercises.map((exercise, exerciseIndex) =>
         exerciseIndex === index
-          ? { ...exercise, suggestionOffset: exercise.suggestionOffset + 3 }
+          ? { ...exercise, suggestionOffset: nextOffset }
           : exercise
       )
     }));
-    setMessage("Exercise options refreshed.");
+
+    await loadCustomExerciseOptions();
+
+    const muscle = exercise.muscle_group || "";
+    const [catalogResponse, exerciseDbNames] = await Promise.all([
+      supabase && user.id !== "demo-user"
+        ? supabase
+            .from("exercise_catalog")
+            .select("exercise_name")
+            .ilike("muscle_group", `%${muscle}%`)
+            .order("exercise_name", { ascending: true })
+            .range(nextOffset, nextOffset + 11)
+        : Promise.resolve({ data: [], error: null }),
+      searchExerciseDb({
+        muscle,
+        limit: 12,
+        offset: nextOffset
+      })
+    ]);
+
+    const catalogNames = catalogResponse.error ? [] : (catalogResponse.data || []).map((row) => row.exercise_name);
+    const extraNames = uniqueNames([...catalogNames, ...exerciseDbNames]);
+    setBuilderSuggestionExtras((current) => ({
+      ...current,
+      [index]: extraNames
+    }));
+    if (extraNames.length) {
+      setCatalogExerciseNames((current) => new Set([...current, ...extraNames]));
+      setMessage("Exercise options refreshed with custom and database suggestions.");
+    } else {
+      setMessage("Exercise options refreshed.");
+    }
   }
 
   async function showDemo(exerciseName) {
@@ -4960,7 +5038,7 @@ export function WorkoutLibraryScreen({
 
                   <div className="suggestion-picker">
                     <div className="suggestion-list">
-                      {getSuggestions(exercise).map((suggestion) => (
+                      {getBuilderSuggestions(exercise, index).map((suggestion) => (
                         <button
                           className={exercise.exercise_name === suggestion ? "suggestion active" : "suggestion"}
                           key={suggestion}

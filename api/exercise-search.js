@@ -43,13 +43,14 @@ export default async function handler(request, response) {
   const query = String(request.query.query || "").trim();
   const muscle = String(request.query.muscle || "").trim();
   const limit = Math.min(Math.max(Number(request.query.limit) || 12, 1), 20);
+  const offset = Math.max(Number(request.query.offset) || 0, 0);
 
-  let path = `/exercises?limit=${limit}&offset=0`;
+  let path = `/exercises?limit=${limit}&offset=${offset}`;
   if (query) {
-    path = `/exercises/name/${encodeURIComponent(query.toLowerCase())}?limit=${limit}&offset=0`;
+    path = `/exercises/name/${encodeURIComponent(query.toLowerCase())}?limit=${limit}&offset=${offset}`;
   } else if (muscle) {
     const bodyPart = bodyPartMap[muscle] || muscle.toLowerCase();
-    path = `/exercises/bodyPart/${encodeURIComponent(bodyPart)}?limit=${limit}&offset=0`;
+    path = `/exercises/bodyPart/${encodeURIComponent(bodyPart)}?limit=${limit}&offset=${offset}`;
   }
 
   try {
