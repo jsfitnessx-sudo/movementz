@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { movementzWordmarkSrc } from "../../lib/brandAssets.js";
+import { movementzIconSrc, movementzWordmarkSrc } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
@@ -371,6 +371,149 @@ function calculateSessionSummary(workout) {
     totalExercises: exercises.length,
     completedSets,
     totalVolumeKg
+  };
+}
+
+function estimateOneRepMax(kg, reps) {
+  const weight = Number(kg) || 0;
+  const repCount = Number(reps) || 0;
+  if (!weight || !repCount) return 0;
+  return weight * (1 + repCount / 30);
+}
+
+function completedStrengthSetsFromWorkout(workout) {
+  return (workout?.workout_template_exercises || []).flatMap((exercise) =>
+    (exercise.sessionRows || [])
+      .filter((row) => row.done && (Number(row.kg) || 0) > 0 && (Number(row.reps) || 0) > 0)
+      .map((row) => ({
+        exerciseName: exercise.exercise_name || "Exercise",
+        kg: Number(row.kg) || 0,
+        reps: Number(row.reps) || 0,
+        volume: (Number(row.kg) || 0) * (Number(row.reps) || 0),
+        estimatedOneRepMax: estimateOneRepMax(row.kg, row.reps)
+      }))
+  );
+}
+
+function buildStrengthRecordsFromSessions(sessions = []) {
+  const maxWeightByExercise = new Map();
+  const oneRepMaxByExercise = new Map();
+  const volumeByWorkout = new Map();
+
+  for (const session of sessions) {
+    const sessionVolume = Number(session.total_volume_kg) || 0;
+    const workoutName = (session.name || "").toLowerCase();
+    if (workoutName) {
+      const currentVolume = volumeByWorkout.get(workoutName) || 0;
+      if (sessionVolume > currentVolume) volumeByWorkout.set(workoutName, sessionVolume);
+    }
+
+    for (const exercise of session.session_log_exercises || []) {
+      const exerciseName = exercise.exercise_name || "Exercise";
+      const key = exerciseName.toLowerCase();
+      for (const set of exercise.session_log_sets || []) {
+        if (!set.completed || !set.kg || !set.reps) continue;
+        const kg = Number(set.kg) || 0;
+        const reps = Number(set.reps) || 0;
+        const estimatedOneRepMax = estimateOneRepMax(kg, reps);
+        const maxWeight = maxWeightByExercise.get(key);
+        if (!maxWeight || kg > maxWeight.kg) {
+          maxWeightByExercise.set(key, { exerciseName, kg, reps });
+        }
+        const maxOneRep = oneRepMaxByExercise.get(key);
+        if (!maxOneRep || estimatedOneRepMax > maxOneRep.estimatedOneRepMax) {
+          oneRepMaxByExercise.set(key, { exerciseName, kg, reps, estimatedOneRepMax });
+        }
+      }
+    }
+  }
+
+  return { maxWeightByExercise, oneRepMaxByExercise, volumeByWorkout };
+}
+
+function buildAchievementMoments(workout, summary, previousRecords) {
+  const moments = [];
+  const completedSets = completedStrengthSetsFromWorkout(workout);
+  const workoutKey = (workout?.name || "").toLowerCase();
+  const previousWorkoutVolume = previousRecords?.volumeByWorkout?.get(workoutKey) || 0;
+
+  if (summary.totalVolumeKg > 0 && summary.totalVolumeKg > previousWorkoutVolume) {
+    moments.push({
+      id: "best-volume",
+      label: previousWorkoutVolume ? "Best session volume" : "First volume record",
+      title: `${Math.round(summary.totalVolumeKg).toLocaleString()}kg total volume`,
+      detail: previousWorkoutVolume ? `Previous best ${Math.round(previousWorkoutVolume).toLocaleString()}kg` : "New workout benchmark",
+      priority: 80
+    });
+  }
+
+  const bestCurrentByExercise = new Map();
+  for (const set of completedSets) {
+    const key = set.exerciseName.toLowerCase();
+    const current = bestCurrentByExercise.get(key);
+    if (!current || set.kg > current.kg || (set.kg === current.kg && set.reps > current.reps)) {
+      bestCurrentByExercise.set(key, set);
+    }
+  }
+
+  for (const [key, set] of bestCurrentByExercise) {
+    const previous = previousRecords?.maxWeightByExercise?.get(key);
+    if (!previous || set.kg > previous.kg) {
+      moments.push({
+        id: `lift-${key}`,
+        label: previous ? "New best lift" : "First best lift",
+        title: `${set.exerciseName}: ${set.kg}kg x ${set.reps}`,
+        detail: previous ? `Previous ${previous.kg}kg x ${previous.reps}` : "First recorded lift",
+        priority: 100 + set.kg
+      });
+    }
+
+    const previousOneRep = previousRecords?.oneRepMaxByExercise?.get(key);
+    if (!previousOneRep || set.estimatedOneRepMax > previousOneRep.estimatedOneRepMax) {
+      moments.push({
+        id: `strength-${key}`,
+        label: previousOneRep ? "Strength PB" : "Strength benchmark",
+        title: `${set.exerciseName}: ${Math.round(set.estimatedOneRepMax)}kg est. 1RM`,
+        detail: `${set.kg}kg x ${set.reps}`,
+        priority: 90 + set.estimatedOneRepMax
+      });
+    }
+  }
+
+  if (!moments.length && completedSets.length) {
+    const bestLift = [...completedSets].sort((a, b) => b.kg - a.kg || b.reps - a.reps)[0];
+    moments.push({
+      id: "best-lift",
+      label: "Best lift today",
+      title: `${bestLift.exerciseName}: ${bestLift.kg}kg x ${bestLift.reps}`,
+      detail: `${Math.round(bestLift.volume).toLocaleString()}kg set volume`,
+      priority: 10
+    });
+  }
+
+  return moments.sort((a, b) => b.priority - a.priority).slice(0, 4);
+}
+
+function primaryAchievementMoment(session) {
+  if (session?.achievementMoments?.length) return session.achievementMoments[0];
+  if (session?.sessionType === "for_time") {
+    return {
+      label: "For Time result",
+      title: session.pbLabel || "Workout complete",
+      detail: formatShortDuration(session.durationSeconds)
+    };
+  }
+  if ((Number(session?.totalVolumeKg) || 0) > 0) {
+    return {
+      label: "Session volume",
+      title: `${Math.round(session.totalVolumeKg).toLocaleString()}kg total volume`,
+      detail: `${session.completedSets || 0} sets completed`
+    };
+  }
+  return {
+    label: "Workout complete",
+    title: `${session?.totalExercises || 0} exercises completed`,
+    detail: formatShortDuration(session?.durationSeconds || 0)
   };
 }
 
@@ -2854,7 +2997,15 @@ export function WorkoutLibraryScreen({
       splits,
       previousBestDurationSeconds,
       isPbTime,
-      pbLabel
+      pbLabel,
+      achievementMoments: [{
+        id: "for-time-result",
+        label: isPbTime ? "Achievement moment" : "For Time result",
+        title: isPbTime ? pbLabel : `Finished in ${formatShortDuration(durationSeconds)}`,
+        detail: previousBestDurationSeconds === null
+          ? "First benchmark logged"
+          : `Best time ${formatClock(previousBestDurationSeconds)}`
+      }]
     });
 
     setHiitForTime((current) => (current ? { ...current, running: false, phase: "complete", complete: true } : current));
@@ -3072,6 +3223,24 @@ export function WorkoutLibraryScreen({
     setMessage("");
   }
 
+  async function loadPreviousStrengthRecords() {
+    if (!supabase || user.id === "demo-user") {
+      return buildStrengthRecordsFromSessions([]);
+    }
+
+    const { data, error } = await supabase
+      .from("session_logs")
+      .select(
+        "id,name,total_volume_kg,session_log_exercises(exercise_name,session_log_sets(kg,reps,completed))"
+      )
+      .eq("owner_id", user.id)
+      .order("completed_at", { ascending: false })
+      .limit(250);
+
+    if (error) return buildStrengthRecordsFromSessions([]);
+    return buildStrengthRecordsFromSessions(data || []);
+  }
+
   async function finishActiveSession() {
     if (!activeWorkout) return;
 
@@ -3088,12 +3257,15 @@ export function WorkoutLibraryScreen({
     const summary = calculateSessionSummary(activeWorkout);
 
     if (!supabase || user.id === "demo-user") {
+      const previousRecords = buildStrengthRecordsFromSessions([]);
+      const achievementMoments = buildAchievementMoments(activeWorkout, summary, previousRecords);
       setCompletedSession({
         id: `demo-session-${Date.now()}`,
         name: activeWorkout.name,
         startedAt,
         completedAt,
         durationSeconds,
+        achievementMoments,
         ...summary
       });
       clearRecoveryState(recoveryKey);
@@ -3102,6 +3274,9 @@ export function WorkoutLibraryScreen({
       setMode("complete");
       return;
     }
+
+    const previousRecords = await loadPreviousStrengthRecords();
+    const achievementMoments = buildAchievementMoments(activeWorkout, summary, previousRecords);
 
     const { data: sessionLog, error: sessionError } = await supabase
       .from("session_logs")
@@ -3177,6 +3352,7 @@ export function WorkoutLibraryScreen({
       startedAt,
       completedAt,
       durationSeconds,
+      achievementMoments,
       ...summary
     });
     clearRecoveryState(recoveryKey);
@@ -3277,7 +3453,7 @@ export function WorkoutLibraryScreen({
     reader.readAsDataURL(file);
   }
 
-  function drawShareImage(ctx, canvas, image = null, wordmark = null) {
+  function drawShareImage(ctx, canvas, image = null, wordmark = null, icon = null) {
     const width = canvas.width;
     const height = canvas.height;
     const isBranded = shareMode === "branded";
@@ -3292,6 +3468,7 @@ export function WorkoutLibraryScreen({
           month: "short"
         })
       : "";
+    const moment = primaryAchievementMoment(completedSession);
 
     ctx.fillStyle = "#101b25";
     ctx.fillRect(0, 0, width, height);
@@ -3336,6 +3513,19 @@ export function WorkoutLibraryScreen({
       ctx.font = `900 ${fallbackSize}px Arial`;
       ctx.fillText("MOVEMENTZ", centerX, y + fallbackSize);
       return fallbackSize;
+    };
+
+    const drawIcon = (centerX, y, size = 96) => {
+      if (icon?.width && icon?.height) {
+        ctx.drawImage(icon, centerX - size / 2, y, size, size);
+        return size;
+      }
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#50d0c7";
+      ctx.font = `900 ${Math.round(size * 0.62)}px Arial`;
+      ctx.fillText("M", centerX, y + size * 0.72);
+      return size;
     };
 
     if (isForTimeSession) {
@@ -3398,13 +3588,13 @@ export function WorkoutLibraryScreen({
       ctx.fillText("RESULT", width - 155, 1500);
       ctx.fillStyle = completedSession?.isPbTime ? "#50d0c7" : "#ffffff";
       ctx.font = "900 42px Arial";
-      drawTrimmedText(completedSession?.pbLabel || "For Time", width - 155, 1570, 390);
+      drawTrimmedText(moment.title || completedSession?.pbLabel || "For Time", width - 155, 1570, 390);
 
       ctx.textAlign = "center";
-      drawWordmark(width / 2, 1710, 360, 36);
+      drawIcon(width / 2, 1695, 96);
       ctx.fillStyle = "#ffffff";
       ctx.font = "700 26px Arial";
-      ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1790);
+      ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1830);
       return;
     }
 
@@ -3414,22 +3604,34 @@ export function WorkoutLibraryScreen({
     ctx.font = "800 54px Arial";
     ctx.fillText("WORKOUT COMPLETE", width / 2, 410);
     ctx.font = "900 86px Arial";
-    ctx.fillText(completedSession?.name || "Workout", width / 2, 520);
+    drawTrimmedText(completedSession?.name || "Workout", width / 2, 520, width - 170);
     ctx.font = "700 38px Arial";
-    ctx.fillText(completedSession?.name || "Workout", width / 2, 720);
-    ctx.fillText(date, width / 2, 778);
-    ctx.font = "900 54px Arial";
-    ctx.fillText(duration, width / 2, 990);
-    ctx.font = "900 46px Arial";
-    ctx.fillText(`${completedSession?.totalExercises || 0} EXERCISES`, width / 2, 1120);
+    ctx.fillText(date, width / 2, 705);
+    ctx.fillStyle = "rgba(255,255,255,0.74)";
+    ctx.font = "800 34px Arial";
+    ctx.fillText(String(moment.label || "Achievement moment").toUpperCase(), width / 2, 880);
     ctx.fillStyle = "#50d0c7";
-    ctx.font = "900 76px Arial";
-    ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width / 2, 1255);
+    ctx.font = "900 70px Arial";
+    drawTrimmedText(moment.title, width / 2, 980, width - 170);
     ctx.fillStyle = "#ffffff";
-    drawWordmark(width / 2, 1610, 420, 42);
+    ctx.font = "750 34px Arial";
+    drawTrimmedText(moment.detail, width / 2, 1050, width - 220);
+
+    ctx.fillStyle = "rgba(7, 16, 24, 0.58)";
+    ctx.fillRect(150, 1240, width - 300, 170);
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.font = "800 26px Arial";
+    ctx.fillText("DURATION", 300, 1300);
+    ctx.fillText("VOLUME", width - 300, 1300);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "900 42px Arial";
+    ctx.fillText(duration, 300, 1365);
+    ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width - 300, 1365);
+
+    drawIcon(width / 2, 1580, 108);
     ctx.fillStyle = "#ffffff";
     ctx.font = "700 30px Arial";
-    ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1705);
+    ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1740);
   }
 
   async function saveShareImage() {
@@ -3448,12 +3650,13 @@ export function WorkoutLibraryScreen({
       link.click();
     };
 
-    const [image, wordmark] = await Promise.all([
+    const [image, wordmark, icon] = await Promise.all([
       sharePhoto ? loadCanvasImage(sharePhoto) : Promise.resolve(null),
-      loadCanvasImage(movementzWordmarkSrc)
+      loadCanvasImage(movementzWordmarkSrc),
+      loadCanvasImage(movementzIconSrc)
     ]);
 
-    drawShareImage(context, canvas, image, wordmark);
+    drawShareImage(context, canvas, image, wordmark, icon);
     download();
   }
 
@@ -4060,6 +4263,7 @@ export function WorkoutLibraryScreen({
     const minutes = Math.floor(completedSession.durationSeconds / 60);
     const seconds = completedSession.durationSeconds % 60;
     const isForTimeSession = completedSession.sessionType === "for_time";
+    const achievementMoments = completedSession.achievementMoments || [];
 
     return (
       <section className="screen-stack workout-library">
@@ -4094,6 +4298,22 @@ export function WorkoutLibraryScreen({
               </strong>
             </div>
           </div>
+
+          {achievementMoments.length ? (
+            <div className="completion-achievements">
+              <div>
+                <p className="eyebrow">Achievement moments</p>
+                <h2>{achievementMoments[0].title}</h2>
+                <span>{achievementMoments[0].label} - {achievementMoments[0].detail}</span>
+              </div>
+              {achievementMoments.slice(1, 4).map((moment) => (
+                <article key={moment.id}>
+                  <strong>{moment.label}</strong>
+                  <span>{moment.title}</span>
+                </article>
+              ))}
+            </div>
+          ) : null}
 
           {isForTimeSession && completedSession.splits?.length ? (
             <div className="completion-split-list">
@@ -4150,6 +4370,7 @@ export function WorkoutLibraryScreen({
       month: "short"
     });
     const isForTimeSession = completedSession.sessionType === "for_time";
+    const shareMoment = primaryAchievementMoment(completedSession);
 
     return (
       <section className="screen-stack workout-library share-workout-screen">
@@ -4218,12 +4439,12 @@ export function WorkoutLibraryScreen({
                       <strong>{duration}</strong>
                     </span>
                     <span>
-                      <small>Result</small>
-                      <strong>{completedSession.pbLabel}</strong>
+                      <small>{shareMoment.label}</small>
+                      <strong>{shareMoment.title}</strong>
                     </span>
                   </div>
                   <div className="share-footer">
-                    <img className="share-footer-logo" src={movementzWordmarkSrc} alt="Movementz" />
+                    <img className="share-footer-icon" src={movementzIconSrc} alt="Movementz" />
                     <span>Move - Train - Grow</span>
                   </div>
                 </>
@@ -4232,17 +4453,24 @@ export function WorkoutLibraryScreen({
                   <img className="share-logo-img" src={movementzWordmarkSrc} alt="Movementz" />
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
-                  <div className="share-details">
-                    <strong>{completedSession.name}</strong>
+                  <div className="share-details achievement-share-details">
+                    <strong>{shareMoment.label}</strong>
+                    <em>{shareMoment.title}</em>
                     <span>{sessionDate}</span>
                   </div>
-                  <strong className="share-duration">{duration}</strong>
-                  <p className="share-count">{completedSession.totalExercises} exercises</p>
-                  <strong className="share-volume">
-                    {Math.round(completedSession.totalVolumeKg).toLocaleString()}kg
-                  </strong>
+                  <strong className="share-achievement-title">{shareMoment.detail}</strong>
+                  <div className="share-bottom-stats strength-share-stats">
+                    <span>
+                      <small>Duration</small>
+                      <strong>{duration}</strong>
+                    </span>
+                    <span>
+                      <small>Volume</small>
+                      <strong>{Math.round(completedSession.totalVolumeKg).toLocaleString()}kg</strong>
+                    </span>
+                  </div>
                   <div className="share-footer">
-                    <img className="share-footer-logo" src={movementzWordmarkSrc} alt="Movementz" />
+                    <img className="share-footer-icon" src={movementzIconSrc} alt="Movementz" />
                     <span>Move - Train - Grow</span>
                   </div>
                 </>
