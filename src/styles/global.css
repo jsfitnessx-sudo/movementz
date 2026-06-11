@@ -996,6 +996,18 @@ button {
   resize: vertical;
 }
 
+.workout-editor > label > input,
+.workout-editor > label > textarea {
+  border-color: color-mix(in srgb, #ffffff 48%, var(--line));
+  background: #f2f5f0;
+  color: #101820;
+}
+
+.workout-editor > label > input::placeholder,
+.workout-editor > label > textarea::placeholder {
+  color: #5f6770;
+}
+
 .exercise-list,
 .workout-card-list {
   display: grid;

@@ -658,7 +658,7 @@ export function WorkoutLibraryScreen({
       ...(builderSuggestionExtras[index] || []),
       ...matchingCustomExercises,
       ...otherCustomExercises
-    ]).slice(0, 6);
+    ]).slice(0, 3);
   }, [builderSuggestionExtras, customExerciseOptions]);
 
   const lastSessionByName = useMemo(() => {
@@ -1867,10 +1867,8 @@ export function WorkoutLibraryScreen({
     }));
     if (extraNames.length) {
       setCatalogExerciseNames((current) => new Set([...current, ...extraNames]));
-      setMessage("Exercise options refreshed with custom and database suggestions.");
-    } else {
-      setMessage("Exercise options refreshed.");
     }
+    setMessage("");
   }
 
   async function showDemo(exerciseName) {
@@ -3254,26 +3252,9 @@ export function WorkoutLibraryScreen({
   }
 
   function renderRecoveryBanner(contextLabel = "Workout progress") {
-    if (!recoverableWorkoutModes.has(mode)) return null;
-
-    const isActiveSession = mode === "session" || mode === "hiit-session" || mode === "hiit-for-time";
-    const title = isActiveSession ? "Active workout in progress" : contextLabel;
-    const body = isActiveSession
-      ? "This workout is being saved on this device until you finish it or discard it."
-      : "This draft is being saved on this device until you save it or discard it.";
-
-    return (
-      <div className="panel workout-recovery-banner">
-        <div>
-          <p className="eyebrow">{recoveryNotice ? "Recovered" : "Autosaved"}</p>
-          <h2>{title}</h2>
-          <p>{recoveryNotice || body}</p>
-        </div>
-        <button className="primary-action compact danger" onClick={discardRecoveredWorkout} type="button">
-          Discard
-        </button>
-      </div>
-    );
+    void contextLabel;
+    void recoveryNotice;
+    return null;
   }
 
   function handleSharePhoto(event) {
