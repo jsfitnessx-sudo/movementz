@@ -11,6 +11,12 @@ const mealTypes = [
 const units = ["g", "kg", "ml", "l", "serving"];
 const foodSelect = "id,name,brand,serving_quantity,serving_unit,calories,protein_g,carbs_g,fat_g,is_verified";
 const foodLookupUrl = "https://fdc.nal.usda.gov/food-search/";
+const macroSplits = [
+  { id: "balanced", label: "Balanced", protein: 30, carbs: 40, fat: 30 },
+  { id: "high-protein", label: "High protein", protein: 40, carbs: 35, fat: 25 },
+  { id: "performance", label: "Performance", protein: 25, carbs: 50, fat: 25 },
+  { id: "fat-loss", label: "Fat loss", protein: 35, carbs: 30, fat: 35 }
+];
 
 function todayIso() {
   const now = new Date();
@@ -122,6 +128,40 @@ function rankFoodResults(results, searchTextValue) {
   });
 }
 
+function foodResultKey(food) {
+  return food.id || food.external_id || `${food.source || "food"}:${food.name}:${food.brand}`;
+}
+
+function isExternalFood(food) {
+  return Boolean(food?.external_id || food?.source);
+}
+
+function getMacroTargets(calories, split) {
+  const target = Math.max(0, Number(calories) || 0);
+  return {
+    protein_g: Math.round((target * (split.protein / 100)) / 4),
+    carbs_g: Math.round((target * (split.carbs / 100)) / 4),
+    fat_g: Math.round((target * (split.fat / 100)) / 9)
+  };
+}
+
+function readLocalJson(key, fallback) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Local shortcuts are best-effort; nutrition logs still save to Supabase.
+  }
+}
+
 export function FoodLogScreen({ role, user }) {
   const [selectedDate, setSelectedDate] = useState(todayIso());
   const [monthStart, setMonthStart] = useState(monthStartIso(todayIso()));
@@ -132,6 +172,10 @@ export function FoodLogScreen({ role, user }) {
   const [trackerTarget, setTrackerTarget] = useState(0);
   const [searchText, setSearchText] = useState("");
   const [foodResults, setFoodResults] = useState([]);
+  const [externalFoodResults, setExternalFoodResults] = useState([]);
+  const [recentFoods, setRecentFoods] = useState([]);
+  const [savedMeals, setSavedMeals] = useState([]);
+  const [macroSplitId, setMacroSplitId] = useState("high-protein");
   const [selectedFood, setSelectedFood] = useState(null);
   const [form, setForm] = useState(blankForm);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -157,7 +201,19 @@ export function FoodLogScreen({ role, user }) {
   }, [entries]);
 
   const remaining = (Number(targetCalories) || 0) - totals.calories;
-  const isClient = role === "client";
+  const activeMacroSplit = macroSplits.find((split) => split.id === macroSplitId) || macroSplits[1];
+  const macroTargets = getMacroTargets(targetCalories, activeMacroSplit);
+  const isClient = role === "client" || role === "normal_user";
+
+  const combinedFoodResults = useMemo(() => {
+    const seen = new Set();
+    return [...foodResults, ...externalFoodResults].filter((food) => {
+      const key = `${food.name || ""}:${food.brand || ""}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [externalFoodResults, foodResults]);
 
   const loadFoodDay = useCallback(async () => {
     if (!supabase || user.id === "demo-user") {
@@ -218,6 +274,22 @@ export function FoodLogScreen({ role, user }) {
     setMonthlyTarget(nextMonthlyTarget || nextTrackerTarget || "");
     setTargetCalories(nextTarget || "");
     setMonthDays(Array.isArray(monthResult.data?.days) ? monthResult.data.days : []);
+
+    const { data: recentData } = await supabase
+      .from("food_log_entries")
+      .select("food_name,quantity,unit,calories,protein_g,carbs_g,fat_g,created_at")
+      .eq("user_id", user.id)
+      .gte("log_date", new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10))
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    const seen = new Set();
+    setRecentFoods((recentData || []).filter((food) => {
+      const key = food.food_name?.toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 8));
   }, [monthStart, selectedDate, user.id]);
 
   useEffect(() => {
@@ -231,8 +303,25 @@ export function FoodLogScreen({ role, user }) {
   }, [loadFoodDay]);
 
   useEffect(() => {
+    let alive = true;
+    Promise.resolve().then(() => {
+      if (!alive) return;
+      setMacroSplitId(readLocalJson(`movementz:nutrition-macro-split:${user.id}`, "high-protein"));
+      setSavedMeals(readLocalJson(`movementz:nutrition-saved-meals:${user.id}`, []));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [user.id]);
+
+  useEffect(() => {
+    writeLocalJson(`movementz:nutrition-macro-split:${user.id}`, macroSplitId);
+  }, [macroSplitId, user.id]);
+
+  useEffect(() => {
     if (!supabase || !searchText.trim() || searchText.trim().length < 2) {
       Promise.resolve().then(() => setFoodResults([]));
+      Promise.resolve().then(() => setExternalFoodResults([]));
       return undefined;
     }
 
@@ -255,6 +344,15 @@ export function FoodLogScreen({ role, user }) {
         setFoodResults([]);
       } else {
         setFoodResults(rankFoodResults(data || [], searchText).slice(0, 25));
+      }
+
+      try {
+        const response = await fetch(`/api/food-search?q=${encodeURIComponent(term)}`);
+        if (!alive) return;
+        const external = response.ok ? await response.json() : { foods: [] };
+        setExternalFoodResults(rankFoodResults(external.foods || [], searchText).slice(0, 20));
+      } catch {
+        if (alive) setExternalFoodResults([]);
       }
     }, 350);
 
@@ -290,6 +388,62 @@ export function FoodLogScreen({ role, user }) {
       food_name: food.name,
       quantity: food.serving_unit === "serving" ? "1" : String(food.serving_quantity || 100),
       unit: food.serving_unit === "serving" ? "serving" : food.serving_unit
+    }));
+  }
+
+  function chooseRecentFood(food) {
+    setSelectedFood(null);
+    setSearchText(food.food_name);
+    setFoodResults([]);
+    setExternalFoodResults([]);
+    setForm((current) => ({
+      ...current,
+      food_name: food.food_name,
+      quantity: String(food.quantity || ""),
+      unit: food.unit || "g",
+      calories: String(Math.round(Number(food.calories) || 0)),
+      protein_g: String(roundMacro(food.protein_g)),
+      carbs_g: String(roundMacro(food.carbs_g)),
+      fat_g: String(roundMacro(food.fat_g))
+    }));
+  }
+
+  function saveCurrentMeal() {
+    const name = (selectedFood?.name || form.food_name || searchText).trim();
+    if (!name) return;
+    const nutrition = selectedFood
+      ? calculateFromFood(selectedFood, form.quantity || 1, form.unit)
+      : {
+          calories: Math.round(numberOrZero(form.calories)),
+          protein_g: roundMacro(form.protein_g),
+          carbs_g: roundMacro(form.carbs_g),
+          fat_g: roundMacro(form.fat_g)
+        };
+    const nextMeal = {
+      id: `meal-${Date.now()}`,
+      name,
+      quantity: form.quantity || "1",
+      unit: form.unit,
+      ...nutrition
+    };
+    const nextMeals = [nextMeal, ...savedMeals.filter((meal) => meal.name.toLowerCase() !== name.toLowerCase())].slice(0, 8);
+    setSavedMeals(nextMeals);
+    writeLocalJson(`movementz:nutrition-saved-meals:${user.id}`, nextMeals);
+    setMessage("Meal saved on this device.");
+  }
+
+  function chooseSavedMeal(meal) {
+    setSelectedFood(null);
+    setSearchText(meal.name);
+    setForm((current) => ({
+      ...current,
+      food_name: meal.name,
+      quantity: String(meal.quantity || ""),
+      unit: meal.unit || "g",
+      calories: String(Math.round(Number(meal.calories) || 0)),
+      protein_g: String(roundMacro(meal.protein_g)),
+      carbs_g: String(roundMacro(meal.carbs_g)),
+      fat_g: String(roundMacro(meal.fat_g))
     }));
   }
 
@@ -353,13 +507,14 @@ export function FoodLogScreen({ role, user }) {
     setMessage("");
 
     let customFoodId = selectedFood?.id || null;
-    if (!selectedFood && form.save_custom) {
+    if ((isExternalFood(selectedFood) || !selectedFood) && form.save_custom) {
       const customServing = normalizeCustomServing(quantity, form.unit);
       const { data: customFood, error: customError } = await supabase
         .from("food_items")
         .insert({
           owner_id: user.id,
           name: foodName,
+          brand: selectedFood?.brand || null,
           serving_quantity: customServing.serving_quantity,
           serving_unit: customServing.serving_unit,
           calories: nutrition.calories,
@@ -477,6 +632,27 @@ export function FoodLogScreen({ role, user }) {
             <strong>{Math.round(totals.fat_g)}g</strong>
           </div>
         </div>
+        <div className="nutrition-macro-targets">
+          <div className="section-row">
+            <div>
+              <p className="eyebrow">Macro split</p>
+              <h2>{activeMacroSplit.protein}% / {activeMacroSplit.carbs}% / {activeMacroSplit.fat}%</h2>
+            </div>
+          </div>
+          <div className="macro-split-grid">
+            {macroSplits.map((split) => (
+              <button className={macroSplitId === split.id ? "active" : ""} key={split.id} onClick={() => setMacroSplitId(split.id)} type="button">
+                <strong>{split.label}</strong>
+                <span>{split.protein}P / {split.carbs}C / {split.fat}F</span>
+              </button>
+            ))}
+          </div>
+          <div className="macro-target-grid">
+            <span>Protein <strong>{macroTargets.protein_g}g</strong></span>
+            <span>Carbs <strong>{macroTargets.carbs_g}g</strong></span>
+            <span>Fat <strong>{macroTargets.fat_g}g</strong></span>
+          </div>
+        </div>
         <div className="food-month-target">
           <label>
             <span>Monthly daily target</span>
@@ -509,17 +685,46 @@ export function FoodLogScreen({ role, user }) {
             type="search"
             value={searchText}
           />
-          {foodResults.length ? (
+          {combinedFoodResults.length ? (
             <div className="food-result-list">
-              {foodResults.map((food) => (
-                <button key={food.id} onClick={() => chooseFood(food)} type="button">
+              {combinedFoodResults.map((food) => (
+                <button key={foodResultKey(food)} onClick={() => chooseFood(food)} type="button">
                   <strong>{food.name}</strong>
-                  <span>{food.brand || (food.is_verified ? "Common food" : "Custom")} - {food.calories} cal / {food.serving_quantity}{food.serving_unit}</span>
+                  <span>{food.brand || (food.is_verified ? "Common food" : "Custom")} - {food.source || "Movementz"} - {food.calories} cal / {food.serving_quantity}{food.serving_unit}</span>
                 </button>
               ))}
             </div>
           ) : null}
         </div>
+
+        {recentFoods.length || savedMeals.length ? (
+          <div className="nutrition-shortcuts">
+            {recentFoods.length ? (
+              <div>
+                <p className="eyebrow">Recent foods</p>
+                <div>
+                  {recentFoods.map((food) => (
+                    <button key={`${food.food_name}-${food.created_at}`} onClick={() => chooseRecentFood(food)} type="button">
+                      {food.food_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {savedMeals.length ? (
+              <div>
+                <p className="eyebrow">Saved meals</p>
+                <div>
+                  {savedMeals.map((meal) => (
+                    <button key={meal.id} onClick={() => chooseSavedMeal(meal)} type="button">
+                      {meal.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="food-entry-grid">
           <label>
@@ -568,10 +773,20 @@ export function FoodLogScreen({ role, user }) {
             <button onClick={() => setLookupOpen(true)} type="button">Food lookup</button>
           </div>
         ) : null}
+        {selectedFood || form.food_name || searchText ? (
+          <button className="primary-action compact" onClick={saveCurrentMeal} type="button">
+            Save meal shortcut
+          </button>
+        ) : null}
         {!selectedFood ? (
           <label className="food-save-custom">
             <input checked={form.save_custom} onChange={(event) => updateForm("save_custom", event.target.checked)} type="checkbox" />
             <span>Save this custom food for next time</span>
+          </label>
+        ) : isExternalFood(selectedFood) ? (
+          <label className="food-save-custom">
+            <input checked={form.save_custom} onChange={(event) => updateForm("save_custom", event.target.checked)} type="checkbox" />
+            <span>Save this food into Movementz for next time</span>
           </label>
         ) : null}
         <button className="primary-action filled" disabled={saving} onClick={logFood} type="button">

@@ -8426,6 +8426,77 @@ button {
   color: var(--danger);
 }
 
+.nutrition-macro-targets {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 205, 62, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 205, 62, 0.06);
+}
+
+.nutrition-macro-targets h2 {
+  margin: 0;
+  color: var(--gold);
+  font-size: 18px;
+}
+
+.macro-split-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.macro-split-grid button {
+  display: grid;
+  gap: 3px;
+  min-height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(18, 35, 48, 0.46);
+  color: var(--text);
+  padding: 7px;
+  font: inherit;
+  text-align: left;
+}
+
+.macro-split-grid button.active {
+  border-color: var(--gold);
+  background: rgba(255, 205, 62, 0.12);
+}
+
+.macro-split-grid strong {
+  font-size: 12px;
+}
+
+.macro-split-grid span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.macro-target-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.macro-target-grid span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 205, 62, 0.18);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.macro-target-grid strong {
+  color: var(--gold);
+}
+
 .food-meal-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -8484,6 +8555,34 @@ button {
 .food-result-list span {
   color: var(--muted);
   font-size: 11px;
+}
+
+.nutrition-shortcuts {
+  display: grid;
+  gap: 10px;
+}
+
+.nutrition-shortcuts > div {
+  display: grid;
+  gap: 6px;
+}
+
+.nutrition-shortcuts > div > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nutrition-shortcuts button {
+  min-height: 32px;
+  border: 1px solid rgba(75, 207, 198, 0.24);
+  border-radius: 999px;
+  background: rgba(75, 207, 198, 0.08);
+  color: var(--aqua);
+  padding: 0 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
 }
 
 .food-calculated {
@@ -8860,6 +8959,14 @@ button {
 
   .food-total-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .macro-split-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .macro-target-grid {
+    grid-template-columns: 1fr;
   }
 
   .food-meal-tabs {
