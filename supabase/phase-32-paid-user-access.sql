@@ -88,6 +88,8 @@ $$;
 
 grant execute on function public.admin_set_paid_access(uuid, boolean, timestamptz) to authenticated;
 
+drop function if exists public.get_admin_user_summaries();
+
 create or replace function public.get_admin_user_summaries()
 returns table (
   id uuid,
