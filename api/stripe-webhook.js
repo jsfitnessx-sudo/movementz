@@ -91,6 +91,20 @@ function priceIdFromSubscription(subscription) {
   return subscription?.items?.data?.[0]?.price?.id || subscription?.plan?.id || null;
 }
 
+function priceIdFromLineItems(lineItems) {
+  return lineItems?.data?.[0]?.price?.id || null;
+}
+
+function lineItemName(lineItems) {
+  const item = lineItems?.data?.[0];
+  const product = item?.price?.product;
+  return String(product?.name || item?.description || "");
+}
+
+function accessTypeFromLineItems(lineItems) {
+  return lineItemName(lineItems).toLowerCase().includes("coach") ? "coach" : "";
+}
+
 function activeStatus(status) {
   return ["active", "trialing"].includes(status);
 }
@@ -105,21 +119,45 @@ function isCoachSubscription(priceId, accessType) {
   return accessType === "coach" || priceId === process.env.STRIPE_COACH_PRICE_ID;
 }
 
+async function resolveUserId(serviceClient, values) {
+  const { userId, customerId, subscriptionId, email } = values;
+  if (userId) return userId;
+
+  let profileQuery = serviceClient.from("profiles").select("id");
+  if (subscriptionId && customerId) {
+    profileQuery = profileQuery.or(`stripe_subscription_id.eq.${subscriptionId},stripe_customer_id.eq.${customerId}`);
+  } else if (subscriptionId) {
+    profileQuery = profileQuery.eq("stripe_subscription_id", subscriptionId);
+  } else if (customerId) {
+    profileQuery = profileQuery.eq("stripe_customer_id", customerId);
+  } else if (email) {
+    profileQuery = profileQuery.ilike("email", email);
+  } else {
+    return "";
+  }
+
+  const { data: profile, error: profileError } = await profileQuery.maybeSingle();
+  if (profileError) throw new Error(`Profile lookup failed: ${profileError.message}`);
+  if (profile?.id) return profile.id;
+
+  if (email) {
+    const { data: usersData, error: usersError } = await serviceClient.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000
+    });
+    if (usersError) throw new Error(`Auth user lookup failed: ${usersError.message}`);
+    const authUser = (usersData?.users || []).find((item) => item.email?.toLowerCase() === email.toLowerCase());
+    return authUser?.id || "";
+  }
+
+  return "";
+}
+
 async function provisionPaidCoach(serviceClient, values) {
   const { userId, customerId, subscriptionId, priceId, status, paidAccessUntil } = values;
   if (!userId && !subscriptionId && !customerId) return false;
 
-  let resolvedUserId = userId;
-  if (!resolvedUserId) {
-    const { data: existingProfile, error: profileError } = await serviceClient
-      .from("profiles")
-      .select("id")
-      .or(`stripe_subscription_id.eq.${subscriptionId},stripe_customer_id.eq.${customerId}`)
-      .maybeSingle();
-
-    if (profileError) throw new Error(`Coach profile lookup failed: ${profileError.message}`);
-    resolvedUserId = existingProfile?.id;
-  }
+  const resolvedUserId = await resolveUserId(serviceClient, values);
 
   if (!resolvedUserId) throw new Error("Coach provisioning failed: no matching profile.");
 
@@ -139,7 +177,6 @@ async function provisionPaidCoach(serviceClient, values) {
 
 async function updateProfileSubscription(serviceClient, values) {
   const {
-    userId,
     customerId,
     subscriptionId,
     priceId,
@@ -162,8 +199,9 @@ async function updateProfileSubscription(serviceClient, values) {
     return;
   }
 
+  const resolvedUserId = await resolveUserId(serviceClient, values);
   let query = serviceClient.from("profiles").update(update);
-  if (userId) query = query.eq("id", userId);
+  if (resolvedUserId) query = query.eq("id", resolvedUserId);
   else if (subscriptionId) query = query.eq("stripe_subscription_id", subscriptionId);
   else if (customerId) query = query.eq("stripe_customer_id", customerId);
   else return;
@@ -233,18 +271,35 @@ export default async function handler(request, response) {
       const subscription = session.subscription
         ? await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`)
         : null;
-      const accessType = session.metadata?.access_type || subscription?.metadata?.access_type || "";
+      const lineItems = session.id
+        ? await stripeGet(`checkout/sessions/${encodeURIComponent(session.id)}/line_items`, {
+          limit: "1",
+          "expand[]": "data.price.product"
+        })
+        : null;
+      const customer = session.customer
+        ? await stripeGet(`customers/${encodeURIComponent(session.customer)}`)
+        : null;
+      const accessType = session.metadata?.access_type ||
+        subscription?.metadata?.access_type ||
+        accessTypeFromLineItems(lineItems);
       const priceId = priceIdFromSubscription(subscription) ||
+        priceIdFromLineItems(lineItems) ||
         (accessType === "coach" ? process.env.STRIPE_COACH_PRICE_ID : process.env.STRIPE_PAID_USER_PRICE_ID);
 
       await updateProfileSubscription(serviceClient, {
-        userId: session.metadata?.user_id || session.client_reference_id || subscription?.metadata?.user_id || "",
+        userId: session.metadata?.user_id ||
+          session.client_reference_id ||
+          subscription?.metadata?.user_id ||
+          customer?.metadata?.user_id ||
+          "",
         customerId: session.customer,
         subscriptionId: session.subscription,
         priceId,
         status: subscription?.status || "active",
         accessType,
-        paidAccessUntil: paidUntilFromSubscription(subscription)
+        paidAccessUntil: paidUntilFromSubscription(subscription),
+        email: session.customer_details?.email || customer?.email || ""
       });
     }
 
