@@ -84,6 +84,42 @@ function accessTierFor(priceId, accessType, status) {
   return "paid";
 }
 
+function isCoachSubscription(priceId, accessType) {
+  return accessType === "coach" || priceId === process.env.STRIPE_COACH_PRICE_ID;
+}
+
+async function provisionPaidCoach(serviceClient, values) {
+  const { userId, customerId, subscriptionId, priceId, status, paidAccessUntil } = values;
+  if (!userId && !subscriptionId && !customerId) return false;
+
+  let resolvedUserId = userId;
+  if (!resolvedUserId) {
+    const { data: existingProfile, error: profileError } = await serviceClient
+      .from("profiles")
+      .select("id")
+      .or(`stripe_subscription_id.eq.${subscriptionId},stripe_customer_id.eq.${customerId}`)
+      .maybeSingle();
+
+    if (profileError) throw new Error(`Coach profile lookup failed: ${profileError.message}`);
+    resolvedUserId = existingProfile?.id;
+  }
+
+  if (!resolvedUserId) throw new Error("Coach provisioning failed: no matching profile.");
+
+  const { data, error } = await serviceClient.rpc("provision_paid_coach", {
+    target_user_id: resolvedUserId,
+    customer_id: customerId,
+    subscription_id: subscriptionId,
+    price_id: priceId,
+    subscription_status: status,
+    paid_until: paidAccessUntil
+  });
+
+  if (error) throw new Error(`${error.message}. Run supabase/phase-35-paid-coach-provisioning.sql in Supabase.`);
+  if (!data?.length) throw new Error("Coach provisioning failed: no profile returned.");
+  return true;
+}
+
 async function updateProfileSubscription(serviceClient, values) {
   const {
     userId,
@@ -103,6 +139,11 @@ async function updateProfileSubscription(serviceClient, values) {
     paid_access_until: paidAccessUntil || null,
     updated_at: new Date().toISOString()
   };
+
+  if (isCoachSubscription(priceId, accessType)) {
+    await provisionPaidCoach(serviceClient, values);
+    return;
+  }
 
   let query = serviceClient.from("profiles").update(update);
   if (userId) query = query.eq("id", userId);

@@ -117,7 +117,7 @@ function buildUser(session, profile) {
 export function App() {
   const forcedSignupMode = useMemo(() => {
     const signupMode = new URLSearchParams(window.location.search).get("signup");
-    return signupMode === "user" ? signupMode : "";
+    return ["user", "coach"].includes(signupMode) ? signupMode : "";
   }, []);
   const requestedTabRef = useRef(new URLSearchParams(window.location.search).get("tab") || "");
   const coachInviteCode = useMemo(() => new URLSearchParams(window.location.search).get("coach_invite") || "", []);
@@ -499,6 +499,29 @@ export function App() {
     });
   }
 
+  async function startCoachCheckout(nextSession = session) {
+    const token = nextSession?.access_token;
+    if (!token) {
+      setAppMessage("Log in before starting coach checkout.");
+      return;
+    }
+
+    const response = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ type: "coach" })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.url) {
+      setAppMessage(payload.error || "Could not start coach checkout.");
+      return;
+    }
+    window.location.href = payload.url;
+  }
+
   async function handleAuthComplete(nextSession) {
     if (!nextSession?.user) return;
     const nextProfile = await loadProfile(nextSession.user);
@@ -516,6 +539,15 @@ export function App() {
         setPendingCoachInviteCode("");
         window.history.replaceState({}, document.title, window.location.pathname);
       }
+    } else if (forcedSignupMode === "coach") {
+      setAppMessage("Coach account created. Complete the coach subscription to unlock your dashboard.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      resolvedProfile = await loadProfile(nextSession.user);
+      setProfile(resolvedProfile);
+      setRole(resolvedProfile?.role || "normal_user");
+      setSession(nextSession);
+      await startCoachCheckout(nextSession);
+      return;
     } else if (forcedSignupMode) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }

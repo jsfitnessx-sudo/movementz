@@ -34,7 +34,7 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const isCoachSignup = mode === "coach" && Boolean(coachInviteCode);
+  const isCoachSignup = mode === "coach";
   const heading = useMemo(() => {
     if (!hasSupabaseConfig) return "Preview Movementz";
     if (mode === "login") return "Welcome back";
@@ -92,7 +92,8 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
 
     const role = "normal_user";
     const metadata = {
-      role,
+              role,
+              intended_role: isCoachSignup ? "coach" : role,
       full_name: form.fullName.trim(),
       age: form.age,
       gender: form.gender,
@@ -119,7 +120,13 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
       password: form.password,
       options: {
         data: metadata,
-        emailRedirectTo: buildAuthRedirectUrl(coachInviteCode ? `/?coach_invite=${encodeURIComponent(coachInviteCode)}` : "/")
+        emailRedirectTo: buildAuthRedirectUrl(
+          coachInviteCode
+            ? `/?coach_invite=${encodeURIComponent(coachInviteCode)}`
+            : isCoachSignup
+              ? "/?signup=coach"
+              : "/"
+        )
       }
     });
 
@@ -193,7 +200,7 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
           >
             User
           </button>
-          {coachInviteCode ? (
+          {coachInviteCode || initialMode === "coach" ? (
             <button
               className={mode === "coach" ? "active" : ""}
               type="button"
