@@ -8,9 +8,11 @@ create index if not exists invites_client_email_unused_idx
   on public.invites (lower(email), invite_type, used_at)
   where invite_type = 'client';
 
+drop function if exists public.create_coach_client_invite(text, text);
+
 create or replace function public.create_coach_client_invite(
-  invite_email text,
-  invite_full_name text
+  target_client_email text,
+  target_client_full_name text
 )
 returns table (
   invite_code text,
@@ -33,8 +35,8 @@ begin
     raise exception 'You must be signed in.';
   end if;
 
-  clean_email := lower(trim(coalesce(invite_email, '')));
-  clean_name := trim(coalesce(invite_full_name, ''));
+  clean_email := lower(trim(coalesce(target_client_email, '')));
+  clean_name := trim(coalesce(target_client_full_name, ''));
 
   if clean_name = '' then
     raise exception 'Client full name is required.';

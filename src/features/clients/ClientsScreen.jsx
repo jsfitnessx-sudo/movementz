@@ -665,8 +665,8 @@ export function ClientsScreen({ profile, user }) {
 
     setMessage("");
     const { data, error } = await supabase.rpc("create_coach_client_invite", {
-      invite_email: email,
-      invite_full_name: fullName
+      target_client_email: email,
+      target_client_full_name: fullName
     });
 
     if (error) {
