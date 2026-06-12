@@ -25,6 +25,23 @@ function json(response, status, payload) {
   response.status(status).json(payload);
 }
 
+async function stripeGet(path, params = {}) {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
+  if (!stripeSecretKey) return null;
+
+  const query = new URLSearchParams(params);
+  const queryString = query.toString();
+  const stripeResponse = await fetch(`https://api.stripe.com/v1/${path}${queryString ? `?${queryString}` : ""}`, {
+    headers: {
+      Authorization: `Bearer ${stripeSecretKey}`
+    }
+  });
+
+  const data = await stripeResponse.json();
+  if (!stripeResponse.ok) throw new Error(data?.error?.message || "Stripe lookup failed.");
+  return data;
+}
+
 async function readRawBody(request) {
   if (Buffer.isBuffer(request.rawBody)) return request.rawBody;
   if (typeof request.rawBody === "string") return Buffer.from(request.rawBody);
@@ -213,14 +230,21 @@ export default async function handler(request, response) {
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
+      const subscription = session.subscription
+        ? await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`)
+        : null;
+      const accessType = session.metadata?.access_type || subscription?.metadata?.access_type || "";
+      const priceId = priceIdFromSubscription(subscription) ||
+        (accessType === "coach" ? process.env.STRIPE_COACH_PRICE_ID : process.env.STRIPE_PAID_USER_PRICE_ID);
+
       await updateProfileSubscription(serviceClient, {
-        userId: session.metadata?.user_id || session.client_reference_id,
+        userId: session.metadata?.user_id || session.client_reference_id || subscription?.metadata?.user_id || "",
         customerId: session.customer,
         subscriptionId: session.subscription,
-        priceId: session.metadata?.access_type === "coach" ? process.env.STRIPE_COACH_PRICE_ID : process.env.STRIPE_PAID_USER_PRICE_ID,
-        status: "active",
-        accessType: session.metadata?.access_type || "paid_user",
-        paidAccessUntil: null
+        priceId,
+        status: subscription?.status || "active",
+        accessType,
+        paidAccessUntil: paidUntilFromSubscription(subscription)
       });
     }
 
