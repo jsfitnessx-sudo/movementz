@@ -311,7 +311,8 @@ export function TodayScreen({ role, user }) {
   return (
     <section className="screen-stack today-screen">
       <div className="screen-heading today-heading">
-        <h1>Training <span>Schedule</span></h1>
+        <p className="eyebrow">Today</p>
+        <h1>Training schedule</h1>
         <p>{formatTodayDate()}</p>
       </div>
 
@@ -411,6 +412,13 @@ export function TodayScreen({ role, user }) {
       ) : null}
 
       <div className="training-schedule-panel prototype-schedule-list">
+        <div className="today-section-title">
+          <div>
+            <p className="eyebrow">Scheduled work</p>
+            <h2>{selectedDay}</h2>
+          </div>
+          <span>{scheduledWorkouts.length}</span>
+        </div>
         {scheduledWorkouts.length ? (
           <div className="assignment-card-list">
             {scheduledWorkouts.map((workout) => (

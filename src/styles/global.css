@@ -4454,8 +4454,8 @@ button {
 }
 
 .today-heading {
-  justify-items: center;
-  text-align: center;
+  justify-items: start;
+  text-align: left;
 }
 
 .today-heading h1 span {
@@ -4468,6 +4468,7 @@ button {
   border: 0;
   background: transparent;
   padding: 0 2px 2px;
+  gap: 8px;
 }
 
 .prototype-day-tabs button {
@@ -4475,9 +4476,12 @@ button {
   gap: 7px;
   align-items: center;
   justify-content: center;
-  min-width: 72px;
-  border-color: color-mix(in srgb, var(--teal) 38%, var(--line));
-  border-radius: 999px;
+  min-width: 68px;
+  min-height: 42px;
+  border-color: var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text);
 }
 
 .prototype-day-tabs button span {
@@ -4494,22 +4498,51 @@ button {
   gap: 12px;
 }
 
+.today-section-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 0 2px;
+}
+
+.today-section-title h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 26px;
+}
+
+.today-section-title > span {
+  display: inline-grid;
+  min-width: 42px;
+  min-height: 32px;
+  place-items: center;
+  border-bottom: 3px solid var(--gold);
+  color: var(--gold);
+  font-size: 24px;
+  font-weight: 950;
+}
+
 .today-coach-line {
   text-align: center;
 }
 
 .schedule-session-card {
   display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--teal) 34%, var(--line));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--panel) 82%, #071017);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
   text-align: left;
 }
 
 .schedule-card-top {
   display: flex;
+  grid-column: 1;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -4522,12 +4555,14 @@ button {
 }
 
 .schedule-select-look {
-  min-height: 34px;
-  border: 1px solid color-mix(in srgb, var(--muted) 38%, var(--line));
-  border-radius: 10px;
-  background: var(--field);
-  color: var(--text);
-  padding: 8px 10px;
+  grid-column: 1;
+  min-height: 0;
+  border: 0;
+  border-left: 3px solid color-mix(in srgb, var(--teal) 48%, var(--line));
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 0 0 9px;
   font-size: 12px;
   text-align: left;
 }
@@ -4535,6 +4570,7 @@ button {
 .schedule-session-main {
   display: grid;
   gap: 6px;
+  grid-column: 1;
 }
 
 .schedule-session-main h3 {
@@ -4548,7 +4584,10 @@ button {
 }
 
 .schedule-start {
+  grid-column: 2;
+  grid-row: 1 / span 3;
   min-height: 40px;
+  min-width: 132px;
   font-size: 14px;
 }
 
@@ -4559,19 +4598,22 @@ button {
 }
 
 .today-checkin-panel {
-  border-color: color-mix(in srgb, var(--gold) 40%, var(--line));
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
 }
 
 .today-checkin-card {
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--gold) 32%, var(--line));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--gold) 6%, var(--panel));
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--line));
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(31, 45, 61, 0.05);
 }
 
 .today-checkin-card.submitted {
   border-color: color-mix(in srgb, var(--teal) 38%, var(--line));
-  background: color-mix(in srgb, var(--teal) 7%, var(--panel));
+  background: color-mix(in srgb, var(--teal) 5%, #ffffff);
 }
 
 .today-checkin-card label {
@@ -4655,6 +4697,32 @@ button {
   font-size: 10px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+  .schedule-session-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .schedule-card-top,
+  .schedule-select-look,
+  .schedule-session-main,
+  .schedule-start {
+    grid-column: 1;
+  }
+
+  .schedule-start {
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .today-section-title h2 {
+    font-size: 22px;
+  }
+
+  .prototype-day-tabs button {
+    min-width: 58px;
+  }
 }
 
 .gold-pill {
@@ -9700,6 +9768,32 @@ body {
 .quick-log-panel,
 .food-log-card {
   border-radius: 8px;
+}
+
+.today-screen .today-checkin-panel,
+.today-screen .schedule-session-card {
+  box-shadow: none;
+}
+
+.today-screen .today-checkin-panel {
+  border-color: transparent;
+  background: transparent;
+}
+
+.today-screen .schedule-session-card {
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.today-screen .prototype-day-tabs {
+  border-color: transparent;
+  background: transparent;
+}
+
+.today-screen .prototype-day-tabs button {
+  background: #ffffff;
 }
 
 .panel p,
