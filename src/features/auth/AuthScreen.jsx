@@ -97,10 +97,10 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
     setError("");
     setStatus("");
 
-    const role = "normal_user";
+    const role = isCoachSignup ? "coach" : "normal_user";
     const metadata = {
-              role,
-              intended_role: isCoachSignup ? "coach" : role,
+      role,
+      intended_role: isCoachSignup ? "coach" : role,
       full_name: form.fullName.trim(),
       age: form.age,
       gender: form.gender,
@@ -134,7 +134,7 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
           coachInviteCode
             ? `/?coach_invite=${encodeURIComponent(coachInviteCode)}`
             : isCoachSignup
-              ? "/?signup=coach"
+              ? "/"
               : "/"
         )
       }

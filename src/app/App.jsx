@@ -69,12 +69,16 @@ async function loadProfile(authUser) {
     id: authUser.id,
     email: authUser.email,
     full_name: metadata.full_name || "",
-    role: metadata.role === "admin" ? "admin" : "normal_user",
+    role: metadata.role === "admin" ? "admin" : isPendingCoachSignup ? "coach" : "normal_user",
     gender: metadata.gender || null,
     age: metadata.age ? Number(metadata.age) : null,
     location: metadata.location || null,
     subscription_status: isPendingCoachSignup ? "pending_coach" : null
   };
+
+  if (isPendingCoachSignup) {
+    return { ...fallbackProfile, ...(await loadProfileAccess(authUser.id)) };
+  }
 
   const { data: insertedProfile, error: insertError } = await supabase
     .from("profiles")
@@ -132,6 +136,37 @@ function buildUser(session, profile) {
     name: displayName,
     avatarUrl: profile?.avatar_url
   };
+}
+
+function isCoachPaymentPending(session, profile) {
+  if (!session?.user || !profile) return false;
+  const intendedRole = session.user.user_metadata?.intended_role;
+  const hasLocalCoachIntent = hasPendingCoachSignupIntent(session.user);
+  const isPendingCoachProfile = profile.subscription_status === "pending_coach";
+  const isUnlockedCoach =
+    profile.access_tier === "coach" ||
+    (profile.role === "coach" && ["active", "trialing"].includes(String(profile.subscription_status || "").toLowerCase())) ||
+    profile.admin_granted_paid_access;
+
+  return (intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile) && !isUnlockedCoach;
+}
+
+function CoachCheckoutGate({ appMessage, onContinue, onSignOut }) {
+  return (
+    <main className="auth-screen">
+      <section className="auth-card auth-brand">
+        <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
+        <h1><BrandName /></h1>
+        <p>Coach account created.</p>
+        <p>Complete the coach subscription to unlock your coach dashboard.</p>
+        {appMessage ? <div className="auth-status">{appMessage}</div> : null}
+        <div className="auth-actions">
+          <button type="button" onClick={onContinue}>Continue to payment</button>
+          <button type="button" className="ghost-button" onClick={onSignOut}>Sign out</button>
+        </div>
+      </section>
+    </main>
+  );
 }
 
 export function App() {
@@ -208,6 +243,7 @@ export function App() {
     requestedTabRef.current = "";
   }, [tabs]);
   const lockedActiveTab = tabIsLocked(activeTab, effectiveProfile, effectiveRole);
+  const coachPaymentPending = !previewAccount && isCoachPaymentPending(session, profile);
 
   useEffect(() => {
     const paymentParams = new URLSearchParams(window.location.search);
@@ -599,7 +635,9 @@ export function App() {
     const currentRole = nextProfile?.role || "normal_user";
     const currentTier = nextProfile?.access_tier || "";
     const isPendingCoachProfile = nextProfile?.subscription_status === "pending_coach";
-    return (intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile) && currentRole !== "coach" && currentTier !== "coach";
+    const status = String(nextProfile?.subscription_status || "").toLowerCase();
+    const isUnlockedCoach = currentTier === "coach" || (currentRole === "coach" && ["active", "trialing"].includes(status));
+    return (intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile) && !isUnlockedCoach;
   }
 
   async function handleAuthComplete(nextSession) {
@@ -754,6 +792,16 @@ export function App() {
         initialMode={pendingCoachInviteCode ? "coach" : forcedSignupMode || "login"}
         onAuthComplete={handleAuthComplete}
         onDemoLogin={handleDemoLogin}
+      />
+    );
+  }
+
+  if (coachPaymentPending) {
+    return (
+      <CoachCheckoutGate
+        appMessage={appMessage}
+        onContinue={() => startCoachCheckout(session)}
+        onSignOut={handleSignOut}
       />
     );
   }

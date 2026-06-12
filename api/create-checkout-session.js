@@ -45,6 +45,21 @@ function checkoutUrls(request) {
   };
 }
 
+async function preparePendingCoach(serviceClient, authUser, customerId = null) {
+  const { error } = await serviceClient.rpc("prepare_pending_coach", {
+    target_user_id: authUser.id,
+    customer_id: customerId
+  });
+
+  if (error) {
+    throw new Error(
+      error.message.includes("prepare_pending_coach")
+        ? "Coach signup database setup is missing. Run supabase/phase-37-pending-coach-signup.sql in Supabase."
+        : `Could not prepare coach profile: ${error.message}`
+    );
+  }
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     json(response, 405, { error: "Method not allowed." });
@@ -93,29 +108,7 @@ export default async function handler(request, response) {
 
   try {
     if (checkoutType === "coach") {
-      const { error: pendingProfileError } = await serviceClient
-        .from("profiles")
-        .upsert({
-          id: authUser.id,
-          email: authUser.email || null,
-          full_name: metadataName,
-          role: "normal_user",
-          subscription_status: "pending_coach",
-          updated_at: new Date().toISOString()
-        }, { onConflict: "id" });
-      if (pendingProfileError) throw new Error(`Could not prepare coach profile: ${pendingProfileError.message}`);
-
-      const { error: pendingCoachError } = await serviceClient
-        .from("coach_profiles")
-        .upsert({
-          user_id: authUser.id,
-          qualification: metadata.qualification || null,
-          experience_areas: Array.isArray(metadata.experience_areas) ? metadata.experience_areas : [],
-          about_me: metadata.about_me || null,
-          verification_status: "pending",
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id" });
-      if (pendingCoachError) throw new Error(`Could not prepare coach details: ${pendingCoachError.message}`);
+      await preparePendingCoach(serviceClient, authUser);
     }
 
     const { data: profile } = await serviceClient
@@ -143,6 +136,9 @@ export default async function handler(request, response) {
         .from("profiles")
         .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
         .eq("id", authUser.id);
+      if (checkoutType === "coach") {
+        await preparePendingCoach(serviceClient, authUser, customerId);
+      }
     } else if (checkoutType === "coach") {
       await stripeRequest(`customers/${encodeURIComponent(customerId)}`, {
         "metadata[user_id]": authUser.id,

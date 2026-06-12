@@ -16,6 +16,7 @@ function paidUntilIsCurrent(value) {
 
 export function hasFullUserAccess(profile, role) {
   const resolvedRole = role || profile?.role || "normal_user";
+  if (resolvedRole === "coach" && profile?.subscription_status === "pending_coach") return false;
   if (["admin", "coach", "client"].includes(resolvedRole)) return true;
   if (profile?.admin_granted_paid_access) return true;
   if (["admin", "coach"].includes(profile?.access_tier)) return true;
