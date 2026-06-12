@@ -78,7 +78,9 @@ export default async function handler(request, response) {
     return;
   }
 
-  const checkoutType = request.body?.type === "coach" ? "coach" : "paid_user";
+  const intendedRole = authUser.user_metadata?.intended_role;
+  const requestedType = request.body?.type === "coach" ? "coach" : "paid_user";
+  const checkoutType = requestedType === "coach" || intendedRole === "coach" ? "coach" : "paid_user";
   const priceId = checkoutType === "coach" ? coachPriceId : paidUserPriceId;
 
   if (!priceId) {
@@ -127,7 +129,7 @@ export default async function handler(request, response) {
       "subscription_data[metadata][access_type]": checkoutType
     });
 
-    json(response, 200, { url: session.url });
+    json(response, 200, { url: session.url, type: checkoutType });
   } catch (error) {
     json(response, 500, { error: error.message });
   }

@@ -29,6 +29,24 @@ import { movementzIconSrc } from "../lib/brandAssets.js";
 import { enablePhonePushNotifications, getPushStatus } from "../lib/pushNotifications.js";
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
 
+const COACH_SIGNUP_INTENT_KEY = "movementz.pendingCoachSignupEmail";
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function hasPendingCoachSignupIntent(authUser) {
+  if (typeof window === "undefined" || !authUser?.email) return false;
+  return normalizeEmail(window.localStorage.getItem(COACH_SIGNUP_INTENT_KEY)) === normalizeEmail(authUser.email);
+}
+
+function clearPendingCoachSignupIntent(authUser) {
+  if (typeof window === "undefined" || !authUser?.email) return;
+  if (hasPendingCoachSignupIntent(authUser)) {
+    window.localStorage.removeItem(COACH_SIGNUP_INTENT_KEY);
+  }
+}
+
 async function loadProfile(authUser) {
   if (!supabase || !authUser?.id) return null;
 
@@ -528,9 +546,10 @@ export function App() {
 
   function needsCoachSubscription(nextSession, nextProfile) {
     const intendedRole = nextSession?.user?.user_metadata?.intended_role;
+    const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
     const currentRole = nextProfile?.role || "normal_user";
     const currentTier = nextProfile?.access_tier || "";
-    return intendedRole === "coach" && currentRole !== "coach" && currentTier !== "coach";
+    return (intendedRole === "coach" || hasLocalCoachIntent) && currentRole !== "coach" && currentTier !== "coach";
   }
 
   async function handleAuthComplete(nextSession) {
@@ -566,6 +585,9 @@ export function App() {
     setProfile(resolvedProfile);
     setRole(resolvedProfile?.role || "normal_user");
     setSession(nextSession);
+    if (resolvedProfile?.role === "coach" || resolvedProfile?.access_tier === "coach") {
+      clearPendingCoachSignupIntent(nextSession.user);
+    }
     setActiveTab((roleTabs[resolvedProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
     await previewInviteIfNeeded(nextSession);
   }

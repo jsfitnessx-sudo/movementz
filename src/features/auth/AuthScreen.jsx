@@ -26,6 +26,13 @@ const blankForm = {
   aboutMe: ""
 };
 
+const COACH_SIGNUP_INTENT_KEY = "movementz.pendingCoachSignupEmail";
+
+function rememberCoachSignupIntent(email) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(COACH_SIGNUP_INTENT_KEY, String(email || "").trim().toLowerCase());
+}
+
 export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuthComplete, onDemoLogin }) {
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState(blankForm);
@@ -115,8 +122,11 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
       return;
     }
 
+    const signupEmail = form.email.trim();
+    if (isCoachSignup) rememberCoachSignupIntent(signupEmail);
+
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email: form.email.trim(),
+      email: signupEmail,
       password: form.password,
       options: {
         data: metadata,
