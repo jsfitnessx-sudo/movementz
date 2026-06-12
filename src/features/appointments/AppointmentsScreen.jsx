@@ -87,6 +87,7 @@ export function AppointmentsScreen({ user }) {
   const [exclusions, setExclusions] = useState([]);
   const [form, setForm] = useState(() => blankForm(localDateKey(new Date())));
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
+  const [checkinDeleteReady, setCheckinDeleteReady] = useState(true);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -160,8 +161,9 @@ export function AppointmentsScreen({ user }) {
 
       if (exclusionResult.error) {
         setExclusions([]);
-        setMessage(`${exclusionResult.error.message}. Run supabase/phase-34-calendar-checkin-deletes.sql in Supabase.`);
+        setCheckinDeleteReady(false);
       } else {
+        setCheckinDeleteReady(true);
         setExclusions(exclusionResult.data || []);
       }
     });
@@ -238,6 +240,10 @@ export function AppointmentsScreen({ user }) {
   async function deleteCheckinOccurrence(item) {
     if (!supabase || user.id === "demo-user") return;
     if (item.item_type !== "checkin") return;
+    if (!checkinDeleteReady) {
+      setMessage("Run supabase/phase-34-calendar-checkin-deletes.sql in Supabase before deleting one check-in date.");
+      return;
+    }
     if ((item.occurrence_date || selectedDate) < localDateKey(new Date())) {
       setMessage("Only future check-ins can be deleted from the calendar.");
       return;
