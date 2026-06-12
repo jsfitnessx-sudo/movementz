@@ -30,6 +30,19 @@ import { enablePhonePushNotifications, getPushStatus } from "../lib/pushNotifica
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
 
 const COACH_SIGNUP_INTENT_KEY = "movementz.pendingCoachSignupEmail";
+const BOOT_TIMEOUT_MS = 8000;
+const PROFILE_TIMEOUT_MS = 8000;
+
+function withTimeout(promise, timeoutMs, label) {
+  let timerId;
+  const timeout = new Promise((_, reject) => {
+    timerId = window.setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    window.clearTimeout(timerId);
+  });
+}
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
@@ -50,11 +63,11 @@ function clearPendingCoachSignupIntent(authUser) {
 async function loadProfile(authUser) {
   if (!supabase || !authUser?.id) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await withTimeout(supabase
     .from("profiles")
     .select("id,email,full_name,first_name,last_name,role,avatar_url,gender,age,location")
     .eq("id", authUser.id)
-    .maybeSingle();
+    .maybeSingle(), PROFILE_TIMEOUT_MS, "Profile load");
 
   if (error) {
     console.warn("Profile load failed", error);
@@ -80,11 +93,11 @@ async function loadProfile(authUser) {
     return { ...fallbackProfile, ...(await loadProfileAccess(authUser.id)) };
   }
 
-  const { data: insertedProfile, error: insertError } = await supabase
+  const { data: insertedProfile, error: insertError } = await withTimeout(supabase
     .from("profiles")
     .insert(fallbackProfile)
     .select("id,email,full_name,first_name,last_name,role,avatar_url,gender,age,location")
-    .single();
+    .single(), PROFILE_TIMEOUT_MS, "Profile create");
 
   if (insertError) {
     console.warn("Profile create failed", insertError);
@@ -108,11 +121,11 @@ async function loadProfile(authUser) {
 async function loadProfileAccess(userId) {
   if (!supabase || !userId) return {};
 
-  const { data, error } = await supabase
+  const { data, error } = await withTimeout(supabase
     .from("profiles")
     .select("access_tier,paid_access_until,admin_granted_paid_access,feature_overrides,stripe_customer_id,stripe_subscription_id,subscription_status")
     .eq("id", userId)
-    .maybeSingle();
+    .maybeSingle(), PROFILE_TIMEOUT_MS, "Profile access load");
 
   if (error) {
     return {};
@@ -481,33 +494,41 @@ export function App() {
     let alive = true;
 
     async function boot() {
-      if (forcedSignupMode) {
-        await supabase.auth.signOut({ scope: "local" });
+      try {
+        if (forcedSignupMode) {
+          await withTimeout(supabase.auth.signOut({ scope: "local" }), BOOT_TIMEOUT_MS, "Sign out");
+          if (!alive) return;
+          setSession(null);
+          setProfile(null);
+          setRole("normal_user");
+          return;
+        }
+
+        const { data } = await withTimeout(supabase.auth.getSession(), BOOT_TIMEOUT_MS, "Session load");
+        if (!alive) return;
+
+        const nextSession = data.session;
+        setSession(nextSession);
+
+        if (nextSession?.user) {
+          const nextProfile = await loadProfile(nextSession.user);
+          if (!alive) return;
+          if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
+            clearPendingCoachSignupIntent(nextSession.user);
+          }
+          setProfile(nextProfile);
+          setRole(nextProfile?.role || "normal_user");
+        }
+      } catch (error) {
+        console.warn("App boot failed", error);
         if (!alive) return;
         setSession(null);
         setProfile(null);
         setRole("normal_user");
-        setBooting(false);
-        return;
+        setAppMessage("We could not restore your session. Please log in again.");
+      } finally {
+        if (alive) setBooting(false);
       }
-
-      const { data } = await supabase.auth.getSession();
-      if (!alive) return;
-
-      const nextSession = data.session;
-      setSession(nextSession);
-
-      if (nextSession?.user) {
-        const nextProfile = await loadProfile(nextSession.user);
-        if (!alive) return;
-        if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
-          clearPendingCoachSignupIntent(nextSession.user);
-        }
-        setProfile(nextProfile);
-        setRole(nextProfile?.role || "normal_user");
-      }
-
-      setBooting(false);
     }
 
     boot();
@@ -515,16 +536,22 @@ export function App() {
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      setSession(nextSession);
+      try {
+        setSession(nextSession);
 
-      if (nextSession?.user) {
-        const nextProfile = await loadProfile(nextSession.user);
-        if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
-          clearPendingCoachSignupIntent(nextSession.user);
+        if (nextSession?.user) {
+          const nextProfile = await loadProfile(nextSession.user);
+          if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
+            clearPendingCoachSignupIntent(nextSession.user);
+          }
+          setProfile(nextProfile);
+          setRole(nextProfile?.role || "normal_user");
+        } else {
+          setProfile(null);
+          setRole("normal_user");
         }
-        setProfile(nextProfile);
-        setRole(nextProfile?.role || "normal_user");
-      } else {
+      } catch (error) {
+        console.warn("Auth state refresh failed", error);
         setProfile(null);
         setRole("normal_user");
       }
