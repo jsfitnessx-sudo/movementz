@@ -123,7 +123,7 @@ begin
 
   insert into public.coach_clients (coach_id, client_id, status)
   values (demo_coach_id, demo_client_id, 'active')
-  on conflict on constraint coach_clients_coach_id_client_id_key
+  on conflict (coach_id, client_id)
   do update set status = 'active';
 
   -- Remove prior seeded demo rows for a clean rerun.
@@ -207,7 +207,7 @@ begin
     (demo_coach_id, demo_client_id, demo_upper_a_id, 'active', 'Demo assignment - Monday upper body progression.', demo_start_date),
     (demo_coach_id, demo_client_id, demo_upper_b_id, 'active', 'Demo assignment - Wednesday upper body progression.', demo_start_date),
     (demo_coach_id, demo_client_id, demo_lower_id, 'active', 'Demo assignment - Friday lower body progression.', demo_start_date)
-  on conflict on constraint coach_workout_assignments_coach_id_client_id_workout_template_id_key
+  on conflict (coach_id, client_id, workout_template_id)
   do update set status = 'active', note = excluded.note;
 
   insert into public.training_plans (owner_id, name, plan_type, block_weeks, instructions, created_at)
