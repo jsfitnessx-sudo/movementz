@@ -185,6 +185,7 @@ export function App() {
   const [pendingCoachInviteCode, setPendingCoachInviteCode] = useState(coachInviteCode);
   const [claimedInviteCode, setClaimedInviteCode] = useState("");
   const [pendingInvite, setPendingInvite] = useState(null);
+  const [clientSignupInvite, setClientSignupInvite] = useState(null);
   const [handlingInvite, setHandlingInvite] = useState(false);
   const [previewAccount, setPreviewAccount] = useState(null);
   const [appMessage, setAppMessage] = useState("");
@@ -445,6 +446,33 @@ export function App() {
     },
     [claimedInviteCode, pendingInviteCode]
   );
+
+  useEffect(() => {
+    if (!supabase || session?.user || !pendingInviteCode) {
+      setClientSignupInvite(null);
+      return undefined;
+    }
+
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      const { data, error } = await supabase.rpc("preview_client_signup_invite", {
+        invite_code_input: pendingInviteCode
+      });
+
+      if (!alive) return;
+      if (error || !data?.length) {
+        setClientSignupInvite(null);
+        return;
+      }
+
+      setClientSignupInvite(data[0]);
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [pendingInviteCode, session?.user]);
 
   useEffect(() => {
     if (!supabase) return undefined;
@@ -788,8 +816,10 @@ export function App() {
   if (!session) {
     return (
       <AuthScreen
+        clientInvite={clientSignupInvite}
+        clientInviteCode={pendingInviteCode}
         coachInviteCode={pendingCoachInviteCode}
-        initialMode={pendingCoachInviteCode ? "coach" : forcedSignupMode || "login"}
+        initialMode={pendingCoachInviteCode ? "coach" : pendingInviteCode ? "user" : forcedSignupMode || "login"}
         onAuthComplete={handleAuthComplete}
         onDemoLogin={handleDemoLogin}
       />

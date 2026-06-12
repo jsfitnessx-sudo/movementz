@@ -294,6 +294,8 @@ export function ClientsScreen({ profile, user }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteForm, setInviteForm] = useState({ fullName: "", email: "" });
+  const [inviteEmailHref, setInviteEmailHref] = useState("");
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -646,35 +648,50 @@ export function ClientsScreen({ profile, user }) {
     await loadClients();
   }
 
-  async function createInviteLink() {
+  async function createInviteLink(event) {
+    event.preventDefault();
     if (!supabase || user.id === "demo-user") {
       setMessage("Connect Supabase to create invite links.");
       return;
     }
 
+    const fullName = inviteForm.fullName.trim();
+    const email = inviteForm.email.trim().toLowerCase();
+
+    if (!fullName || !email) {
+      setMessage("Enter the client's full name and email before creating the invite.");
+      return;
+    }
+
     setMessage("");
-    const { data, error } = await supabase.rpc("create_client_invite");
+    const { data, error } = await supabase.rpc("create_coach_client_invite", {
+      invite_email: email,
+      invite_full_name: fullName
+    });
 
     if (error) {
-      setMessage(`${error.message}. Run the latest supabase/phase-7-coach-client-links.sql in Supabase.`);
+      setMessage(`${error.message}. Run supabase/phase-40-coach-client-full-access-invites.sql in Supabase.`);
       return;
     }
 
     const nextUrl = buildInviteUrl(data?.[0]?.invite_code);
+    const subject = encodeURIComponent("Your Movementz client invite");
+    const body = encodeURIComponent(`Hi ${fullName},\n\nYour coach has invited you to Movementz with full client access.\n\nUse this one-time link to create your account:\n${nextUrl}\n\nThis link is only for ${email} and can only be used once.`);
+    setInviteEmailHref(`mailto:${email}?subject=${subject}&body=${body}`);
     setInviteUrl(nextUrl);
 
     if (navigator.clipboard && nextUrl) {
       try {
         await navigator.clipboard.writeText(nextUrl);
-        setMessage("Invite link copied. Send it to the client by text, email, WhatsApp, or your own message system.");
+        setMessage("Client invite created and copied. This one-time link only works for that client's email.");
         return;
       } catch {
-        setMessage("Invite link created. Copy it from the box below and send it to the client.");
+        setMessage("Client invite created. Copy it from the box below or open the prepared email.");
         return;
       }
     }
 
-    setMessage("Invite link created. Copy it from the box below and send it to the client.");
+    setMessage("Client invite created. Copy it from the box below or open the prepared email.");
   }
 
   return (
@@ -683,11 +700,8 @@ export function ClientsScreen({ profile, user }) {
         <div>
           <p className="eyebrow">Clients</p>
           <h1>Coach clients</h1>
-          <p>Find existing users, link them as clients, or create a link to send outside the app.</p>
+          <p>Find existing users or invite a new client with one-time full-access signup.</p>
         </div>
-        <button className="primary-action compact filled" onClick={createInviteLink} type="button">
-          Invite Link
-        </button>
       </div>
 
       {!canManageClients ? (
@@ -696,15 +710,58 @@ export function ClientsScreen({ profile, user }) {
       {message ? <p className={message.includes("Run supabase") || message.includes("Only coaches") || message.includes("must be set to coach") ? "form-message error" : "form-message success"}>{message}</p> : null}
       {inviteUrl ? (
         <div className="panel invite-link-panel">
-          <span>Latest invite. Send this link to the client. When they open it and sign in, they become linked to you.</span>
+          <span>Latest invite. This link is one-time use, email locked, and grants full client access once accepted.</span>
           <strong>{inviteUrl}</strong>
+          <div className="form-footer-actions">
+            {inviteEmailHref ? (
+              <a className="primary-action compact filled" href={inviteEmailHref}>
+                Open email
+              </a>
+            ) : null}
+            <button
+              className="primary-action compact"
+              onClick={() => navigator.clipboard?.writeText(inviteUrl)}
+              type="button"
+            >
+              Copy link
+            </button>
+          </div>
         </div>
       ) : null}
 
+      <form className="panel client-search-panel" onSubmit={createInviteLink}>
+        <div>
+          <h2>Invite a new client</h2>
+          <p>Enter the client's name and email. The link can only be used once by that email and unlocks full client access under your coaching account.</p>
+        </div>
+        <div className="client-invite-grid">
+          <label>
+            Full name
+            <input
+              onChange={(event) => setInviteForm((current) => ({ ...current, fullName: event.target.value }))}
+              placeholder="Client full name"
+              value={inviteForm.fullName}
+            />
+          </label>
+          <label>
+            Email
+            <input
+              onChange={(event) => setInviteForm((current) => ({ ...current, email: event.target.value }))}
+              placeholder="client@email.com"
+              type="email"
+              value={inviteForm.email}
+            />
+          </label>
+        </div>
+        <button className="primary-action filled" type="submit">
+          Create client invite
+        </button>
+      </form>
+
       <form className="panel client-search-panel" onSubmit={searchUsers}>
         <div>
-          <h2>Find or invite a client</h2>
-          <p>Search existing users by name or email. For new users, create an invite link and send it to them.</p>
+          <h2>Find an existing user</h2>
+          <p>Search users who already have an account and link them as a client.</p>
         </div>
         <div className="client-search-row">
           <input

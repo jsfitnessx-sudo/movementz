@@ -33,7 +33,14 @@ function rememberCoachSignupIntent(email) {
   window.localStorage.setItem(COACH_SIGNUP_INTENT_KEY, String(email || "").trim().toLowerCase());
 }
 
-export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuthComplete, onDemoLogin }) {
+export function AuthScreen({
+  coachInviteCode = "",
+  clientInviteCode = "",
+  clientInvite = null,
+  initialMode = "login",
+  onAuthComplete,
+  onDemoLogin
+}) {
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState(blankForm);
   const [experienceAreas, setExperienceAreas] = useState([]);
@@ -51,6 +58,15 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
   useEffect(() => {
     Promise.resolve().then(() => setMode(initialMode));
   }, [initialMode]);
+
+  useEffect(() => {
+    if (!clientInvite || mode === "login") return;
+    setForm((current) => ({
+      ...current,
+      fullName: current.fullName || clientInvite.invitee_full_name || "",
+      email: current.email || clientInvite.invite_email || ""
+    }));
+  }, [clientInvite, mode]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -133,6 +149,8 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
         emailRedirectTo: buildAuthRedirectUrl(
           coachInviteCode
             ? `/?coach_invite=${encodeURIComponent(coachInviteCode)}`
+            : clientInviteCode
+              ? `/?invite=${encodeURIComponent(clientInviteCode)}`
             : isCoachSignup
               ? "/"
               : "/"
@@ -154,6 +172,8 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
 
     setStatus(isCoachSignup
       ? "Coach account created. Confirm your email if asked, then log in here to complete the coach subscription."
+      : clientInviteCode
+        ? "Client account created. Confirm your email if asked, then log in here to accept your coach invite."
       : "Account created. Check your email if Supabase asks you to confirm it, then log in."
     );
     setMode("login");
@@ -195,7 +215,7 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
           <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
           <strong className="auth-brand-name"><BrandName /></strong>
           <h1>{heading}</h1>
-          <p>{isCoachSignup ? "Build your coaching workspace." : "Move, train and grow."}</p>
+          <p>{isCoachSignup ? "Build your coaching workspace." : clientInvite ? `Invited by ${clientInvite.coach_name}.` : "Move, train and grow."}</p>
         </div>
 
         <div className="auth-mode-tabs" aria-label="Account mode">
