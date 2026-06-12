@@ -120,6 +120,7 @@ export function App() {
     return ["user", "coach"].includes(signupMode) ? signupMode : "";
   }, []);
   const requestedTabRef = useRef(new URLSearchParams(window.location.search).get("tab") || "");
+  const coachCheckoutStartedRef = useRef(false);
   const coachInviteCode = useMemo(() => new URLSearchParams(window.location.search).get("coach_invite") || "", []);
   const [booting, setBooting] = useState(hasSupabaseConfig);
   const [session, setSession] = useState(null);
@@ -505,6 +506,8 @@ export function App() {
       setAppMessage("Log in before starting coach checkout.");
       return;
     }
+    if (coachCheckoutStartedRef.current) return;
+    coachCheckoutStartedRef.current = true;
 
     const response = await fetch("/api/create-checkout-session", {
       method: "POST",
@@ -516,10 +519,18 @@ export function App() {
     });
     const payload = await response.json();
     if (!response.ok || !payload.url) {
+      coachCheckoutStartedRef.current = false;
       setAppMessage(payload.error || "Could not start coach checkout.");
       return;
     }
     window.location.href = payload.url;
+  }
+
+  function needsCoachSubscription(nextSession, nextProfile) {
+    const intendedRole = nextSession?.user?.user_metadata?.intended_role;
+    const currentRole = nextProfile?.role || "normal_user";
+    const currentTier = nextProfile?.access_tier || "";
+    return intendedRole === "coach" && currentRole !== "coach" && currentTier !== "coach";
   }
 
   async function handleAuthComplete(nextSession) {
@@ -539,7 +550,7 @@ export function App() {
         setPendingCoachInviteCode("");
         window.history.replaceState({}, document.title, window.location.pathname);
       }
-    } else if (forcedSignupMode === "coach") {
+    } else if (forcedSignupMode === "coach" || needsCoachSubscription(nextSession, resolvedProfile)) {
       setAppMessage("Coach account created. Complete the coach subscription to unlock your dashboard.");
       window.history.replaceState({}, document.title, window.location.pathname);
       resolvedProfile = await loadProfile(nextSession.user);

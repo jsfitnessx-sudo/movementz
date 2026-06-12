@@ -142,7 +142,10 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
       return;
     }
 
-    setStatus("Account created. Check your email if Supabase asks you to confirm it, then log in.");
+    setStatus(isCoachSignup
+      ? "Coach account created. Confirm your email if asked, then log in here to complete the coach subscription."
+      : "Account created. Check your email if Supabase asks you to confirm it, then log in."
+    );
     setMode("login");
   }
 
