@@ -3104,6 +3104,12 @@ export function WorkoutLibraryScreen({
     updateSessionRow(activeNumberInput.exerciseIndex, activeNumberInput.rowIndex, activeNumberInput.field, value);
   }
 
+  function activateSessionNumberInput(event, exerciseIndex, rowIndex, field) {
+    event.preventDefault();
+    setActiveNumberInput({ exerciseIndex, rowIndex, field, replaceOnInput: true });
+    sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-${field}`]?.focus?.({ preventScroll: true });
+  }
+
   function handleKeypadPointer(event, key) {
     event.preventDefault();
     keypadPointerHandledRef.current = window.performance?.now?.() || Date.now();
@@ -4162,6 +4168,7 @@ export function WorkoutLibraryScreen({
                           updateSessionRow(exerciseIndex, rowIndex, "kg", event.target.value)
                         }
                         onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "kg", replaceOnInput: true })}
+                        onPointerDown={(event) => activateSessionNumberInput(event, exerciseIndex, rowIndex, "kg")}
                         readOnly
                         ref={(element) => {
                           sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-kg`] = element;
@@ -4182,6 +4189,7 @@ export function WorkoutLibraryScreen({
                           updateSessionRow(exerciseIndex, rowIndex, "reps", event.target.value)
                         }
                         onFocus={() => setActiveNumberInput({ exerciseIndex, rowIndex, field: "reps", replaceOnInput: true })}
+                        onPointerDown={(event) => activateSessionNumberInput(event, exerciseIndex, rowIndex, "reps")}
                         readOnly
                         ref={(element) => {
                           sessionInputRefs.current[`${exerciseIndex}-${rowIndex}-reps`] = element;

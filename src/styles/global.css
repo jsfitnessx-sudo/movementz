@@ -2951,7 +2951,9 @@ button {
 }
 
 .active-exercise-card {
-  background: #0b151d;
+  border-color: color-mix(in srgb, var(--teal) 24%, var(--line));
+  background: #ffffff;
+  box-shadow: var(--shadow-soft);
 }
 
 .active-exercise-card.skipped {
@@ -2968,6 +2970,7 @@ button {
 
 .active-exercise-head h2 {
   margin-bottom: 6px;
+  color: var(--text);
 }
 
 .session-menu-wrap {
@@ -3545,10 +3548,12 @@ button {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   align-items: center;
-  padding: 10px 12px;
-  border: 1px solid var(--line-soft);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--teal) 6%, var(--field));
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
 }
 
 .previous-sets span {
@@ -3566,11 +3571,11 @@ button {
 }
 
 .previous-sets strong {
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
   border-radius: 999px;
-  background: #162534;
+  background: color-mix(in srgb, var(--blue) 8%, #ffffff);
   color: var(--blue);
-  padding: 7px 10px;
+  padding: 6px 9px;
   font-size: 12px;
 }
 
@@ -3584,8 +3589,9 @@ button {
 .session-set-table {
   display: grid;
   overflow: hidden;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--line);
   border-radius: 10px;
+  background: #ffffff;
 }
 
 .session-set-row {
@@ -3593,8 +3599,12 @@ button {
   grid-template-columns: 54px minmax(90px, 1fr) minmax(90px, 1fr) 82px 92px;
   gap: 8px;
   align-items: center;
-  padding: 10px;
+  padding: 9px 10px;
   border-top: 1px solid var(--line-soft);
+}
+
+.session-set-row:nth-child(even):not(.session-set-head) {
+  background: #f7fafc;
 }
 
 .session-set-row:first-child {
@@ -3612,35 +3622,40 @@ button {
 .session-set-row input {
   width: 100%;
   min-width: 0;
-  min-height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--field);
+  min-height: 40px;
+  border: 1px solid color-mix(in srgb, var(--teal) 22%, var(--line));
+  border-radius: 8px;
+  background: #fffdf1;
   color: var(--text);
   font-size: 16px;
   padding: 0 10px;
   text-align: center;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  user-select: none;
 }
 
 .session-set-row input.active-number-input {
-  border-color: var(--teal);
-  color: var(--teal);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 20%, transparent);
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 13%, #ffffff);
+  color: var(--text);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 26%, transparent);
 }
 
 .set-toggle {
-  min-height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--field);
+  min-height: 40px;
+  border: 1px solid color-mix(in srgb, var(--teal) 34%, var(--line));
+  border-radius: 8px;
+  background: #ffffff;
   color: var(--muted);
   font-weight: 750;
+  touch-action: manipulation;
 }
 
 .set-toggle.done {
   border-color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 12%, var(--field));
-  color: var(--teal);
+  background: var(--teal);
+  color: #05282f;
 }
 
 .session-end-actions {
@@ -7848,9 +7863,9 @@ button {
 
   .session-set-head,
   .session-set-row {
-    grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr) 50px;
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr) 54px;
     gap: 6px;
-    padding: 8px;
+    padding: 7px;
   }
 
   .session-set-row input {
@@ -7864,9 +7879,9 @@ button {
   .session-set-row .set-toggle {
     grid-column: auto;
     min-width: 0;
-    min-height: 38px;
+    min-height: 36px;
     padding: 0 6px;
-    border-radius: 10px;
+    border-radius: 8px;
     font-size: 11px;
   }
 
@@ -8131,24 +8146,31 @@ button {
     z-index: 30;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(4, 64px);
-    gap: 8px;
-    padding: 12px 14px;
-    border-top: 1px solid #1b303d;
-    background: rgba(13, 20, 25, 0.97);
+    grid-template-rows: repeat(4, 56px);
+    gap: 7px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(12px);
+    box-shadow: 0 -16px 34px rgba(31, 45, 61, 0.16);
   }
 
 .mobile-number-pad button {
   border: 0;
-  border-radius: 14px;
+  border-radius: 12px;
   background: transparent;
   color: var(--text);
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 850;
   touch-action: manipulation;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.mobile-number-pad button:active {
+  transform: translateY(1px);
+  background: color-mix(in srgb, var(--teal) 10%, transparent);
 }
 
   .mobile-number-pad .key-1 { grid-column: 1; grid-row: 1; }
@@ -8166,23 +8188,25 @@ button {
   .mobile-number-pad .keypad-hide {
     grid-column: 4;
     grid-row: 1;
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 28px;
+    border: 1px solid var(--line);
+    background: #eef5f8;
+    font-size: 24px;
   }
 
   .mobile-number-pad .keypad-delete {
     grid-column: 4;
     grid-row: 2;
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 24px;
+    border: 1px solid var(--line);
+    background: #eef5f8;
+    font-size: 22px;
   }
 
   .mobile-number-pad .keypad-next {
     grid-column: 4;
     grid-row: 3 / span 2;
-    background: #6ba7ff;
-    color: #fff;
-    font-size: 26px;
+    background: var(--logo-blue);
+    color: #05282f;
+    font-size: 24px;
   }
 }
 
@@ -8666,13 +8690,13 @@ button {
 
   .session-set-head,
   .session-set-row {
-    grid-template-columns: 28px minmax(0, 0.9fr) minmax(0, 0.9fr) 46px;
+    grid-template-columns: 28px minmax(0, 0.9fr) minmax(0, 0.9fr) 48px;
     gap: 5px;
     padding: 6px;
   }
 
   .session-set-row input {
-    min-height: 34px;
+    min-height: 36px;
     font-size: 16px;
   }
 
@@ -8687,14 +8711,14 @@ button {
   }
 
   .mobile-number-pad {
-    grid-template-rows: repeat(4, 54px);
+    grid-template-rows: repeat(4, 50px);
     gap: 6px;
-    padding: 9px 12px;
+    padding: 8px 12px;
   }
 
   .mobile-number-pad button {
     border-radius: 12px;
-    font-size: 28px;
+    font-size: 26px;
   }
 
   .mobile-number-pad .keypad-hide {
@@ -8710,7 +8734,7 @@ button {
   }
 
   .session-end-actions {
-    padding-bottom: 280px;
+    padding-bottom: 260px;
   }
 }
 
