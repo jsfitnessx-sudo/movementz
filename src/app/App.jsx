@@ -64,6 +64,7 @@ async function loadProfile(authUser) {
   if (data) return { ...data, ...(await loadProfileAccess(authUser.id)) };
 
   const metadata = authUser.user_metadata ?? {};
+  const isPendingCoachSignup = metadata.intended_role === "coach";
   const fallbackProfile = {
     id: authUser.id,
     email: authUser.email,
@@ -71,7 +72,8 @@ async function loadProfile(authUser) {
     role: metadata.role === "admin" ? "admin" : "normal_user",
     gender: metadata.gender || null,
     age: metadata.age ? Number(metadata.age) : null,
-    location: metadata.location || null
+    location: metadata.location || null,
+    subscription_status: isPendingCoachSignup ? "pending_coach" : null
   };
 
   const { data: insertedProfile, error: insertError } = await supabase

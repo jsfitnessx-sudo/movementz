@@ -119,6 +119,20 @@ function isCoachSubscription(priceId, accessType) {
   return accessType === "coach" || priceId === process.env.STRIPE_COACH_PRICE_ID;
 }
 
+async function profileHasPendingCoachStatus(serviceClient, userId, customerId, email) {
+  let query = serviceClient
+    .from("profiles")
+    .select("subscription_status");
+
+  if (userId) query = query.eq("id", userId);
+  else if (customerId) query = query.eq("stripe_customer_id", customerId);
+  else if (email) query = query.ilike("email", email);
+  else return false;
+
+  const { data } = await query.maybeSingle();
+  return data?.subscription_status === "pending_coach";
+}
+
 async function resolveUserId(serviceClient, values) {
   const { userId, customerId, subscriptionId, email } = values;
   if (userId) return userId;
@@ -282,24 +296,29 @@ export default async function handler(request, response) {
         : null;
       const accessType = session.metadata?.access_type ||
         subscription?.metadata?.access_type ||
+        customer?.metadata?.access_type ||
         accessTypeFromLineItems(lineItems);
+      const userId = session.metadata?.user_id ||
+        session.client_reference_id ||
+        subscription?.metadata?.user_id ||
+        customer?.metadata?.user_id ||
+        "";
+      const email = session.customer_details?.email || customer?.email || "";
+      const resolvedAccessType = accessType ||
+        (await profileHasPendingCoachStatus(serviceClient, userId, session.customer, email) ? "coach" : "");
       const priceId = priceIdFromSubscription(subscription) ||
         priceIdFromLineItems(lineItems) ||
-        (accessType === "coach" ? process.env.STRIPE_COACH_PRICE_ID : process.env.STRIPE_PAID_USER_PRICE_ID);
+        (resolvedAccessType === "coach" ? process.env.STRIPE_COACH_PRICE_ID : process.env.STRIPE_PAID_USER_PRICE_ID);
 
       await updateProfileSubscription(serviceClient, {
-        userId: session.metadata?.user_id ||
-          session.client_reference_id ||
-          subscription?.metadata?.user_id ||
-          customer?.metadata?.user_id ||
-          "",
+        userId,
         customerId: session.customer,
         subscriptionId: session.subscription,
         priceId,
         status: subscription?.status || "active",
-        accessType,
+        accessType: resolvedAccessType,
         paidAccessUntil: paidUntilFromSubscription(subscription),
-        email: session.customer_details?.email || customer?.email || ""
+        email
       });
     }
 

@@ -88,31 +88,66 @@ export default async function handler(request, response) {
     return;
   }
 
-  const { data: profile } = await serviceClient
-    .from("profiles")
-    .select("id,email,full_name,first_name,last_name,stripe_customer_id")
-    .eq("id", authUser.id)
-    .maybeSingle();
-
-  const displayName = profile?.full_name ||
-    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
-    authUser.user_metadata?.full_name ||
-    authUser.email ||
-    "Movementz user";
-  let customerId = profile?.stripe_customer_id;
+  const metadata = authUser.user_metadata || {};
+  const metadataName = metadata.full_name || "";
 
   try {
+    if (checkoutType === "coach") {
+      const { error: pendingProfileError } = await serviceClient
+        .from("profiles")
+        .upsert({
+          id: authUser.id,
+          email: authUser.email || null,
+          full_name: metadataName,
+          role: "normal_user",
+          subscription_status: "pending_coach",
+          updated_at: new Date().toISOString()
+        }, { onConflict: "id" });
+      if (pendingProfileError) throw new Error(`Could not prepare coach profile: ${pendingProfileError.message}`);
+
+      const { error: pendingCoachError } = await serviceClient
+        .from("coach_profiles")
+        .upsert({
+          user_id: authUser.id,
+          qualification: metadata.qualification || null,
+          experience_areas: Array.isArray(metadata.experience_areas) ? metadata.experience_areas : [],
+          about_me: metadata.about_me || null,
+          verification_status: "pending",
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id" });
+      if (pendingCoachError) throw new Error(`Could not prepare coach details: ${pendingCoachError.message}`);
+    }
+
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("id,email,full_name,first_name,last_name,stripe_customer_id")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    const displayName = profile?.full_name ||
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
+      metadataName ||
+      authUser.email ||
+      "Movementz user";
+    let customerId = profile?.stripe_customer_id;
+
     if (!customerId) {
       const customer = await stripeRequest("customers", {
         email: profile?.email || authUser.email || "",
         name: displayName,
-        "metadata[user_id]": authUser.id
+        "metadata[user_id]": authUser.id,
+        "metadata[access_type]": checkoutType
       });
       customerId = customer.id;
       await serviceClient
         .from("profiles")
         .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
         .eq("id", authUser.id);
+    } else if (checkoutType === "coach") {
+      await stripeRequest(`customers/${encodeURIComponent(customerId)}`, {
+        "metadata[user_id]": authUser.id,
+        "metadata[access_type]": checkoutType
+      });
     }
 
     const session = await stripeRequest("checkout/sessions", {
