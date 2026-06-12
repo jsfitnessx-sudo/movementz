@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BrandName } from "../../components/brand/BrandMark.jsx";
 import { supabase } from "../../lib/supabase/client.js";
 
 const blankFeedData = {
@@ -220,7 +221,7 @@ export function MutualFeedScreen({ user }) {
     <section className="screen-stack mutual-feed-screen">
       <div className="screen-heading library-heading">
         <div>
-          <p className="eyebrow">Movementz</p>
+          <p className="eyebrow"><BrandName className="inline-brand-name" /></p>
           <h1>Feed</h1>
           <p>Only approved mutuals can appear here.</p>
         </div>

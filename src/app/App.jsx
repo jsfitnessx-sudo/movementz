@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BrandName } from "../components/brand/BrandMark.jsx";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AdminCoachesScreen } from "../features/admin/AdminCoachesScreen.jsx";
@@ -591,7 +592,7 @@ export function App() {
       <main className="auth-screen">
         <section className="auth-card auth-brand">
           <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
-          <h1>Movementz</h1>
+          <h1><BrandName /></h1>
           <p>Loading your account...</p>
         </section>
       </main>

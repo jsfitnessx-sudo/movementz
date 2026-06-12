@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { movementzIconSrc, movementzWordmarkSrc } from "../../lib/brandAssets.js";
+import { BrandName } from "../../components/brand/BrandMark.jsx";
+import { movementzIconSrc } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
@@ -3459,7 +3460,7 @@ export function WorkoutLibraryScreen({
     reader.readAsDataURL(file);
   }
 
-  function drawShareImage(ctx, canvas, image = null, wordmark = null, icon = null) {
+  function drawShareImage(ctx, canvas, image = null, icon = null) {
     const width = canvas.width;
     const height = canvas.height;
     const isBranded = shareMode === "branded";
@@ -3506,18 +3507,27 @@ export function WorkoutLibraryScreen({
     };
 
     const drawWordmark = (centerX, y, maxWidth, fallbackSize = 42) => {
-      if (wordmark?.width && wordmark?.height) {
-        const ratio = wordmark.width / wordmark.height;
-        const drawWidth = Math.min(maxWidth, wordmark.width);
-        const drawHeight = drawWidth / ratio;
-        ctx.drawImage(wordmark, centerX - drawWidth / 2, y, drawWidth, drawHeight);
-        return drawHeight;
-      }
-
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#50d0c7";
+      const letters = "MOVEMENTZ".split("");
+      const accentIndexes = new Set([0, 3, 7, 8]);
+      const baseGap = fallbackSize * 0.22;
       ctx.font = `900 ${fallbackSize}px Arial`;
-      ctx.fillText("MOVEMENTZ", centerX, y + fallbackSize);
+      const measuredWidth = letters.reduce((total, letter, index) => (
+        total + ctx.measureText(letter).width + (index ? baseGap : 0)
+      ), 0);
+      const scale = measuredWidth > maxWidth ? maxWidth / measuredWidth : 1;
+      const fontSize = Math.floor(fallbackSize * scale);
+      const gap = baseGap * scale;
+      ctx.font = `900 ${fontSize}px Arial`;
+      const finalWidth = letters.reduce((total, letter, index) => (
+        total + ctx.measureText(letter).width + (index ? gap : 0)
+      ), 0);
+      let x = centerX - finalWidth / 2;
+      ctx.textAlign = "left";
+      letters.forEach((letter, index) => {
+        ctx.fillStyle = accentIndexes.has(index) ? "#50d0c7" : "#f4f8fb";
+        ctx.fillText(letter, x, y + fontSize);
+        x += ctx.measureText(letter).width + gap;
+      });
       return fallbackSize;
     };
 
@@ -3656,13 +3666,12 @@ export function WorkoutLibraryScreen({
       link.click();
     };
 
-    const [image, wordmark, icon] = await Promise.all([
+    const [image, icon] = await Promise.all([
       sharePhoto ? loadCanvasImage(sharePhoto) : Promise.resolve(null),
-      loadCanvasImage(movementzWordmarkSrc),
       loadCanvasImage(movementzIconSrc)
     ]);
 
-    drawShareImage(context, canvas, image, wordmark, icon);
+    drawShareImage(context, canvas, image, icon);
     download();
   }
 
@@ -4418,7 +4427,7 @@ export function WorkoutLibraryScreen({
             <div className={isForTimeSession ? "share-preview-overlay for-time-share" : "share-preview-overlay"}>
               {isForTimeSession ? (
                 <>
-                  <img className="share-logo-img" src={movementzWordmarkSrc} alt="Movementz" />
+                  <BrandName className="share-logo-brand" />
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
                   <div className="share-title-meta">
@@ -4458,7 +4467,7 @@ export function WorkoutLibraryScreen({
                 </>
               ) : (
                 <>
-                  <img className="share-logo-img" src={movementzWordmarkSrc} alt="Movementz" />
+                  <BrandName className="share-logo-brand" />
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
                   <div className="share-details achievement-share-details">

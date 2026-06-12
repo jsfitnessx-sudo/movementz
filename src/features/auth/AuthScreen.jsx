@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { buildAuthRedirectUrl, movementzWordmarkSrc } from "../../lib/brandAssets.js";
+import { BrandName } from "../../components/brand/BrandMark.jsx";
+import { buildAuthRedirectUrl, movementzIconSrc } from "../../lib/brandAssets.js";
 import { hasSupabaseConfig, supabase } from "../../lib/supabase/client.js";
 
 const coachExperienceOptions = [
@@ -143,8 +144,8 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
       <main className="auth-screen">
         <section className="auth-card">
           <div className="auth-brand">
-            <img className="auth-wordmark" src={movementzWordmarkSrc} alt="Movementz" />
-            <h1>Movementz</h1>
+            <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
+            <h1><BrandName /></h1>
             <p>Clean rebuild foundation</p>
           </div>
 
@@ -171,7 +172,8 @@ export function AuthScreen({ coachInviteCode = "", initialMode = "login", onAuth
     <main className="auth-screen">
       <section className="auth-card">
         <div className="auth-brand">
-          <img className="auth-wordmark" src={movementzWordmarkSrc} alt="Movementz" />
+          <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
+          <strong className="auth-brand-name"><BrandName /></strong>
           <h1>{heading}</h1>
           <p>{isCoachSignup ? "Build your coaching workspace." : "Move, train and grow."}</p>
         </div>
