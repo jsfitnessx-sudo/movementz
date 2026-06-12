@@ -1,25 +1,30 @@
 :root {
-  color: #edf3f7;
-  background: #081018;
+  color: #20262d;
+  background: #f6f8fb;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #081018;
-  --panel: #101a23;
-  --panel-strong: #142331;
-  --field: #111e2a;
-  --line: #243746;
-  --line-soft: #1b2b38;
-  --text: #edf3f7;
-  --muted: #a2afba;
-  --teal: #4fcac1;
-  --teal-soft: #8bded8;
-  --logo-blue: #58d5e7;
-  --gold: #e4bd4f;
-  --blue: #8dbfea;
-  --red: #ed7480;
+  --bg: #f6f8fb;
+  --panel: #ffffff;
+  --panel-strong: #f0f7fa;
+  --field: #f3f7fa;
+  --line: #e2e9ef;
+  --line-soft: #eef3f6;
+  --border: #e2e9ef;
+  --text: #20262d;
+  --muted: #727b86;
+  --teal: #21b8c7;
+  --teal-soft: #58d5e7;
+  --logo-blue: #34c9dc;
+  --gold: #ffc400;
+  --blue: #2f86df;
+  --red: #e85c70;
+  --danger: #e85c70;
+  --aqua: #21b8c7;
+  --shadow-soft: 0 14px 34px rgba(31, 45, 61, 0.08);
+  --shadow-float: 0 18px 42px rgba(31, 45, 61, 0.16);
 }
 
 @keyframes spin {
@@ -208,7 +213,7 @@ button {
 .form-message.error {
   border: 1px solid color-mix(in srgb, var(--red) 60%, transparent);
   background: color-mix(in srgb, var(--red) 14%, transparent);
-  color: #ffdce2;
+  color: #b4233a;
 }
 
 .form-message.success {
@@ -9534,4 +9539,419 @@ button {
   .quick-log-panel .form-grid.three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* Light theme polish layer. Keeps existing component structure while moving the app
+   toward a cleaner, easier-to-scan mobile training interface. */
+.coach-theme {
+  --teal: #21b8c7;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(52, 201, 220, 0.08), transparent 32rem),
+    var(--bg);
+}
+
+.topbar {
+  border-bottom-color: var(--line);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(31, 45, 61, 0.06);
+}
+
+.main-panel {
+  padding-top: clamp(18px, 3.5vw, 34px);
+}
+
+.screen-stack {
+  gap: 18px;
+}
+
+.screen-heading h1 {
+  color: var(--text);
+  font-weight: 900;
+}
+
+.screen-heading p,
+.compact-help,
+.muted-note {
+  color: var(--muted);
+}
+
+.eyebrow {
+  color: var(--teal) !important;
+  letter-spacing: 0.14em;
+}
+
+.panel,
+.profile-panel,
+.auth-card,
+.stat-card,
+.client-progress-card,
+.calendar-item,
+.today-checkin-card,
+.schedule-session-card,
+.assignment-card,
+.workout-card,
+.prototype-workout-card,
+.plan-card,
+.tracker-card,
+.quick-log-panel,
+.library-control-panel,
+.plan-builder-panel,
+.plan-workouts-panel,
+.coach-assignment-panel,
+.food-log-card,
+.food-lookup-panel,
+.upgrade-panel,
+.admin-settings-panel,
+.phone-push-panel {
+  border-color: var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.panel,
+.profile-panel,
+.auth-card {
+  border-radius: 10px;
+}
+
+.stat-card,
+.client-progress-card,
+.calendar-item,
+.today-checkin-card,
+.schedule-session-card,
+.assignment-card,
+.workout-card,
+.prototype-workout-card,
+.plan-card,
+.tracker-card,
+.quick-log-panel,
+.food-log-card {
+  border-radius: 8px;
+}
+
+.panel p,
+.profile-hero p,
+.stat-card span,
+.calendar-item span,
+.calendar-item em,
+.calendar-item p,
+.client-section-title span,
+.assignment-card span {
+  color: var(--muted);
+}
+
+.auth-mode-tabs,
+.filter-tabs,
+.feed-tabs,
+.food-meal-tabs,
+.library-view-tabs,
+.schedule-day-tabs,
+.prototype-day-tabs {
+  border-color: var(--line);
+  background: var(--field);
+}
+
+.auth-mode-tabs button.active,
+.filter-tabs button.active,
+.feed-tabs button.active,
+.food-meal-tabs button.active,
+.library-view-tabs button.active,
+.schedule-day-tabs button.active,
+.prototype-day-tabs button.active {
+  border-color: var(--teal);
+  background: #ffffff;
+  color: var(--teal);
+  box-shadow: 0 6px 18px rgba(31, 45, 61, 0.08);
+}
+
+input,
+select,
+textarea,
+.auth-form input,
+.auth-form select,
+.auth-form textarea,
+.calendar-form input,
+.calendar-form select,
+.calendar-form textarea,
+.plan-builder-panel input,
+.plan-builder-panel select,
+.plan-builder-panel textarea,
+.quick-log-panel input,
+.quick-log-panel select,
+.quick-log-panel textarea,
+.directory-search {
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--text);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9aa4ae;
+}
+
+.primary-action,
+.auth-actions button,
+.text-button,
+.icon-button {
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--teal);
+}
+
+.primary-action:hover,
+.auth-actions button:hover,
+.text-button:hover,
+.icon-button:hover {
+  border-color: var(--teal);
+  box-shadow: 0 8px 18px rgba(33, 184, 199, 0.12);
+}
+
+.primary-action.filled,
+.auth-actions button[type="submit"] {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #05282f;
+}
+
+.remove-action,
+.danger-link,
+.danger-text {
+  color: var(--red);
+}
+
+.form-section,
+.client-metric-grid div,
+.coach-history-row,
+.coach-checkin-row,
+.home-template-preview-list span,
+.notification-list button,
+.invite-link-panel strong,
+.session-set-table,
+.food-result-row,
+.coach-habit-row,
+.quick-repeat-block {
+  border-color: var(--line);
+  background: var(--field);
+}
+
+.notification-popover {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow-float);
+}
+
+.notification-list button.unread,
+.workout-recovery-banner,
+.due-reminder-card,
+.home-checkin-card.locked,
+.upgrade-panel {
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--line));
+  background: color-mix(in srgb, var(--gold) 10%, #ffffff);
+}
+
+.signout-shortcut:hover {
+  color: var(--red);
+}
+
+.bottom-nav {
+  border-top-color: var(--line);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 -10px 30px rgba(31, 45, 61, 0.1);
+}
+
+.nav-item {
+  color: #747b84;
+  letter-spacing: 0.02em;
+}
+
+.nav-item.active {
+  color: var(--teal);
+}
+
+.nav-icon {
+  background: transparent;
+  color: inherit;
+  font-size: 17px;
+}
+
+.nav-item.active .nav-icon {
+  background: color-mix(in srgb, var(--teal) 12%, #ffffff);
+}
+
+.nav-floating-wrap.open::before {
+  background: rgba(23, 31, 38, 0.42);
+}
+
+.nav-floating-menu button {
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+}
+
+.floating-icon,
+.nav-floating-trigger {
+  box-shadow: var(--shadow-float);
+}
+
+.floating-icon,
+.nav-floating-trigger,
+.nav-floating-trigger.active {
+  border-color: transparent;
+  background: var(--logo-blue);
+  color: #05282f;
+}
+
+.nav-floating-menu button.locked .floating-icon {
+  border-color: transparent;
+  background: var(--gold);
+  color: #241c00;
+}
+
+.nav-floating-trigger {
+  background: var(--gold);
+}
+
+.screen-heading,
+.section-row,
+.client-section-title,
+.calendar-head,
+.library-heading {
+  color: var(--text);
+}
+
+.client-insight-panel,
+.confirmed-coach-panel,
+.habit-daily-panel,
+.resource-category-panel,
+.mutual-pending-panel .mutual-result-row,
+.mutual-list-card,
+.feed-post-card {
+  background: #ffffff;
+}
+
+.today-checkin-card.submitted,
+.home-checkin-card,
+.coach-assigned-banner,
+.client-insight-panel {
+  border-color: color-mix(in srgb, var(--teal) 30%, var(--line));
+  background: color-mix(in srgb, var(--teal) 5%, #ffffff);
+}
+
+.gold-pill,
+.status-pill.active {
+  border-color: color-mix(in srgb, var(--gold) 75%, var(--line));
+  color: #9a7200;
+  background: color-mix(in srgb, var(--gold) 12%, #ffffff);
+}
+
+.mobile-number-pad {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 -20px 44px rgba(31, 45, 61, 0.18);
+}
+
+.setup-card,
+.muscle-target,
+.exercise-editor,
+.exercise-editor-alt,
+.swap-panel,
+.demo-modal,
+.demo-video-list button,
+.hiit-timer-card,
+.for-time-current-card,
+.session-exercise-card,
+.session-set-table,
+.completed-session-summary,
+.share-preview-shell,
+.coach-signal-card,
+.resource-card,
+.admin-test-grid article,
+.admin-resource-list article,
+.admin-affirmation-list article,
+.food-summary-card,
+.food-meals-card,
+.food-history-card,
+.food-result-row,
+.food-saved-row,
+.food-recent-row {
+  border-color: var(--line);
+  background: #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
+.hiit-setup-card,
+.setup-summary-row,
+.muscle-target.active,
+.exercise-editor.is-active,
+.exercise-editor.active,
+.demo-video-list button.active,
+.hiit-timer-card,
+.hiit-timer-card.rest {
+  background: color-mix(in srgb, var(--gold) 8%, #ffffff);
+}
+
+.exercise-editor,
+.exercise-editor-alt,
+.swap-panel,
+.demo-modal,
+.hiit-timer-card {
+  box-shadow: var(--shadow-soft);
+}
+
+.exercise-editor::before,
+.exercise-editor-alt::before {
+  background: var(--teal);
+}
+
+.demo-frame-shell {
+  background: #eef3f6;
+}
+
+.demo-spinner {
+  border-color: #dbe4ea;
+  border-top-color: var(--teal);
+}
+
+.demo-video-list button {
+  color: var(--text);
+}
+
+.admin-settings-form input,
+.admin-settings-form select,
+.admin-settings-form textarea,
+.danger-zone input,
+.danger-zone select,
+.food-date-row input,
+.food-date-row select,
+.food-month-target input,
+.food-month-target select,
+.food-entry-grid input,
+.food-entry-grid select,
+.food-entry-grid textarea,
+.food-lookup-panel input,
+.food-lookup-panel select {
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--text);
+}
+
+.admin-preview-banner,
+.danger-zone {
+  background: color-mix(in srgb, var(--gold) 8%, #ffffff);
+}
+
+.danger-zone {
+  border-color: color-mix(in srgb, var(--red) 36%, var(--line));
+  background: color-mix(in srgb, var(--red) 7%, #ffffff);
+}
+
+.quick-log-screen,
+.food-log-screen,
+.clients-screen,
+.appointments-screen,
+.today-screen,
+.plans-screen {
+  color: var(--text);
 }
