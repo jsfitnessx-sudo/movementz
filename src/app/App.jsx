@@ -186,6 +186,25 @@ export function App() {
   }, [tabs]);
   const lockedActiveTab = tabIsLocked(activeTab, effectiveProfile, effectiveRole);
 
+  useEffect(() => {
+    const paymentStatus = new URLSearchParams(window.location.search).get("payment");
+    if (!supabase || paymentStatus !== "success" || !session?.user) return undefined;
+
+    setAppMessage("Payment received. Unlocking your access...");
+    const timers = [900, 2600, 5200].map((delay) => window.setTimeout(async () => {
+      const nextProfile = await loadProfile(session.user);
+      setProfile(nextProfile);
+      setRole(nextProfile?.role || "normal_user");
+      if (nextProfile?.access_tier === "paid" || nextProfile?.admin_granted_paid_access || ["admin", "coach", "client"].includes(nextProfile?.role)) {
+        setAppMessage("Paid access unlocked.");
+      }
+    }, delay));
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [session?.user]);
+
   const playNotificationSound = useCallback(() => {
     try {
       const AudioContext = window.AudioContext || window.webkitAudioContext;

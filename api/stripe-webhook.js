@@ -104,7 +104,9 @@ async function updateProfileSubscription(serviceClient, values) {
   else if (customerId) query = query.eq("stripe_customer_id", customerId);
   else return;
 
-  await query;
+  const { error, count } = await query.select("id", { count: "exact", head: true });
+  if (error) throw new Error(`Supabase subscription update failed: ${error.message}`);
+  if (count === 0) throw new Error("Supabase subscription update failed: no matching profile.");
 }
 
 async function updateProfileStatus(serviceClient, values) {
@@ -120,7 +122,9 @@ async function updateProfileStatus(serviceClient, values) {
   else if (customerId) query = query.eq("stripe_customer_id", customerId);
   else return;
 
-  await query;
+  const { error, count } = await query.select("id", { count: "exact", head: true });
+  if (error) throw new Error(`Supabase subscription status update failed: ${error.message}`);
+  if (count === 0) throw new Error("Supabase subscription status update failed: no matching profile.");
 }
 
 export default async function handler(request, response) {
@@ -141,7 +145,12 @@ export default async function handler(request, response) {
   const payload = await readRawBody(request);
   const signatureHeader = request.headers["stripe-signature"] || request.headers["Stripe-Signature"];
   if (!verifyStripeSignature(payload, signatureHeader, webhookSecret)) {
-    json(response, 400, { error: "Invalid Stripe signature." });
+    json(response, 400, {
+      error: "Invalid Stripe signature.",
+      hasSignature: Boolean(signatureHeader),
+      bodyLength: payload.length,
+      bodyType: Buffer.isBuffer(request.body) ? "buffer" : typeof request.body
+    });
     return;
   }
 
