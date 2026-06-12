@@ -115,7 +115,7 @@ async function provisionPaidCoach(serviceClient, values) {
     paid_until: paidAccessUntil
   });
 
-  if (error) throw new Error(`${error.message}. Run supabase/phase-35-paid-coach-provisioning.sql in Supabase.`);
+  if (error) throw new Error(`${error.message}. Run supabase/phase-36-paid-coach-provisioning-repair.sql in Supabase.`);
   if (!data?.length) throw new Error("Coach provisioning failed: no profile returned.");
   return true;
 }

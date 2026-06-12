@@ -196,6 +196,7 @@ export function App() {
     name: previewAccount.name,
     avatarUrl: previewAccount.avatarUrl
   } : accountUser, [accountUser, previewAccount]);
+  const sessionAccessToken = session?.access_token || "";
 
   useEffect(() => {
     const requestedTab = requestedTabRef.current;
@@ -206,23 +207,65 @@ export function App() {
   const lockedActiveTab = tabIsLocked(activeTab, effectiveProfile, effectiveRole);
 
   useEffect(() => {
-    const paymentStatus = new URLSearchParams(window.location.search).get("payment");
+    const paymentParams = new URLSearchParams(window.location.search);
+    const paymentStatus = paymentParams.get("payment");
+    const checkoutSessionId = paymentParams.get("session_id") || "";
     if (!supabase || paymentStatus !== "success" || !session?.user) return undefined;
 
     setAppMessage("Payment received. Unlocking your access...");
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      try {
+        const response = await fetch("/api/sync-stripe-subscription", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${sessionAccessToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ session_id: checkoutSessionId })
+        });
+        const payload = await response.json();
+        if (!alive) return;
+        if (!response.ok) {
+          setAppMessage(payload.error || "Payment received, but access sync is still pending.");
+          return;
+        }
+        const nextProfile = await loadProfile(session.user);
+        if (!alive) return;
+        setProfile(nextProfile);
+        setRole(nextProfile?.role || "normal_user");
+        setActiveTab((roleTabs[nextProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
+        if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
+          clearPendingCoachSignupIntent(session.user);
+          setAppMessage("Coach access unlocked.");
+        } else {
+          setAppMessage("Paid access unlocked.");
+        }
+      } catch (error) {
+        if (alive) setAppMessage(error.message || "Payment received, but access sync is still pending.");
+      }
+    });
+
     const timers = [900, 2600, 5200].map((delay) => window.setTimeout(async () => {
       const nextProfile = await loadProfile(session.user);
+      if (!alive) return;
       setProfile(nextProfile);
       setRole(nextProfile?.role || "normal_user");
-      if (nextProfile?.access_tier === "paid" || nextProfile?.admin_granted_paid_access || ["admin", "coach", "client"].includes(nextProfile?.role)) {
+      if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
+        clearPendingCoachSignupIntent(session.user);
+        setActiveTab((roleTabs.coach ?? roleTabs.normal_user)[0].id);
+        setAppMessage("Coach access unlocked.");
+      } else if (nextProfile?.access_tier === "paid" || nextProfile?.admin_granted_paid_access || ["admin", "client"].includes(nextProfile?.role)) {
         setAppMessage("Paid access unlocked.");
       }
     }, delay));
 
     return () => {
+      alive = false;
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [session?.user]);
+  }, [session?.user, sessionAccessToken]);
 
   const playNotificationSound = useCallback(() => {
     try {

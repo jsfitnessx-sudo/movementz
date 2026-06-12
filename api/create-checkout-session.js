@@ -40,7 +40,7 @@ function checkoutUrls(request) {
   const appUrl = String(process.env.VITE_APP_URL || process.env.APP_URL || request.headers.origin || "")
     .replace(/\/+$/, "");
   return {
-    success_url: `${appUrl || "https://movementz79-app.vercel.app"}/?payment=success&tab=home`,
+    success_url: `${appUrl || "https://movementz79-app.vercel.app"}/?payment=success&tab=home&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl || "https://movementz79-app.vercel.app"}/?payment=cancelled`
   };
 }
