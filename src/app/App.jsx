@@ -153,6 +153,7 @@ export function App() {
   const [handlingInvite, setHandlingInvite] = useState(false);
   const [previewAccount, setPreviewAccount] = useState(null);
   const [appMessage, setAppMessage] = useState("");
+  const [coachCheckoutRedirecting, setCoachCheckoutRedirecting] = useState(false);
   const [workoutIntent, setWorkoutIntent] = useState("");
   const [notificationSummary, setNotificationSummary] = useState({
     unread_total: 0,
@@ -214,6 +215,7 @@ export function App() {
     const checkoutSessionId = paymentParams.get("session_id") || "";
     if (!supabase || paymentStatus !== "success" || !session?.user) return undefined;
 
+    setCoachCheckoutRedirecting(false);
     setAppMessage("Payment received. Unlocking your access...");
     let alive = true;
 
@@ -571,6 +573,7 @@ export function App() {
     }
     if (coachCheckoutStartedRef.current) return;
     coachCheckoutStartedRef.current = true;
+    setCoachCheckoutRedirecting(true);
 
     const response = await fetch("/api/create-checkout-session", {
       method: "POST",
@@ -583,6 +586,7 @@ export function App() {
     const payload = await response.json();
     if (!response.ok || !payload.url) {
       coachCheckoutStartedRef.current = false;
+      setCoachCheckoutRedirecting(false);
       setAppMessage(payload.error || "Could not start coach checkout.");
       return;
     }
@@ -594,7 +598,8 @@ export function App() {
     const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
     const currentRole = nextProfile?.role || "normal_user";
     const currentTier = nextProfile?.access_tier || "";
-    return (intendedRole === "coach" || hasLocalCoachIntent) && currentRole !== "coach" && currentTier !== "coach";
+    const isPendingCoachProfile = nextProfile?.subscription_status === "pending_coach";
+    return (intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile) && currentRole !== "coach" && currentTier !== "coach";
   }
 
   async function handleAuthComplete(nextSession) {
@@ -617,6 +622,7 @@ export function App() {
     } else if (forcedSignupMode === "coach" || needsCoachSubscription(nextSession, resolvedProfile)) {
       setAppMessage("Coach account created. Complete the coach subscription to unlock your dashboard.");
       window.history.replaceState({}, document.title, window.location.pathname);
+      setCoachCheckoutRedirecting(true);
       resolvedProfile = await loadProfile(nextSession.user);
       setProfile(resolvedProfile);
       setRole(resolvedProfile?.role || "normal_user");
@@ -690,6 +696,7 @@ export function App() {
     setSession(null);
     setProfile(null);
     setPreviewAccount(null);
+    setCoachCheckoutRedirecting(false);
     setNotificationSummary({ unread_total: 0, unread_messages: 0, items: [], open: false, badges: {} });
     notificationCountRef.current = 0;
     setRole("normal_user");
@@ -723,6 +730,18 @@ export function App() {
           <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
           <h1><BrandName /></h1>
           <p>Loading your account...</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (coachCheckoutRedirecting) {
+    return (
+      <main className="auth-screen">
+        <section className="auth-card auth-brand">
+          <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
+          <h1><BrandName /></h1>
+          <p>Preparing coach checkout...</p>
         </section>
       </main>
     );

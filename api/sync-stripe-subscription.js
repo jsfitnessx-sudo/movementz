@@ -47,6 +47,29 @@ function priceIdFromSubscription(subscription) {
   return subscription?.items?.data?.[0]?.price?.id || subscription?.plan?.id || null;
 }
 
+function priceIdFromLineItems(lineItems) {
+  return lineItems?.data?.[0]?.price?.id || null;
+}
+
+function lineItemName(lineItems) {
+  const item = lineItems?.data?.[0];
+  const product = item?.price?.product;
+  return String(product?.name || item?.description || "");
+}
+
+function accessTypeFromLineItems(lineItems) {
+  return lineItemName(lineItems).toLowerCase().includes("coach") ? "coach" : "";
+}
+
+async function profileHasPendingCoachStatus(serviceClient, userId) {
+  const { data } = await serviceClient
+    .from("profiles")
+    .select("subscription_status")
+    .eq("id", userId)
+    .maybeSingle();
+  return data?.subscription_status === "pending_coach";
+}
+
 async function provisionPaidCoach(serviceClient, values) {
   const { userId, customerId, subscriptionId, priceId, status, paidAccessUntil } = values;
   const { data, error } = await serviceClient.rpc("provision_paid_coach", {
@@ -120,12 +143,22 @@ export default async function handler(request, response) {
   try {
     const sessionId = request.body?.session_id;
     let customerId = "";
+    let checkoutSession = null;
+    let customer = null;
+    let lineItems = null;
     let subscription = null;
 
     if (sessionId) {
-      const checkoutSession = await stripeGet(`checkout/sessions/${encodeURIComponent(sessionId)}`);
+      checkoutSession = await stripeGet(`checkout/sessions/${encodeURIComponent(sessionId)}`);
       if ((checkoutSession.metadata?.user_id || checkoutSession.client_reference_id) === authUser.id) {
         customerId = checkoutSession.customer || "";
+        if (customerId) {
+          customer = await stripeGet(`customers/${encodeURIComponent(customerId)}`);
+        }
+        lineItems = await stripeGet(`checkout/sessions/${encodeURIComponent(sessionId)}/line_items`, {
+          limit: "1",
+          "expand[]": "data.price.product"
+        });
         if (checkoutSession.subscription) {
           subscription = await stripeGet(`subscriptions/${encodeURIComponent(checkoutSession.subscription)}`);
         }
@@ -135,11 +168,12 @@ export default async function handler(request, response) {
     if (!subscription) {
       const { data: profile } = await serviceClient
         .from("profiles")
-        .select("stripe_customer_id")
+        .select("stripe_customer_id,subscription_status")
         .eq("id", authUser.id)
         .maybeSingle();
       customerId = customerId || profile?.stripe_customer_id || "";
       if (!customerId) throw new Error("No Stripe customer found for this account yet.");
+      customer = customer || await stripeGet(`customers/${encodeURIComponent(customerId)}`);
 
       const subscriptions = await stripeGet("subscriptions", {
         customer: customerId,
@@ -151,8 +185,15 @@ export default async function handler(request, response) {
 
     if (!subscription?.id) throw new Error("No Stripe subscription found for this account.");
 
-    const priceId = priceIdFromSubscription(subscription);
-    const accessType = subscription.metadata?.access_type || (priceId === coachPriceId ? "coach" : "paid_user");
+    const pendingCoach = await profileHasPendingCoachStatus(serviceClient, authUser.id);
+    const accessType = checkoutSession?.metadata?.access_type ||
+      subscription.metadata?.access_type ||
+      customer?.metadata?.access_type ||
+      accessTypeFromLineItems(lineItems) ||
+      (pendingCoach ? "coach" : "");
+    const priceId = priceIdFromSubscription(subscription) ||
+      priceIdFromLineItems(lineItems) ||
+      (accessType === "coach" ? coachPriceId : paidUserPriceId);
     const values = {
       userId: authUser.id,
       customerId: subscription.customer || customerId,
