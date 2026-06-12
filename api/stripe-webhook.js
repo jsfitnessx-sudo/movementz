@@ -111,7 +111,7 @@ async function provisionPaidCoach(serviceClient, values) {
     customer_id: customerId,
     subscription_id: subscriptionId,
     price_id: priceId,
-    subscription_status: status,
+    subscription_status_input: status,
     paid_until: paidAccessUntil
   });
 

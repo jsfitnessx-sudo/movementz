@@ -6,7 +6,7 @@ create or replace function public.provision_paid_coach(
   customer_id text,
   subscription_id text,
   price_id text,
-  subscription_status text,
+  subscription_status_input text,
   paid_until timestamptz default null
 )
 returns table (
@@ -36,7 +36,7 @@ begin
     raise exception 'User not found.';
   end if;
 
-  is_active := lower(coalesce(subscription_status, '')) in ('active', 'trialing');
+  is_active := lower(coalesce(subscription_status_input, '')) in ('active', 'trialing');
   profile_name := coalesce(
     current_auth_user.raw_user_meta_data->>'full_name',
     current_auth_user.email,
@@ -67,7 +67,7 @@ begin
     customer_id,
     subscription_id,
     price_id,
-    subscription_status
+    subscription_status_input
   )
   on conflict (id)
   do update set
@@ -89,7 +89,7 @@ begin
     stripe_customer_id = customer_id,
     stripe_subscription_id = subscription_id,
     stripe_price_id = price_id,
-    subscription_status = subscription_status,
+    subscription_status = subscription_status_input,
     updated_at = now();
 
   if is_active then
