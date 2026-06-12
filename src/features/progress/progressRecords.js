@@ -73,6 +73,123 @@ export function buildProgressRecords(sessions) {
     maxWeight: [...maxWeightByExercise.values()].sort((left, right) => right.kg - left.kg).slice(0, 6),
     oneRepMax: [...bestOneRepByExercise.values()]
       .sort((left, right) => right.estimatedOneRepMax - left.estimatedOneRepMax)
-      .slice(0, 6)
+      .slice(0, 6),
+    sessions: sessions || []
+  };
+}
+
+function startOfWeek(date) {
+  const nextDate = new Date(date);
+  nextDate.setHours(0, 0, 0, 0);
+  const day = nextDate.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  nextDate.setDate(nextDate.getDate() + mondayOffset);
+  return nextDate;
+}
+
+function formatWeekLabel(date) {
+  return date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+function completedSetVolume(exercise) {
+  return (exercise.session_log_sets || []).reduce((total, set) => {
+    if (!set.completed) return total;
+    return total + (Number(set.kg) || 0) * (Number(set.reps) || 0);
+  }, 0);
+}
+
+export function buildWorkoutTrendData(sessions, numberOfWeeks = 4) {
+  const completedSessions = [...(sessions || [])]
+    .filter((session) => session?.completed_at)
+    .sort((left, right) => new Date(left.completed_at) - new Date(right.completed_at));
+
+  if (!completedSessions.length) {
+    return {
+      weekLabels: Array.from({ length: numberOfWeeks }, (_, index) => `W${index + 1}`),
+      exerciseOptions: [],
+      workoutOptions: [],
+      forTimeOptions: [],
+      exerciseSeries: {},
+      workoutSeries: {},
+      forTimeSeries: {}
+    };
+  }
+
+  const latestDate = new Date(completedSessions.at(-1).completed_at);
+  const firstWeekStart = startOfWeek(latestDate);
+  firstWeekStart.setDate(firstWeekStart.getDate() - (numberOfWeeks - 1) * 7);
+  const weekStarts = Array.from({ length: numberOfWeeks }, (_, index) => {
+    const weekDate = new Date(firstWeekStart);
+    weekDate.setDate(firstWeekStart.getDate() + index * 7);
+    return weekDate;
+  });
+  const weekLabels = weekStarts.map((weekDate, index) => `W${index + 1} ${formatWeekLabel(weekDate)}`);
+
+  const exerciseSeries = {};
+  const workoutSeries = {};
+  const forTimeSeries = {};
+
+  const bucketIndexFor = (value) => {
+    const date = new Date(value);
+    const diffDays = Math.floor((startOfWeek(date) - firstWeekStart) / 86400000);
+    const index = Math.floor(diffDays / 7);
+    return index >= 0 && index < numberOfWeeks ? index : -1;
+  };
+
+  const ensurePoints = (store, key) => {
+    if (!store[key]) {
+      store[key] = weekLabels.map((label) => ({ label, value: 0, hasValue: false }));
+    }
+    return store[key];
+  };
+
+  for (const session of completedSessions) {
+    const weekIndex = bucketIndexFor(session.completed_at);
+    if (weekIndex < 0) continue;
+
+    if (session.workout_type === "hiit") {
+      const points = ensurePoints(forTimeSeries, session.name || "For Time");
+      const duration = Number(session.duration_seconds) || 0;
+      if (duration && (!points[weekIndex].hasValue || duration < points[weekIndex].value)) {
+        points[weekIndex] = { ...points[weekIndex], value: duration, hasValue: true };
+      }
+      continue;
+    }
+
+    const workoutName = session.name || "Workout";
+    const workoutPoints = ensurePoints(workoutSeries, workoutName);
+    workoutPoints[weekIndex] = {
+      ...workoutPoints[weekIndex],
+      value: Number(workoutPoints[weekIndex].value || 0) + Number(session.total_volume_kg || 0),
+      hasValue: true
+    };
+
+    for (const exercise of session.session_log_exercises || []) {
+      const exerciseName = exercise.exercise_name || "Exercise";
+      const volume = completedSetVolume(exercise);
+      if (!volume) continue;
+      const exercisePoints = ensurePoints(exerciseSeries, exerciseName);
+      exercisePoints[weekIndex] = {
+        ...exercisePoints[weekIndex],
+        value: Number(exercisePoints[weekIndex].value || 0) + volume,
+        hasValue: true
+      };
+    }
+  }
+
+  const usedOptions = (store) =>
+    Object.entries(store)
+      .filter(([, points]) => points.some((point) => point.hasValue))
+      .map(([name]) => name)
+      .sort((left, right) => left.localeCompare(right));
+
+  return {
+    weekLabels,
+    exerciseOptions: usedOptions(exerciseSeries),
+    workoutOptions: usedOptions(workoutSeries),
+    forTimeOptions: usedOptions(forTimeSeries),
+    exerciseSeries,
+    workoutSeries,
+    forTimeSeries
   };
 }

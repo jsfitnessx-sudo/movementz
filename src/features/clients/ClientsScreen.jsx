@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 import { buildProgressRecords, formatRecordDate, formatRecordDuration } from "../progress/progressRecords.js";
+import { WorkoutTrendPanel } from "../progress/WorkoutTrendPanel.jsx";
 
 const progressPhotoBucket = "progress-photos";
 const clientTrackerSelect = "id,goal_name,goal_type,start_weight_kg,goal_weight_kg,maintenance_calories,target_calories,duration_weeks,start_date,status";
@@ -907,6 +908,16 @@ export function ClientsScreen({ profile, user }) {
               <strong className="client-week-average">{clientProgressRecords.count}</strong>
             </div>
             <CoachProgressRecords records={clientProgressRecords} />
+          </section>
+
+          <section className="client-progress-card">
+            <div className="client-section-title">
+              <div>
+                <p className="eyebrow">Workout trends</p>
+                <span>4-week exercise volume, workout volume and For Time performance.</span>
+              </div>
+            </div>
+            <WorkoutTrendPanel sessions={clientProgressRecords.sessions} />
           </section>
 
           {clientCompletedTrackers.length ? (

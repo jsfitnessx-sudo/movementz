@@ -2209,6 +2209,93 @@ button {
   font-weight: 800;
 }
 
+.workout-trend-heading {
+  margin-top: 6px;
+}
+
+.workout-trend-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.workout-trend-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.workout-trend-select {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workout-trend-select span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workout-trend-select select {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--text);
+  padding: 0 10px;
+  font-weight: 850;
+}
+
+.workout-trend-grid {
+  align-items: stretch;
+}
+
+.workout-trend-chart {
+  min-height: 190px;
+}
+
+.workout-trend-points {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.workout-trend-points span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--field) 76%, transparent);
+  padding: 6px;
+}
+
+.workout-trend-points span.muted {
+  opacity: 0.55;
+}
+
+.workout-trend-points em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workout-trend-points strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tracker-results-section,
 .tracker-results-list {
   display: grid;
@@ -6879,6 +6966,15 @@ button {
 }
 
 @media (max-width: 720px) {
+  .workout-trend-controls,
+  .workout-trend-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workout-trend-chart {
+    min-height: 176px;
+  }
+
   .client-insight-header {
     grid-template-columns: 1fr;
   }

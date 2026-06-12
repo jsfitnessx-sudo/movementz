@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 import { buildProgressRecords, formatRecordDate, formatRecordDuration } from "./progressRecords.js";
+import { WorkoutTrendPanel } from "./WorkoutTrendPanel.jsx";
 
 const poses = ["front", "side", "back"];
 const bucketName = "progress-photos";
@@ -1028,6 +1029,11 @@ export function ProgressPhotosScreen({ profile, role = "normal_user", user }) {
               <button className="primary-action compact" onClick={loadProgressRecords} type="button">Refresh</button>
             </div>
             <ProgressRecordsPanel records={progressRecords} />
+            <div className="section-row workout-trend-heading">
+              <p className="eyebrow">Workout trends</p>
+              <span>4-week volume and For Time graphs from completed sessions.</span>
+            </div>
+            <WorkoutTrendPanel sessions={progressRecords.sessions} />
           </section>
         ) : null}
 

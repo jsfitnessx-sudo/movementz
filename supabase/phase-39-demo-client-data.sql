@@ -7,18 +7,19 @@
 --   Coach Paid 7 / metzmvmnt@gmail.com / 9066f8b6-b721-4491-b3ca-5b5a9cdf0a7c
 --
 -- Safe to rerun: it removes prior Movementz demo seed rows for this pair first,
--- then recreates a current 8-week demo block with 7 completed weeks.
+-- then recreates a current 4-week demo block with 4 completed weeks.
 
 do $$
 declare
   demo_client_id uuid := '4867d9c1-50c2-471e-b2bd-0467d28c7368';
   demo_coach_id uuid := '9066f8b6-b721-4491-b3ca-5b5a9cdf0a7c';
-  demo_start_date date := (current_date - interval '49 days')::date;
+  demo_start_date date := (current_date - interval '27 days')::date;
   demo_tracker_id uuid;
   demo_plan_id uuid;
   demo_upper_a_id uuid;
   demo_upper_b_id uuid;
   demo_lower_id uuid;
+  demo_hyrox_id uuid;
   demo_checkin_item_id uuid;
   week_index integer;
   workout_index integer;
@@ -133,7 +134,7 @@ begin
 
   delete from public.goal_trackers
   where user_id = demo_client_id
-    and goal_name = 'Demo 8 Week Weight Loss Block';
+    and goal_name in ('Demo 8 Week Weight Loss Block', 'Demo 4 Week Weight Loss Block');
 
   delete from public.training_plans
   where owner_id = demo_coach_id
@@ -145,19 +146,19 @@ begin
 
   delete from public.daily_habit_logs
   where user_id = demo_client_id
-    and log_date between demo_start_date and current_date;
+    and log_date between (current_date - interval '60 days')::date and current_date;
 
   delete from public.daily_mindset_logs
   where user_id = demo_client_id
-    and log_date between demo_start_date and current_date;
+    and log_date between (current_date - interval '60 days')::date and current_date;
 
   delete from public.food_log_entries
   where user_id = demo_client_id
-    and log_date between demo_start_date and current_date;
+    and log_date between (current_date - interval '60 days')::date and current_date;
 
   delete from public.food_day_targets
   where user_id = demo_client_id
-    and target_date between demo_start_date and current_date;
+    and target_date between (current_date - interval '60 days')::date and current_date;
 
   delete from public.food_month_targets
   where user_id = demo_client_id
@@ -181,15 +182,15 @@ begin
     (demo_upper_a_id, 4, 'Triceps Pushdown', 'Triceps', 3, 12, 15, 32, 60);
 
   insert into public.workout_templates (owner_id, created_by, source_type, workout_type, name, notes, visibility)
-  values (demo_coach_id, demo_coach_id, 'coach_assigned', 'strength', 'Demo Upper Body B', 'Movementz demo seed - progressive upper body day B.', 'private')
+  values (demo_coach_id, demo_coach_id, 'coach_assigned', 'strength', 'Demo Shoulder Day', 'Movementz demo seed - progressive shoulder day.', 'private')
   returning id into demo_upper_b_id;
 
   insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, start_kg, rest_seconds)
   values
-    (demo_upper_b_id, 1, 'Overhead Press', 'Shoulders', 3, 8, 10, 40, 90),
-    (demo_upper_b_id, 2, 'Lat Pulldown', 'Back', 3, 10, 12, 58, 75),
-    (demo_upper_b_id, 3, 'One Arm DB Row', 'Back', 3, 10, 12, 30, 75),
-    (demo_upper_b_id, 4, 'DB Bicep Curl', 'Biceps', 3, 12, 15, 14, 60);
+    (demo_upper_b_id, 1, 'Machine Shoulder Press', 'Shoulders', 3, 8, 10, 35, 90),
+    (demo_upper_b_id, 2, 'DB Shoulder Press', 'Shoulders', 3, 8, 10, 22, 90),
+    (demo_upper_b_id, 3, 'Lateral Raise', 'Shoulders', 3, 12, 15, 10, 60),
+    (demo_upper_b_id, 4, 'Rear Delt Fly', 'Shoulders', 3, 12, 15, 12, 60);
 
   insert into public.workout_templates (owner_id, created_by, source_type, workout_type, name, notes, visibility)
   values (demo_coach_id, demo_coach_id, 'coach_assigned', 'strength', 'Demo Lower Body', 'Movementz demo seed - progressive lower body day.', 'private')
@@ -202,21 +203,57 @@ begin
     (demo_lower_id, 3, 'Leg Press', 'Legs', 3, 10, 12, 160, 90),
     (demo_lower_id, 4, 'Seated Leg Curl', 'Hamstrings', 3, 12, 15, 45, 60);
 
+  insert into public.workout_templates (
+    owner_id,
+    created_by,
+    source_type,
+    workout_type,
+    hiit_timer_type,
+    hiit_rounds,
+    hiit_goal_seconds,
+    hiit_focus_area,
+    name,
+    notes,
+    visibility
+  )
+  values (
+    demo_coach_id,
+    demo_coach_id,
+    'coach_assigned',
+    'hiit',
+    'for_time',
+    2,
+    3000,
+    'Full Body',
+    'Demo Hyrox Sim',
+    'Movementz demo seed - For Time conditioning benchmark.',
+    'private'
+  )
+  returning id into demo_hyrox_id;
+
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, target_type, target_value)
+  values
+    (demo_hyrox_id, 1, 'Treadmill Run', 'Cardio', 1, 1, 1, 'meters', 300),
+    (demo_hyrox_id, 2, 'Sled Push', 'Full Body', 1, 1, 1, 'meters', 20),
+    (demo_hyrox_id, 3, 'Sandbag Lunges', 'Legs', 1, 1, 1, 'meters', 20),
+    (demo_hyrox_id, 4, 'Wall Balls', 'Full Body', 1, 1, 1, 'reps', 30);
+
   insert into public.coach_workout_assignments (coach_id, client_id, workout_template_id, status, note, assigned_at)
   values
     (demo_coach_id, demo_client_id, demo_upper_a_id, 'active', 'Demo assignment - Monday upper body progression.', demo_start_date),
     (demo_coach_id, demo_client_id, demo_upper_b_id, 'active', 'Demo assignment - Wednesday upper body progression.', demo_start_date),
-    (demo_coach_id, demo_client_id, demo_lower_id, 'active', 'Demo assignment - Friday lower body progression.', demo_start_date)
+    (demo_coach_id, demo_client_id, demo_lower_id, 'active', 'Demo assignment - Friday lower body progression.', demo_start_date),
+    (demo_coach_id, demo_client_id, demo_hyrox_id, 'active', 'Demo assignment - Saturday For Time benchmark.', demo_start_date)
   on conflict (coach_id, client_id, workout_template_id)
   do update set status = 'active', note = excluded.note;
 
   insert into public.training_plans (owner_id, name, plan_type, block_weeks, instructions, created_at)
   values (
     demo_coach_id,
-    'Tom Demo 8 Week Strength + Fat Loss Block',
+    'Tom Demo 4 Week Strength + Fat Loss Block',
     'block',
-    8,
-    'Movementz demo seed. Three progressive strength sessions per week with weekly tracker check-ins.',
+    4,
+    'Movementz demo seed. Four weeks of progressive strength, For Time conditioning and weekly tracker check-ins.',
     demo_start_date
   )
   returning id into demo_plan_id;
@@ -224,15 +261,16 @@ begin
   insert into public.training_plan_workouts (plan_id, workout_template_id, position, name, workout_type, source_type, summary, scheduled_days)
   values
     (demo_plan_id, demo_upper_a_id, 1, 'Upper Body A', 'strength', 'imported', 'Horizontal push/pull strength focus.', array['Monday']),
-    (demo_plan_id, demo_upper_b_id, 2, 'Upper Body B', 'strength', 'imported', 'Vertical push/pull and arms.', array['Wednesday']),
-    (demo_plan_id, demo_lower_id, 3, 'Lower Body', 'strength', 'imported', 'Squat, hinge and leg accessory work.', array['Friday']);
+    (demo_plan_id, demo_upper_b_id, 2, 'Shoulder Day', 'strength', 'imported', 'Shoulder volume and pressing progression.', array['Wednesday']),
+    (demo_plan_id, demo_lower_id, 3, 'Lower Body', 'strength', 'imported', 'Squat, hinge and leg accessory work.', array['Friday']),
+    (demo_plan_id, demo_hyrox_id, 4, 'Hyrox Sim', 'hiit', 'imported', 'For Time benchmark to show conditioning progress.', array['Saturday']);
 
   insert into public.training_plan_assignments (plan_id, client_id, assigned_by, status, created_at)
   values (demo_plan_id, demo_client_id, demo_coach_id, 'active', demo_start_date)
   on conflict (plan_id, client_id)
   do update set status = 'active';
 
-  -- Active tracker with 7 of 8 weeks completed.
+  -- Active tracker with 4 of 4 weeks completed.
   insert into public.goal_trackers (
     user_id,
     goal_name,
@@ -263,14 +301,14 @@ begin
   )
   values (
     demo_client_id,
-    'Demo 8 Week Weight Loss Block',
+    'Demo 4 Week Weight Loss Block',
     'lose_weight',
     'Male',
     47,
     178,
     'moderate',
     102.4,
-    96.0,
+    98.0,
     'moderate',
     2850,
     2300,
@@ -285,13 +323,13 @@ begin
     36.2,
     63.0,
     63.5,
-    8,
+    4,
     demo_start_date,
     'active'
   )
   returning id into demo_tracker_id;
 
-  for week_index in 1..7 loop
+  for week_index in 1..4 loop
     insert into public.goal_tracker_checkins (
       tracker_id,
       user_id,
@@ -323,36 +361,28 @@ begin
         when 2 then 100.9
         when 3 then 101.2
         when 4 then 99.7
-        when 5 then 98.9
-        when 6 then 98.2
-        else 97.4
+        else 99.7
       end,
       case week_index
         when 1 then 30.5
         when 2 then 30.0
         when 3 then 30.2
         when 4 then 29.1
-        when 5 then 28.7
-        when 6 then 28.2
-        else 27.8
+        else 29.1
       end,
       case week_index
         when 1 then 31.0
         when 2 then 30.3
         when 3 then 30.6
         when 4 then 29.0
-        when 5 then 28.4
-        when 6 then 27.7
-        else 27.1
+        else 29.0
       end,
       case week_index
         when 1 then 70.8
         when 2 then 70.6
         when 3 then 70.6
         when 4 then 70.7
-        when 5 then 70.5
-        when 6 then 70.5
-        else 70.3
+        else 70.7
       end,
       40.8 - (week_index * 0.08),
       111.6 - (week_index * 0.35),
@@ -362,14 +392,14 @@ begin
       36.2 + (week_index * 0.03),
       63.0 - (week_index * 0.18),
       63.5 - (week_index * 0.18),
-      case when week_index in (3, 6) then 3 else 4 end,
-      case when week_index in (2, 5, 7) then 5 else 4 end,
+      case when week_index = 3 then 3 else 4 end,
+      case when week_index = 2 then 5 else 4 end,
       'Demo check-in week ' || week_index || ': weight trending down with normal fluctuations; training consistency strong.'
     );
   end loop;
 
   -- Completed workout history.
-  for week_index in 1..7 loop
+  for week_index in 1..4 loop
     for workout_index in 1..3 loop
       completed_date := demo_start_date + ((week_index - 1) * 7) + case workout_index when 1 then 1 when 2 then 3 else 5 end;
       session_volume := 0;
@@ -393,7 +423,7 @@ begin
       values (
         demo_client_id,
         case workout_index when 1 then demo_upper_a_id when 2 then demo_upper_b_id else demo_lower_id end,
-        case workout_index when 1 then 'Upper Body A' when 2 then 'Upper Body B' else 'Lower Body' end,
+        case workout_index when 1 then 'Upper Body A' when 2 then 'Shoulder Day' else 'Lower Body' end,
         'Movementz demo seed session. Progressive overload and adherence demo.',
         'strength',
         'completed',
@@ -403,7 +433,7 @@ begin
         4,
         12,
         0,
-        case when week_index >= 5 then 5 else 4 end,
+        case when week_index >= 4 then 5 else 4 end,
         'Movementz demo seed'
       )
       returning id into session_id;
@@ -416,10 +446,10 @@ begin
             (2, 'Incline DB Press', 'Chest', 24, 10, 1),
             (3, 'Seated Cable Row', 'Back', 55, 10, 1),
             (4, 'Triceps Pushdown', 'Triceps', 32, 12, 1),
-            (1, 'Overhead Press', 'Shoulders', 40, 8, 2),
-            (2, 'Lat Pulldown', 'Back', 58, 10, 2),
-            (3, 'One Arm DB Row', 'Back', 30, 10, 2),
-            (4, 'DB Bicep Curl', 'Biceps', 14, 12, 2),
+            (1, 'Machine Shoulder Press', 'Shoulders', 35, 8, 2),
+            (2, 'DB Shoulder Press', 'Shoulders', 22, 8, 2),
+            (3, 'Lateral Raise', 'Shoulders', 10, 12, 2),
+            (4, 'Rear Delt Fly', 'Shoulders', 12, 12, 2),
             (1, 'Back Squat', 'Legs', 90, 8, 3),
             (2, 'Romanian Deadlift', 'Hamstrings', 85, 8, 3),
             (3, 'Leg Press', 'Legs', 160, 10, 3),
@@ -450,7 +480,7 @@ begin
 
         for set_index in 1..3 loop
           set_kg := exercise_record.base_kg + ((week_index - 1) * case when exercise_record.base_kg >= 80 then 2.5 else 1.25 end) + ((set_index - 2) * 1.25);
-          set_reps := greatest(6, exercise_record.base_reps + case when set_index = 1 then 2 when set_index = 2 then 1 else 0 end - case when week_index in (3, 6) and set_index = 3 then 1 else 0 end);
+          set_reps := greatest(6, exercise_record.base_reps + case when set_index = 1 then 2 when set_index = 2 then 1 else 0 end - case when week_index = 3 and set_index = 3 then 1 else 0 end);
           session_volume := session_volume + (set_kg * set_reps);
 
           insert into public.session_log_sets (session_exercise_id, set_number, kg, reps, completed)
@@ -464,8 +494,80 @@ begin
     end loop;
   end loop;
 
-  -- Daily habits, mindset and gratitude for the last 49 days.
-  for week_index in 0..48 loop
+  -- Completed For Time benchmark history.
+  for week_index in 1..4 loop
+    completed_date := demo_start_date + ((week_index - 1) * 7) + 6;
+
+    insert into public.session_logs (
+      owner_id,
+      workout_template_id,
+      name,
+      notes,
+      workout_type,
+      status,
+      started_at,
+      completed_at,
+      duration_seconds,
+      total_exercises,
+      completed_sets,
+      total_volume_kg,
+      rating,
+      comment
+    )
+    values (
+      demo_client_id,
+      demo_hyrox_id,
+      'Hyrox Sim',
+      'Movementz demo seed For Time session. Total time trends down across the block.',
+      'hiit',
+      'completed',
+      completed_date + time '08:00',
+      completed_date + time '08:45',
+      case week_index when 1 then 2860 when 2 then 2740 when 3 then 2795 else 2615 end,
+      4,
+      4,
+      0,
+      case when week_index = 4 then 5 else 4 end,
+      'Movementz demo seed'
+    )
+    returning id into session_id;
+
+    for exercise_record in
+      select *
+      from (
+        values
+          (1, 'Treadmill Run', 'Cardio', 'meters', 300, 700),
+          (2, 'Sled Push', 'Full Body', 'meters', 20, 530),
+          (3, 'Sandbag Lunges', 'Legs', 'meters', 20, 610),
+          (4, 'Wall Balls', 'Full Body', 'reps', 30, 480)
+      ) as exercise_seed(position, exercise_name, muscle_group, target_type, target_value, base_split)
+      order by position
+    loop
+      insert into public.session_log_exercises (
+        session_id,
+        position,
+        exercise_name,
+        muscle_group,
+        target_type,
+        target_value,
+        split_duration_seconds,
+        completed_at_seconds
+      )
+      values (
+        session_id,
+        exercise_record.position,
+        exercise_record.exercise_name,
+        exercise_record.muscle_group,
+        exercise_record.target_type,
+        exercise_record.target_value,
+        greatest(240, exercise_record.base_split - (week_index * 28) + case when week_index = 3 then 22 else 0 end),
+        greatest(240, exercise_record.base_split - (week_index * 28) + case when week_index = 3 then 22 else 0 end)
+      );
+    end loop;
+  end loop;
+
+  -- Daily habits, mindset and gratitude for the last 28 days.
+  for week_index in 0..27 loop
     insert into public.daily_habit_logs (
       user_id,
       log_date,
@@ -546,7 +648,7 @@ begin
   on conflict (user_id, target_date)
   do update set target_calories = excluded.target_calories, updated_at = now();
 
-  for week_index in 0..48 loop
+  for week_index in 0..27 loop
     insert into public.food_log_entries (user_id, log_date, meal_type, food_name, quantity, unit, calories, protein_g, carbs_g, fat_g)
     values
       (demo_client_id, demo_start_date + week_index, 'breakfast', 'Oats, whey and banana', 1, 'serving', 520 + (week_index % 3) * 20, 42, 72, 9),
@@ -579,7 +681,7 @@ begin
     demo_start_date + time '09:15',
     'scheduled',
     'weekly',
-    (demo_start_date + interval '8 weeks')::date,
+    (demo_start_date + interval '4 weeks')::date,
     jsonb_build_array(
       jsonb_build_object('id', 'energy', 'label', 'Energy this week', 'type', 'rating'),
       jsonb_build_object('id', 'mood', 'label', 'Mood this week', 'type', 'rating'),
@@ -590,7 +692,7 @@ begin
   )
   returning id into demo_checkin_item_id;
 
-  for week_index in 4..7 loop
+  for week_index in 1..4 loop
     insert into public.coach_checkin_responses (
       calendar_item_id,
       coach_id,
@@ -606,10 +708,10 @@ begin
       demo_client_id,
       demo_start_date + ((week_index - 1) * 7 + 6),
       jsonb_build_object(
-        'energy', case when week_index = 6 then 3 else 4 end,
-        'mood', case when week_index = 7 then 5 else 4 end,
+        'energy', case when week_index = 3 then 3 else 4 end,
+        'mood', case when week_index = 4 then 5 else 4 end,
         'win', 'Hit all three planned workouts and weight is trending down.',
-        'challenge', case when week_index = 6 then 'Sleep was a little low during a busy work week.' else 'Managing hunger late at night.' end,
+        'challenge', case when week_index = 3 then 'Sleep was a little low during a busy work week.' else 'Managing hunger late at night.' end,
         'question', 'Should we adjust calories if weight drops too fast next week?'
       ),
       'Demo submitted check-in for week ' || week_index || '.',
@@ -621,15 +723,15 @@ begin
 end $$;
 
 -- Optional verification after running:
--- select count(*) as demo_sessions
+-- select count(*) as demo_sessions -- expected: 16
 -- from public.session_logs
 -- where owner_id = '4867d9c1-50c2-471e-b2bd-0467d28c7368'
 --   and comment = 'Movementz demo seed';
 --
--- select count(*) as tracker_checkins
+-- select count(*) as tracker_checkins -- expected: 4
 -- from public.goal_tracker_checkins
 -- where user_id = '4867d9c1-50c2-471e-b2bd-0467d28c7368';
 --
--- select count(*) as habit_days
+-- select count(*) as habit_days -- expected: 28
 -- from public.daily_habit_logs
 -- where user_id = '4867d9c1-50c2-471e-b2bd-0467d28c7368';
