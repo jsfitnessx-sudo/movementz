@@ -140,6 +140,7 @@ function buildUser(session, profile) {
 
 function isCoachPaymentPending(session, profile) {
   if (!session?.user || !profile) return false;
+  if (profile.role === "admin" || profile.access_tier === "admin") return false;
   const intendedRole = session.user.user_metadata?.intended_role;
   const hasLocalCoachIntent = hasPendingCoachSignupIntent(session.user);
   const isPendingCoachProfile = profile.subscription_status === "pending_coach";
@@ -499,6 +500,9 @@ export function App() {
       if (nextSession?.user) {
         const nextProfile = await loadProfile(nextSession.user);
         if (!alive) return;
+        if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
+          clearPendingCoachSignupIntent(nextSession.user);
+        }
         setProfile(nextProfile);
         setRole(nextProfile?.role || "normal_user");
       }
@@ -515,6 +519,9 @@ export function App() {
 
       if (nextSession?.user) {
         const nextProfile = await loadProfile(nextSession.user);
+        if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
+          clearPendingCoachSignupIntent(nextSession.user);
+        }
         setProfile(nextProfile);
         setRole(nextProfile?.role || "normal_user");
       } else {
@@ -659,10 +666,11 @@ export function App() {
 
   function needsCoachSubscription(nextSession, nextProfile) {
     const intendedRole = nextSession?.user?.user_metadata?.intended_role;
-    const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
-    const currentRole = nextProfile?.role || "normal_user";
-    const currentTier = nextProfile?.access_tier || "";
-    const isPendingCoachProfile = nextProfile?.subscription_status === "pending_coach";
+  const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
+  const currentRole = nextProfile?.role || "normal_user";
+  const currentTier = nextProfile?.access_tier || "";
+  if (currentRole === "admin" || currentTier === "admin") return false;
+  const isPendingCoachProfile = nextProfile?.subscription_status === "pending_coach";
     const status = String(nextProfile?.subscription_status || "").toLowerCase();
     const isUnlockedCoach = currentTier === "coach" || (currentRole === "coach" && ["active", "trialing"].includes(status));
     return (intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile) && !isUnlockedCoach;
@@ -672,6 +680,9 @@ export function App() {
     if (!nextSession?.user) return;
     const nextProfile = await loadProfile(nextSession.user);
     let resolvedProfile = nextProfile;
+    if (resolvedProfile?.role === "admin" || resolvedProfile?.access_tier === "admin") {
+      clearPendingCoachSignupIntent(nextSession.user);
+    }
 
     if (pendingCoachInviteCode && supabase) {
       const { error } = await supabase.rpc("accept_admin_coach_invite", {
