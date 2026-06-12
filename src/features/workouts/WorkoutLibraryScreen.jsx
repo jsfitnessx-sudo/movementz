@@ -3916,28 +3916,6 @@ export function WorkoutLibraryScreen({
               <p className="eyebrow">HIIT for time</p>
               <div className="for-time-title-row">
                 <h1>{activeWorkout.name}</h1>
-                {isComplete ? (
-                  <button
-                    className="primary-action filled station-split-action"
-                    onClick={() => {
-                      setActiveWorkout(null);
-                      setHiitForTime(null);
-                      setMode("list");
-                    }}
-                    type="button"
-                  >
-                    Done
-                  </button>
-                ) : (
-                  <button
-                    className="primary-action filled station-split-action"
-                    disabled={!canCompleteStation}
-                    onClick={completeForTimeStation}
-                    type="button"
-                  >
-                    Station split
-                  </button>
-                )}
               </div>
               <p>
                 Round {Math.min(currentRound, totalRounds)}/{totalRounds} - Station {Math.min(currentStationIndex + 1, totalStations)}/{totalStations} - Goal{" "}
@@ -4007,6 +3985,31 @@ export function WorkoutLibraryScreen({
               </button>
             </div>
           ) : null}
+
+          <div className="for-time-split-hero">
+            {isComplete ? (
+              <button
+                className="primary-action filled station-split-action"
+                onClick={() => {
+                  setActiveWorkout(null);
+                  setHiitForTime(null);
+                  setMode("list");
+                }}
+                type="button"
+              >
+                Done
+              </button>
+            ) : (
+              <button
+                className="primary-action filled station-split-action"
+                disabled={!canCompleteStation}
+                onClick={completeForTimeStation}
+                type="button"
+              >
+                Station split
+              </button>
+            )}
+          </div>
 
           {hiitForTime.completedStations.length > 0 ? (
             <div className="for-time-split-list" aria-label="Completed station splits">

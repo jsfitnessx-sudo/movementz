@@ -3419,23 +3419,24 @@ button {
   align-content: center;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #121d27;
+  background: #0b1722;
   padding: 12px;
   text-align: center;
+  box-shadow: 0 10px 28px rgba(12, 23, 34, 0.16);
 }
 
 .for-time-stat.primary {
   border-color: var(--gold);
-  background: color-mix(in srgb, var(--gold) 9%, #121d27);
+  background: color-mix(in srgb, var(--gold) 10%, #0b1722);
 }
 
 .for-time-stat.danger {
   border-color: color-mix(in srgb, var(--red) 55%, var(--line));
-  background: color-mix(in srgb, var(--red) 9%, #121d27);
+  background: color-mix(in srgb, var(--red) 9%, #0b1722);
 }
 
 .for-time-stat span {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.68);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -3443,15 +3444,13 @@ button {
 }
 
 .for-time-stat strong {
-  color: var(--text);
+  color: #f8fbff;
   font-size: 26px;
+  line-height: 1;
 }
 
 .for-time-title-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
+  display: block;
 }
 
 .station-split-action {
@@ -3467,6 +3466,14 @@ button {
 
 .station-split-action:disabled {
   opacity: 0.56;
+}
+
+.for-time-split-hero {
+  width: min(680px, 100%);
+}
+
+.for-time-split-hero .station-split-action {
+  width: 100%;
 }
 
 .for-time-top-actions {
@@ -7802,42 +7809,69 @@ button {
 
   .for-time-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 10px;
+    width: 100%;
   }
 
   .for-time-stat {
-    min-height: 82px;
-    padding: 10px 8px;
+    min-height: clamp(118px, 17vh, 172px);
+    border-radius: 18px;
+    padding: 12px 8px;
+  }
+
+  .for-time-stat span {
+    font-size: 12px;
+    letter-spacing: 0.12em;
   }
 
   .for-time-stat strong {
-    font-size: 22px;
+    font-size: clamp(38px, 11vw, 64px);
   }
 
   .for-time-title-row {
-    grid-template-columns: minmax(0, 1fr) 116px;
-    gap: 10px;
+    display: block;
   }
 
   .station-split-action {
     min-width: 0;
-    min-height: 64px;
-    padding: 0 9px;
-    font-size: 12px;
+    padding: 0 12px;
   }
 
   .for-time-top-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    order: 4;
   }
 
   .for-time-current-card {
     grid-template-columns: 1fr;
     align-items: stretch;
-    padding: 14px;
+    order: 3;
+    padding: 12px;
+  }
+
+  .for-time-current-card h2 {
+    margin-bottom: 3px;
+    font-size: 22px;
+  }
+
+  .for-time-current-card p {
+    font-size: 15px;
   }
 
   .for-time-current-card .demo-action {
     width: 100%;
+  }
+
+  .for-time-split-hero {
+    order: 5;
+    width: 100%;
+  }
+
+  .for-time-split-hero .station-split-action {
+    min-height: clamp(132px, 22vh, 196px);
+    border-radius: 24px;
+    font-size: clamp(30px, 9vw, 48px);
+    letter-spacing: 0;
   }
 
   .for-time-split {
