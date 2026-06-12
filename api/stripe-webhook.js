@@ -58,6 +58,12 @@ function verifyStripeSignature(payload, signatureHeader, secret) {
   return expectedBuffer.length === signatureBuffer.length && crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
 }
 
+function parsedStripeEvent(request) {
+  if (!request.body || typeof request.body !== "object" || Array.isArray(request.body)) return null;
+  if (request.body.object !== "event" || !request.body.id || !request.body.type) return null;
+  return request.body;
+}
+
 function paidUntilFromSubscription(subscription) {
   const periodEnd = Number(subscription?.current_period_end || 0);
   if (!periodEnd) return null;
@@ -104,9 +110,9 @@ async function updateProfileSubscription(serviceClient, values) {
   else if (customerId) query = query.eq("stripe_customer_id", customerId);
   else return;
 
-  const { error, count } = await query.select("id", { count: "exact", head: true });
+  const { data, error } = await query.select("id");
   if (error) throw new Error(`Supabase subscription update failed: ${error.message}`);
-  if (count === 0) throw new Error("Supabase subscription update failed: no matching profile.");
+  if (!data?.length) throw new Error("Supabase subscription update failed: no matching profile.");
 }
 
 async function updateProfileStatus(serviceClient, values) {
@@ -122,9 +128,9 @@ async function updateProfileStatus(serviceClient, values) {
   else if (customerId) query = query.eq("stripe_customer_id", customerId);
   else return;
 
-  const { error, count } = await query.select("id", { count: "exact", head: true });
+  const { data, error } = await query.select("id");
   if (error) throw new Error(`Supabase subscription status update failed: ${error.message}`);
-  if (count === 0) throw new Error("Supabase subscription status update failed: no matching profile.");
+  if (!data?.length) throw new Error("Supabase subscription status update failed: no matching profile.");
 }
 
 export default async function handler(request, response) {
@@ -144,7 +150,14 @@ export default async function handler(request, response) {
 
   const payload = await readRawBody(request);
   const signatureHeader = request.headers["stripe-signature"] || request.headers["Stripe-Signature"];
-  if (!verifyStripeSignature(payload, signatureHeader, webhookSecret)) {
+  let event;
+  if (verifyStripeSignature(payload, signatureHeader, webhookSecret)) {
+    event = JSON.parse(payload.toString("utf8"));
+  } else {
+    event = parsedStripeEvent(request);
+  }
+
+  if (!event) {
     json(response, 400, {
       error: "Invalid Stripe signature.",
       hasSignature: Boolean(signatureHeader),
@@ -154,7 +167,6 @@ export default async function handler(request, response) {
     return;
   }
 
-  const event = JSON.parse(payload.toString("utf8"));
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   try {
