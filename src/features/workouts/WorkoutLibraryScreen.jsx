@@ -3933,7 +3933,7 @@ export function WorkoutLibraryScreen({
               <span>{isCountdown ? "Starting in" : "Elapsed"}</span>
               <strong>{isCountdown ? hiitForTime.countdownRemaining : formatClock(hiitForTime.elapsedSeconds)}</strong>
             </div>
-            <div className="for-time-stat">
+            <div className="for-time-stat current">
               <span>Current</span>
               <strong>{formatClock(hiitForTime.stationElapsedSeconds)}</strong>
             </div>
@@ -3941,7 +3941,7 @@ export function WorkoutLibraryScreen({
               <span>{isPastGoal ? "Over goal" : "Goal left"}</span>
               <strong>{formatClock(Math.abs(timeLeft))}</strong>
             </div>
-            <div className="for-time-stat">
+            <div className={isPastGoal ? "for-time-stat average danger" : "for-time-stat average"}>
               <span>Avg needed</span>
               <strong>{remainingStations ? formatClock(averageNeeded) : "0:00"}</strong>
             </div>

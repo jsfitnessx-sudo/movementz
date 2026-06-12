@@ -3430,9 +3430,19 @@ button {
   background: color-mix(in srgb, var(--gold) 10%, #0b1722);
 }
 
+.for-time-stat.current {
+  border-color: color-mix(in srgb, var(--teal) 58%, var(--line));
+  background: color-mix(in srgb, var(--teal) 10%, #0b1722);
+}
+
+.for-time-stat.average {
+  border-color: color-mix(in srgb, var(--blue) 58%, var(--line));
+  background: color-mix(in srgb, var(--blue) 10%, #0b1722);
+}
+
 .for-time-stat.danger {
   border-color: color-mix(in srgb, var(--red) 55%, var(--line));
-  background: color-mix(in srgb, var(--red) 9%, #0b1722);
+  background: color-mix(in srgb, var(--red) 14%, #0b1722);
 }
 
 .for-time-stat span {
@@ -7807,25 +7817,30 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .for-time-session-screen .hiit-session-actions {
+    order: 8;
+  }
+
   .for-time-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
+    order: 1;
     width: 100%;
   }
 
   .for-time-stat {
-    min-height: clamp(118px, 17vh, 172px);
-    border-radius: 18px;
-    padding: 12px 8px;
+    min-height: clamp(92px, 13.5vh, 136px);
+    border-radius: 16px;
+    padding: 10px 7px;
   }
 
   .for-time-stat span {
-    font-size: 12px;
+    font-size: 10px;
     letter-spacing: 0.12em;
   }
 
   .for-time-stat strong {
-    font-size: clamp(38px, 11vw, 64px);
+    font-size: clamp(32px, 9.6vw, 52px);
   }
 
   .for-time-title-row {
@@ -7842,36 +7857,65 @@ button {
     order: 4;
   }
 
+  .for-time-top-actions .primary-action {
+    min-height: 48px;
+  }
+
   .for-time-current-card {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     order: 3;
-    padding: 12px;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 12px;
   }
 
   .for-time-current-card h2 {
-    margin-bottom: 3px;
-    font-size: 22px;
+    margin-bottom: 2px;
+    font-size: 17px;
+    line-height: 1.05;
   }
 
   .for-time-current-card p {
-    font-size: 15px;
+    font-size: 12px;
+  }
+
+  .for-time-current-card .eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.11em;
   }
 
   .for-time-current-card .demo-action {
-    width: 100%;
+    width: auto;
+    min-width: 44px;
+    min-height: 38px;
+    padding: 0 10px;
+    overflow: hidden;
+    color: transparent;
+    font-size: 0;
+  }
+
+  .for-time-current-card .demo-action::before {
+    content: "...";
+    color: var(--teal);
+    font-size: 20px;
+    letter-spacing: 1px;
   }
 
   .for-time-split-hero {
-    order: 5;
+    order: 2;
     width: 100%;
   }
 
   .for-time-split-hero .station-split-action {
-    min-height: clamp(132px, 22vh, 196px);
-    border-radius: 24px;
-    font-size: clamp(30px, 9vw, 48px);
+    min-height: clamp(88px, 13vh, 130px);
+    border-radius: 20px;
+    font-size: clamp(28px, 8vw, 42px);
     letter-spacing: 0;
+  }
+
+  .for-time-split-list {
+    order: 7;
   }
 
   .for-time-split {
