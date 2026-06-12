@@ -22,6 +22,10 @@ function addDays(dateKey, days) {
   return localDateKey(date);
 }
 
+function missingExclusionTableMessage() {
+  return "Single-date delete needs supabase/phase-34-calendar-checkin-deletes.sql. Use Delete future for now, or run the SQL to delete only this date.";
+}
+
 function buildMonthDays(date) {
   const first = new Date(date.getFullYear(), date.getMonth(), 1);
   const startOffset = first.getDay();
@@ -240,10 +244,6 @@ export function AppointmentsScreen({ user }) {
   async function deleteCheckinOccurrence(item) {
     if (!supabase || user.id === "demo-user") return;
     if (item.item_type !== "checkin") return;
-    if (!checkinDeleteReady) {
-      setMessage("Run supabase/phase-34-calendar-checkin-deletes.sql in Supabase before deleting one check-in date.");
-      return;
-    }
     if ((item.occurrence_date || selectedDate) < localDateKey(new Date())) {
       setMessage("Only future check-ins can be deleted from the calendar.");
       return;
@@ -256,6 +256,11 @@ export function AppointmentsScreen({ user }) {
     setMessage("");
 
     if (item.recurrence_frequency === "weekly") {
+      if (!checkinDeleteReady) {
+        setMessage(missingExclusionTableMessage());
+        return;
+      }
+
       const { error } = await supabase.from("coach_calendar_item_exclusions").upsert(
         {
           calendar_item_id: item.id,
@@ -307,7 +312,7 @@ export function AppointmentsScreen({ user }) {
     if (item.recurrence_frequency === "weekly" && fromDate > startDate) {
       query = supabase
         .from("coach_calendar_items")
-        .update({ recurrence_until: addDays(fromDate, -7) })
+        .update({ recurrence_until: addDays(fromDate, -1) })
         .eq("id", item.id)
         .eq("coach_id", user.id);
     }

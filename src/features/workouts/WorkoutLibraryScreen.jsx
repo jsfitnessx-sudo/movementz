@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BrandName } from "../../components/brand/BrandMark.jsx";
 import { movementzIconSrc } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
@@ -3506,31 +3505,6 @@ export function WorkoutLibraryScreen({
       ctx.fillText(`${trimmed.trim()}...`, x, y);
     };
 
-    const drawWordmark = (centerX, y, maxWidth, fallbackSize = 42) => {
-      const letters = "MOVEMENTZ".split("");
-      const accentIndexes = new Set([0, 3, 7, 8]);
-      const baseGap = fallbackSize * 0.22;
-      ctx.font = `900 ${fallbackSize}px Arial`;
-      const measuredWidth = letters.reduce((total, letter, index) => (
-        total + ctx.measureText(letter).width + (index ? baseGap : 0)
-      ), 0);
-      const scale = measuredWidth > maxWidth ? maxWidth / measuredWidth : 1;
-      const fontSize = Math.floor(fallbackSize * scale);
-      const gap = baseGap * scale;
-      ctx.font = `900 ${fontSize}px Arial`;
-      const finalWidth = letters.reduce((total, letter, index) => (
-        total + ctx.measureText(letter).width + (index ? gap : 0)
-      ), 0);
-      let x = centerX - finalWidth / 2;
-      ctx.textAlign = "left";
-      letters.forEach((letter, index) => {
-        ctx.fillStyle = accentIndexes.has(index) ? "#50d0c7" : "#f4f8fb";
-        ctx.fillText(letter, x, y + fontSize);
-        x += ctx.measureText(letter).width + gap;
-      });
-      return fallbackSize;
-    };
-
     const drawIcon = (centerX, y, size = 96) => {
       if (icon?.width && icon?.height) {
         ctx.drawImage(icon, centerX - size / 2, y, size, size);
@@ -3557,19 +3531,18 @@ export function WorkoutLibraryScreen({
       const nameWidth = columnWidth - 150;
 
       ctx.textAlign = "center";
-      drawWordmark(width / 2, 88, 470, 42);
       ctx.fillStyle = "#ffffff";
       ctx.font = "800 38px Arial";
-      ctx.fillText("WORKOUT COMPLETE", width / 2, 245);
+      ctx.fillText("WORKOUT COMPLETE", width / 2, 180);
       ctx.font = "900 74px Arial";
-      drawTrimmedText(completedSession?.name || "Workout", width / 2, 335, width - 180);
+      drawTrimmedText(completedSession?.name || "Workout", width / 2, 275, width - 180);
 
       ctx.font = "800 30px Arial";
       ctx.fillStyle = "rgba(255,255,255,0.86)";
       ctx.textAlign = "left";
-      ctx.fillText(date, sidePadding, 420);
+      ctx.fillText(date, sidePadding, 370);
       ctx.textAlign = "right";
-      ctx.fillText(`${completedSession?.totalExercises || 0} EXERCISES`, width - sidePadding, 420);
+      ctx.fillText(`${completedSession?.totalExercises || 0} EXERCISES`, width - sidePadding, 370);
 
       ctx.textAlign = "left";
       ctx.font = splits.length > 14 ? "700 25px Arial" : "750 28px Arial";
@@ -3615,14 +3588,13 @@ export function WorkoutLibraryScreen({
     }
 
     ctx.textAlign = "center";
-    drawWordmark(width / 2, 125, 560, 56);
     ctx.fillStyle = "#ffffff";
     ctx.font = "800 54px Arial";
-    ctx.fillText("WORKOUT COMPLETE", width / 2, 410);
+    ctx.fillText("WORKOUT COMPLETE", width / 2, 310);
     ctx.font = "900 86px Arial";
-    drawTrimmedText(completedSession?.name || "Workout", width / 2, 520, width - 170);
+    drawTrimmedText(completedSession?.name || "Workout", width / 2, 420, width - 170);
     ctx.font = "700 38px Arial";
-    ctx.fillText(date, width / 2, 705);
+    ctx.fillText(date, width / 2, 600);
     ctx.fillStyle = "rgba(255,255,255,0.74)";
     ctx.font = "800 34px Arial";
     ctx.fillText(String(moment.label || "Achievement moment").toUpperCase(), width / 2, 880);
@@ -4427,7 +4399,6 @@ export function WorkoutLibraryScreen({
             <div className={isForTimeSession ? "share-preview-overlay for-time-share" : "share-preview-overlay"}>
               {isForTimeSession ? (
                 <>
-                  <BrandName className="share-logo-brand" />
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
                   <div className="share-title-meta">
@@ -4467,7 +4438,6 @@ export function WorkoutLibraryScreen({
                 </>
               ) : (
                 <>
-                  <BrandName className="share-logo-brand" />
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
                   <div className="share-details achievement-share-details">

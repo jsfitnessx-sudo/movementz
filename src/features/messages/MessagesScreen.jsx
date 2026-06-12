@@ -34,6 +34,7 @@ export function MessagesScreen({ onNotificationsChange, role = "normal_user", us
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const threadEndRef = useRef(null);
+  const composerRef = useRef(null);
 
   const selectedThread = useMemo(
     () => threads.find((thread) => thread.peer_id === selectedPeerId),
@@ -117,6 +118,14 @@ export function MessagesScreen({ onNotificationsChange, role = "normal_user", us
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, selectedPeerId]);
+
+  useEffect(() => {
+    if (!selectedThread || loadingMessages) return undefined;
+    const timer = window.setTimeout(() => {
+      composerRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [loadingMessages, messages.length, selectedThread]);
 
   async function sendMessage(event) {
     event.preventDefault();
@@ -223,7 +232,7 @@ export function MessagesScreen({ onNotificationsChange, role = "normal_user", us
           <div ref={threadEndRef} />
         </div>
 
-        <form className="message-composer" onSubmit={sendMessage}>
+        <form className="message-composer" onSubmit={sendMessage} ref={composerRef}>
           <textarea
             disabled={!selectedThread || sending}
             onChange={(event) => setDraft(event.target.value)}

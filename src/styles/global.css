@@ -4032,17 +4032,6 @@ button {
   object-fit: contain;
 }
 
-.share-logo-brand {
-  justify-content: center;
-  margin: 0 0 70px;
-  color: #f4f8fb;
-  font-size: clamp(24px, 8vw, 38px);
-  font-weight: 950;
-  letter-spacing: 0.22em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
 .share-complete {
   margin: 0 0 12px;
   font-size: 20px;
@@ -4066,11 +4055,6 @@ button {
   width: min(260px, 70%);
   max-height: 54px;
   margin-bottom: 28px;
-}
-
-.for-time-share .share-logo-brand {
-  margin-bottom: 28px;
-  font-size: clamp(20px, 6.6vw, 30px);
 }
 
 .for-time-share .share-complete {
@@ -9500,6 +9484,159 @@ button {
   font-style: normal;
 }
 
+.food-log-screen {
+  gap: 18px;
+}
+
+.food-log-screen .screen-heading {
+  padding-bottom: 4px;
+}
+
+.food-summary-card {
+  border-color: color-mix(in srgb, var(--teal) 18%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--teal) 8%, var(--panel)), var(--panel) 44%),
+    var(--panel);
+}
+
+.food-log-card {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--teal) 34%, var(--line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--teal) 8%, var(--panel)), var(--panel) 34%),
+    var(--panel);
+}
+
+.food-log-card > .eyebrow {
+  color: var(--teal);
+}
+
+.food-search-box input {
+  min-height: 50px;
+  border-color: color-mix(in srgb, var(--gold) 46%, var(--border));
+  background: #fff8d9;
+  color: #1f2a33;
+  box-shadow: 0 10px 22px rgba(255, 205, 62, 0.08);
+}
+
+.food-search-box input::placeholder {
+  color: rgba(31, 42, 51, 0.58);
+}
+
+.food-date-row input,
+.food-month-target input,
+.food-entry-grid input,
+.food-entry-grid select {
+  background: color-mix(in srgb, var(--panel) 88%, #ffffff);
+}
+
+.food-total-grid div,
+.coach-food-grid div {
+  border-color: color-mix(in srgb, var(--teal) 20%, var(--border));
+  background: color-mix(in srgb, var(--teal) 6%, var(--panel));
+}
+
+.food-total-grid div:first-child {
+  border-color: color-mix(in srgb, var(--teal) 46%, var(--border));
+}
+
+.nutrition-macro-targets {
+  border-color: color-mix(in srgb, var(--gold) 36%, var(--border));
+  background: color-mix(in srgb, var(--gold) 8%, var(--panel));
+}
+
+.macro-split-grid button,
+.macro-target-grid span {
+  background: color-mix(in srgb, var(--panel) 88%, #ffffff);
+}
+
+.food-meal-tabs button {
+  background: color-mix(in srgb, var(--panel) 92%, #ffffff);
+}
+
+.food-meal-tabs button.active {
+  box-shadow: inset 0 -3px 0 var(--teal);
+}
+
+.food-result-list {
+  border-color: color-mix(in srgb, var(--gold) 34%, var(--border));
+  background: color-mix(in srgb, #fff8d9 86%, var(--panel));
+}
+
+.food-result-list button {
+  border-color: color-mix(in srgb, var(--teal) 14%, var(--border));
+  background: color-mix(in srgb, #ffffff 86%, var(--panel));
+  color: #1f2a33;
+}
+
+.food-result-list span {
+  color: rgba(31, 42, 51, 0.64);
+}
+
+.nutrition-shortcuts {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--teal) 14%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--teal) 4%, var(--panel));
+}
+
+.food-lookup-helper {
+  border-style: dashed;
+}
+
+.food-meal-section {
+  border-color: color-mix(in srgb, var(--line) 70%, transparent);
+  background: color-mix(in srgb, var(--field) 42%, transparent);
+}
+
+.food-entry-row {
+  border-color: color-mix(in srgb, var(--teal) 13%, var(--line));
+  background: color-mix(in srgb, var(--panel) 72%, var(--field));
+}
+
+.food-history-grid button {
+  background: color-mix(in srgb, var(--panel) 90%, #ffffff);
+}
+
+.food-history-grid button.active {
+  box-shadow: inset 0 -4px 0 var(--teal);
+}
+
+.client-insight-panel {
+  gap: 14px;
+  border-color: color-mix(in srgb, var(--teal) 20%, var(--line));
+}
+
+.client-insight-header {
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+
+.client-metric-grid div {
+  border-color: color-mix(in srgb, var(--teal) 16%, var(--line));
+  background: color-mix(in srgb, var(--teal) 5%, var(--field));
+}
+
+.client-progress-card {
+  border-color: color-mix(in srgb, var(--line) 72%, transparent);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
+
+.coach-checkin-review {
+  border-color: color-mix(in srgb, var(--gold) 30%, var(--line));
+  background: color-mix(in srgb, var(--gold) 5%, var(--panel));
+}
+
+.coach-checkin-latest {
+  border-color: color-mix(in srgb, var(--gold) 32%, var(--line));
+  background: color-mix(in srgb, var(--gold) 7%, var(--panel));
+}
+
+.coach-checkin-row {
+  background: color-mix(in srgb, var(--panel) 76%, var(--field));
+}
+
 @media (max-width: 720px) {
   .main-panel {
     padding: 12px 10px 92px;
@@ -10270,4 +10407,80 @@ textarea::placeholder {
   border-color: var(--line);
   background: #ffffff;
   color: var(--text);
+}
+
+.food-summary-card {
+  border-color: color-mix(in srgb, var(--teal) 18%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--teal) 8%, #ffffff), #ffffff 48%);
+}
+
+.food-log-card {
+  border-color: color-mix(in srgb, var(--teal) 34%, var(--line));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--teal) 7%, #ffffff), #ffffff 38%);
+  box-shadow: var(--shadow-soft);
+}
+
+.food-search-box input {
+  border-color: color-mix(in srgb, var(--gold) 52%, var(--line));
+  background: #fff8d9;
+  color: #1f2a33;
+}
+
+.food-search-box input::placeholder {
+  color: rgba(31, 42, 51, 0.6);
+}
+
+.food-total-grid div,
+.coach-food-grid div,
+.food-calculated {
+  border-color: color-mix(in srgb, var(--teal) 18%, var(--line));
+  background: color-mix(in srgb, var(--teal) 6%, #ffffff);
+}
+
+.nutrition-macro-targets {
+  border-color: color-mix(in srgb, var(--gold) 36%, var(--line));
+  background: color-mix(in srgb, var(--gold) 8%, #ffffff);
+}
+
+.macro-split-grid button,
+.macro-target-grid span,
+.food-meal-tabs button,
+.food-history-grid button {
+  background: #ffffff;
+}
+
+.food-result-list {
+  border-color: color-mix(in srgb, var(--gold) 34%, var(--line));
+  background: color-mix(in srgb, #fff8d9 74%, #ffffff);
+}
+
+.food-result-list button,
+.food-meal-section,
+.food-entry-row {
+  background: #ffffff;
+}
+
+.nutrition-shortcuts {
+  border-color: color-mix(in srgb, var(--teal) 14%, var(--line));
+  background: color-mix(in srgb, var(--teal) 4%, #ffffff);
+}
+
+.client-insight-header {
+  border-bottom-color: color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+.client-metric-grid div {
+  border-color: color-mix(in srgb, var(--teal) 16%, var(--line));
+  background: color-mix(in srgb, var(--teal) 5%, #ffffff);
+}
+
+.client-progress-card {
+  border-color: color-mix(in srgb, var(--line) 72%, transparent);
+  background: #ffffff;
+}
+
+.coach-checkin-review,
+.coach-checkin-latest {
+  border-color: color-mix(in srgb, var(--gold) 30%, var(--line));
+  background: color-mix(in srgb, var(--gold) 6%, #ffffff);
 }
