@@ -3066,6 +3066,33 @@ export function WorkoutLibraryScreen({
     setSharingWorkout(null);
   }
 
+  async function removeMutualSharedWorkout(shareId) {
+    if (!shareId) return;
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Connect Supabase to remove shared workouts.");
+      return;
+    }
+
+    const confirmed = window.confirm("Remove this shared workout from your library? The original workout will not be deleted.");
+    if (!confirmed) return;
+
+    setMessage("");
+
+    const { error } = await supabase.rpc("revoke_mutual_workout_share", {
+      p_share_id: shareId
+    });
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-43-mutual-shared-workout-recipient-remove.sql in Supabase.`);
+      return;
+    }
+
+    setMutualSharedWorkouts((current) => current.filter((share) => share.share_id !== shareId));
+    setOpenWorkoutMenu(null);
+    setMessage("Shared workout removed from your library.");
+  }
+
   async function toggleWorkoutDetails(workout) {
     const isExpanded = expandedWorkoutIds.has(workout.id);
     if (isExpanded) {
@@ -6269,9 +6296,11 @@ export function WorkoutLibraryScreen({
               };
               const exercises = workout.workout_template_exercises || [];
               const muscleSummary = [...new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean))];
+              const hasExerciseDetails = exercises.length > 0;
               const sharedDate = share.shared_at
                 ? new Date(share.shared_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })
                 : "";
+              const menuKey = `shared-${share.share_id}`;
 
               return (
                 <article className="workout-card assigned-library-card" key={share.share_id}>
@@ -6289,9 +6318,45 @@ export function WorkoutLibraryScreen({
                     <span>{sharedDate ? `Shared ${sharedDate}` : "Shared"}</span>
                   </div>
                   {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
-                  <button className="primary-action filled" onClick={() => startSession(sharedWorkout)} type="button">
-                    Start
-                  </button>
+                  {hasExerciseDetails ? (
+                    <div className="workout-exercise-summary prototype-exercise-preview">
+                      {exercises.slice(0, 4).map((exercise) => (
+                        <div key={exercise.id || `${share.share_id}-${exercise.position}`}>
+                          <strong>{exercise.exercise_name}</strong>
+                          <span>{formatExerciseTarget(exercise, workout.workout_type)}</span>
+                        </div>
+                      ))}
+                      {exercises.length > 4 ? (
+                        <p className="compact-help">+ {exercises.length - 4} more exercises</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className="library-actions prototype-workout-actions">
+                    <button className="primary-action filled" onClick={() => startSession(sharedWorkout)} type="button">
+                      Start
+                    </button>
+                    <div className="session-menu-wrap workout-menu-wrap">
+                      <button
+                        aria-label={`${workout.name || "Shared workout"} options`}
+                        className="icon-action"
+                        onClick={() => setOpenWorkoutMenu((current) => (current === menuKey ? null : menuKey))}
+                        type="button"
+                      >
+                        ...
+                      </button>
+                      {openWorkoutMenu === menuKey ? (
+                        <div className="session-menu workout-action-menu">
+                          <button
+                            className="danger-text"
+                            onClick={() => removeMutualSharedWorkout(share.share_id)}
+                            type="button"
+                          >
+                            Remove shared workout
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </article>
               );
             })}
