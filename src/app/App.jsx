@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BrandName } from "../components/brand/BrandMark.jsx";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AdminCoachesScreen } from "../features/admin/AdminCoachesScreen.jsx";
@@ -25,7 +24,7 @@ import { WorkoutLibraryScreen } from "../features/workouts/WorkoutLibraryScreen.
 import { tabIsLocked } from "../lib/access/paidAccess.js";
 import { roleTabs } from "../lib/roles/roleTabs.js";
 import { getInitialRole } from "../lib/roles/getInitialRole.js";
-import { movementzIconSrc } from "../lib/brandAssets.js";
+import { movementzWordmarkSrc } from "../lib/brandAssets.js";
 import { enablePhonePushNotifications, getPushStatus } from "../lib/pushNotifications.js";
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
 
@@ -169,8 +168,7 @@ function CoachCheckoutGate({ appMessage, onContinue, onSignOut }) {
   return (
     <main className="auth-screen">
       <section className="auth-card auth-brand">
-        <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
-        <h1><BrandName /></h1>
+        <img className="auth-wordmark" src={movementzWordmarkSrc} alt="Movementz" />
         <p>Coach account created.</p>
         <p>Complete the coach subscription to unlock your coach dashboard.</p>
         {appMessage ? <div className="auth-status">{appMessage}</div> : null}
@@ -834,8 +832,7 @@ export function App() {
     return (
       <main className="auth-screen">
         <section className="auth-card auth-brand">
-          <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
-          <h1><BrandName /></h1>
+          <img className="auth-wordmark" src={movementzWordmarkSrc} alt="Movementz" />
           <p>Loading your account...</p>
         </section>
       </main>
@@ -846,8 +843,7 @@ export function App() {
     return (
       <main className="auth-screen">
         <section className="auth-card auth-brand">
-          <img className="brand-loading-icon" src={movementzIconSrc} alt="" />
-          <h1><BrandName /></h1>
+          <img className="auth-wordmark" src={movementzWordmarkSrc} alt="Movementz" />
           <p>Preparing coach checkout...</p>
         </section>
       </main>
