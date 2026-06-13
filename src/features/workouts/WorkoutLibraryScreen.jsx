@@ -1928,19 +1928,17 @@ export function WorkoutLibraryScreen({
       return;
     }
 
-    if (form.workout_type !== "hiit") {
-      const incompleteGroup = getBuilderMuscleGroups().find((muscle) => {
-        const selectedCount = getSelectedExercisesForMuscle(muscle).length;
-        const targetCount = getTargetCountForMuscle(muscle);
-        return selectedCount !== targetCount;
-      });
+    const incompleteGroup = getBuilderMuscleGroups().find((muscle) => {
+      const selectedCount = getSelectedExercisesForMuscle(muscle).length;
+      const targetCount = getTargetCountForMuscle(muscle);
+      return selectedCount !== targetCount;
+    });
 
-      if (incompleteGroup) {
-        setMessage(
-          `${incompleteGroup} needs ${getTargetCountForMuscle(incompleteGroup)} confirmed exercises before reviewing.`
-        );
-        return;
-      }
+    if (incompleteGroup) {
+      setMessage(
+        `${incompleteGroup} needs ${getTargetCountForMuscle(incompleteGroup)} confirmed exercises before reviewing.`
+      );
+      return;
     }
 
     const firstUnconfirmedIndex = form.exercises.findIndex(
@@ -4069,7 +4067,7 @@ export function WorkoutLibraryScreen({
     );
   }
 
-  function renderGroupedStrengthExercisePicker() {
+  function renderGroupedExercisePicker() {
     const groups = getBuilderMuscleGroups();
 
     if (groups.length === 0) {
@@ -5657,7 +5655,7 @@ export function WorkoutLibraryScreen({
               </button>
             </div>
 
-            {form.workout_type === "hiit" ? (
+            {form.workout_type === "__legacy_hiit" ? (
               form.exercises.map((exercise, index) => {
               const searchResults = exercise.search
                 ? uniqueNames([
@@ -5807,7 +5805,7 @@ export function WorkoutLibraryScreen({
               );
               })
             ) : (
-              renderGroupedStrengthExercisePicker()
+              renderGroupedExercisePicker()
             )}
           </div>
           <div className="form-footer-actions">
@@ -5925,6 +5923,17 @@ export function WorkoutLibraryScreen({
 
                     {form.workout_type === "hiit" ? (
                       <>
+                        <div className="form-grid one builder-target-grid">
+                          <label>
+                            Target value
+                            <input
+                              min="0"
+                              onChange={(event) => updateExercise(index, "target_value", event.target.value)}
+                              type="number"
+                              value={exercise.target_value}
+                            />
+                          </label>
+                        </div>
                         <div className="target-type-picker">
                           <p className="eyebrow">Target</p>
                           <div className="segmented-options">
@@ -5939,17 +5948,6 @@ export function WorkoutLibraryScreen({
                               </button>
                             ))}
                           </div>
-                        </div>
-                        <div className="form-grid one builder-target-grid">
-                          <label>
-                            Target value
-                            <input
-                              min="0"
-                              onChange={(event) => updateExercise(index, "target_value", event.target.value)}
-                              type="number"
-                              value={exercise.target_value}
-                            />
-                          </label>
                         </div>
                       </>
                     ) : (

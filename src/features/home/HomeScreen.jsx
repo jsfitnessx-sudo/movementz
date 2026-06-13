@@ -701,7 +701,7 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
           <div className="section-row">
             <div>
               <p className="eyebrow">Future reminders</p>
-              <h2>Hidden goals</h2>
+              <h2>Future Goals</h2>
             </div>
             <button className="primary-action compact" onClick={() => onNavigate("mindset")} type="button">Open</button>
           </div>
