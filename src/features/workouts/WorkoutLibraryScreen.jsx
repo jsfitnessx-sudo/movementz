@@ -728,6 +728,7 @@ function buildQuickNotes(form) {
 export function WorkoutLibraryScreen({
   autoStartWorkout = null,
   embedded = false,
+  initialLibraryView = "library",
   initialMode = "list",
   onClose,
   onWorkoutSaved,
@@ -739,7 +740,7 @@ export function WorkoutLibraryScreen({
   const [assignedWorkouts, setAssignedWorkouts] = useState([]);
   const [mutualSharedWorkouts, setMutualSharedWorkouts] = useState([]);
   const [mutualRecipients, setMutualRecipients] = useState([]);
-  const [libraryView, setLibraryView] = useState("library");
+  const [libraryView, setLibraryView] = useState(initialLibraryView);
   const [showArchivedWorkouts, setShowArchivedWorkouts] = useState(false);
   const [recentSessions, setRecentSessions] = useState([]);
   const [coachClients, setCoachClients] = useState([]);
@@ -797,6 +798,11 @@ export function WorkoutLibraryScreen({
   const hiitLastBeepRef = useRef("");
   const audioContextRef = useRef(null);
   const recoveryHydratedRef = useRef(false);
+
+  useEffect(() => {
+    setLibraryView(initialLibraryView || "library");
+  }, [initialLibraryView]);
+
   const recoveryKey = useMemo(() => {
     if (!user?.id) return "";
     const context = embedded || autoStartWorkout ? "embedded" : "main";
@@ -1514,7 +1520,7 @@ export function WorkoutLibraryScreen({
   async function loadWorkoutDetails(workout) {
     if (!supabase || user.id === "demo-user") return workout;
 
-    if (workout.assignment_id || workout.isAssignedWorkout) {
+    if (workout.assignment_id || workout.isAssignedWorkout || workout.share_id || workout.isMutualSharedWorkout) {
       return {
         ...workout,
         workout_template_exercises: (workout.workout_template_exercises || []).sort(

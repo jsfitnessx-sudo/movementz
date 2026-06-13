@@ -429,6 +429,9 @@ export function App() {
   async function handleNotificationSelect(notification) {
     await markNotificationsRead({ notificationId: notification.id });
     setNotificationSummary((current) => ({ ...current, open: false }));
+    if (notification.link_tab === "workouts" && notification.link_payload?.view === "shared") {
+      setWorkoutIntent("shared");
+    }
     if (notification.link_tab) {
       setActiveTab(notification.link_tab);
     }
@@ -938,6 +941,7 @@ export function App() {
       ) : activeTab === "workouts" ? (
         <WorkoutLibraryScreen
           initialMode={workoutIntent === "quick" ? "quick-log" : workoutIntent === "build" ? "setup" : "list"}
+          initialLibraryView={workoutIntent === "shared" ? "shared" : "library"}
           role={effectiveRole}
           user={user}
         />
