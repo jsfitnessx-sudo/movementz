@@ -318,3 +318,5 @@ end;
 $$;
 
 grant execute on function public.decline_client_invite(text) to authenticated;
+
+notify pgrst, 'reload schema';

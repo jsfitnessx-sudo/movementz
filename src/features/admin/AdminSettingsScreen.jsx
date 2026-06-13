@@ -281,13 +281,13 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setMessage("");
 
     const { data, error } = await supabase.rpc("create_admin_coach_invite", {
-      invite_email: coachInviteEmail.trim() || null
+      invite_email_input: coachInviteEmail.trim() || null
     });
 
     setSaving("");
 
     if (error) {
-      setMessage(`${error.message}. Run supabase/phase-31-admin-coach-invites.sql in Supabase.`);
+      setMessage(`${error.message}. Run the latest supabase/phase-31-admin-coach-invites.sql in Supabase, then refresh.`);
       return;
     }
 

@@ -27,7 +27,7 @@ begin
 end;
 $$;
 
-create or replace function public.create_admin_coach_invite(invite_email text default null)
+create or replace function public.create_admin_coach_invite(invite_email_input text default null)
 returns table (
   invite_code text
 )
@@ -46,7 +46,7 @@ begin
   values (
     auth.uid(),
     'coach',
-    nullif(lower(trim(invite_email)), ''),
+    nullif(lower(trim(invite_email_input)), ''),
     now() + interval '14 days'
   )
   returning * into created_invite;
