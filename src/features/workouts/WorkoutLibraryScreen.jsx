@@ -223,9 +223,14 @@ function createExerciseForMuscle(muscle, index, defaultSets = 4, overrides = {})
     muscle_group: muscle,
     sets: defaultSets,
     exercise_name: "",
+    template_sets: createBlankTemplateSets(defaultSets),
     suggestionOffset: index,
     ...overrides
   };
+}
+
+function createBlankTemplateSets(count = 1) {
+  return Array.from({ length: Math.max(1, Number(count) || 1) }, () => ({ kg: "", reps: "" }));
 }
 
 function getSuggestions(exercise) {
@@ -720,6 +725,8 @@ export function WorkoutLibraryScreen({
   const [catalogExerciseNames, setCatalogExerciseNames] = useState(new Set());
   const [catalogSearchResults, setCatalogSearchResults] = useState({});
   const [exerciseDbSearchResults, setExerciseDbSearchResults] = useState({});
+  const [builderGroupSearches, setBuilderGroupSearches] = useState({});
+  const [builderGroupSearchResults, setBuilderGroupSearchResults] = useState({});
   const [builderSuggestionExtras, setBuilderSuggestionExtras] = useState({});
   const [swapCatalogResults, setSwapCatalogResults] = useState([]);
   const [swapExerciseDbResults, setSwapExerciseDbResults] = useState([]);
@@ -777,11 +784,13 @@ export function WorkoutLibraryScreen({
   const knownExerciseKeys = useMemo(() => {
     const exerciseDbNames = [
       ...Object.values(exerciseDbSearchResults).flat(),
+      ...Object.values(builderGroupSearchResults).flat(),
+      ...Object.values(builderSuggestionExtras).flat(),
       ...swapExerciseDbResults
     ];
     const names = [...getLocalExerciseNames(), ...customExerciseNames, ...catalogExerciseNames, ...exerciseDbNames];
     return new Set(names.map(toExerciseKey));
-  }, [catalogExerciseNames, customExerciseNames, exerciseDbSearchResults, swapExerciseDbResults]);
+  }, [builderGroupSearchResults, builderSuggestionExtras, catalogExerciseNames, customExerciseNames, exerciseDbSearchResults, swapExerciseDbResults]);
 
   const getBuilderSuggestions = useCallback((exercise, index) => {
     const muscle = (exercise.muscle_group || "").toLowerCase();
@@ -1264,6 +1273,49 @@ export function WorkoutLibraryScreen({
 
     return () => window.clearTimeout(timeout);
   }, [form.exercises, mode, user.id]);
+
+  useEffect(() => {
+    if (!supabase || user.id === "demo-user" || mode !== "editor") return undefined;
+
+    const searchableGroups = Object.entries(builderGroupSearches)
+      .map(([muscle, search]) => ({ muscle, search: search.trim() }))
+      .filter((entry) => entry.search.length >= 2);
+
+    if (searchableGroups.length === 0) return undefined;
+
+    const timeout = window.setTimeout(async () => {
+      const nextGroupResults = {};
+      const foundNames = [];
+
+      await Promise.all(
+        searchableGroups.map(async ({ muscle, search }) => {
+          const [catalogResponse, exerciseDbNames] = await Promise.all([
+            supabase
+              .from("exercise_catalog")
+              .select("exercise_name")
+              .ilike("exercise_name", `%${search}%`)
+              .order("exercise_name", { ascending: true })
+              .limit(CATALOG_SEARCH_LIMIT),
+            searchExerciseDb({
+              query: search,
+              muscle,
+              limit: CATALOG_SEARCH_LIMIT
+            })
+          ]);
+
+          const catalogNames = catalogResponse.error ? [] : (catalogResponse.data || []).map((row) => row.exercise_name);
+          const names = uniqueNames([...catalogNames, ...exerciseDbNames]).slice(0, CATALOG_SEARCH_LIMIT);
+          nextGroupResults[muscle] = names;
+          foundNames.push(...names);
+        })
+      );
+
+      setBuilderGroupSearchResults(nextGroupResults);
+      setCatalogExerciseNames((current) => new Set([...current, ...foundNames]));
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [builderGroupSearches, mode, user.id]);
 
   useEffect(() => {
     if (!supabase || user.id === "demo-user" || swapTargetIndex === null) return undefined;
@@ -1782,6 +1834,8 @@ export function WorkoutLibraryScreen({
       exercises
     });
     setBuilderSuggestionExtras({});
+    setBuilderGroupSearches({});
+    setBuilderGroupSearchResults({});
     setActiveBuilderExerciseIndex(0);
     setMessage("");
     setMode("editor");
@@ -1819,10 +1873,13 @@ export function WorkoutLibraryScreen({
         target_value: exercise.target_value || exercise.rep_min || 10,
         search: "",
         selection_confirmed: true,
+        template_sets: createBlankTemplateSets(exercise.sets || 3),
         suggestionOffset: 0
       }))
     });
     setActiveBuilderExerciseIndex(0);
+    setBuilderGroupSearches({});
+    setBuilderGroupSearchResults({});
     setMessage("");
     setMode("review");
   }
@@ -1832,6 +1889,21 @@ export function WorkoutLibraryScreen({
     if (selectedExercises.length === 0) {
       setMessage("Select at least one exercise before reviewing.");
       return;
+    }
+
+    if (form.workout_type !== "hiit") {
+      const incompleteGroup = getBuilderMuscleGroups().find((muscle) => {
+        const selectedCount = getSelectedExercisesForMuscle(muscle).length;
+        const targetCount = getTargetCountForMuscle(muscle);
+        return selectedCount !== targetCount;
+      });
+
+      if (incompleteGroup) {
+        setMessage(
+          `${incompleteGroup} needs ${getTargetCountForMuscle(incompleteGroup)} confirmed exercises before reviewing.`
+        );
+        return;
+      }
     }
 
     const firstUnconfirmedIndex = form.exercises.findIndex(
@@ -1852,6 +1924,144 @@ export function WorkoutLibraryScreen({
     setActiveBuilderExerciseIndex(Math.max(0, Math.min(index, form.exercises.length - 1)));
     setMessage("");
     setMode("editor");
+  }
+
+  function getBuilderMuscleGroups() {
+    return uniqueNames(form.exercises.map((exercise) => exercise.muscle_group || "Chest"));
+  }
+
+  function getTargetCountForMuscle(muscle) {
+    return form.exercises.filter((exercise) => (exercise.muscle_group || "Chest") === muscle).length;
+  }
+
+  function getSelectedExercisesForMuscle(muscle) {
+    return form.exercises
+      .map((exercise, index) => ({ ...exercise, index }))
+      .filter((exercise) => (exercise.muscle_group || "Chest") === muscle && exercise.exercise_name.trim());
+  }
+
+  function getGroupExerciseOptions(muscle) {
+    const muscleKey = muscle || "Chest";
+    const matchingCustomExercises = customExerciseOptions
+      .filter((option) => !option.muscle_group || option.muscle_group.toLowerCase() === muscleKey.toLowerCase())
+      .map((option) => option.exercise_name);
+    const selectedNames = getSelectedExercisesForMuscle(muscleKey).map((exercise) => exercise.exercise_name);
+
+    return uniqueNames([
+      ...(exerciseLibrary[muscleKey] || []),
+      ...(builderSuggestionExtras[muscleKey] || []),
+      ...matchingCustomExercises,
+      ...selectedNames
+    ]).slice(0, 12);
+  }
+
+  function updateGroupSearch(muscle, value) {
+    setBuilderGroupSearches((current) => ({ ...current, [muscle]: value }));
+    if (value.trim().length < 2) {
+      setBuilderGroupSearchResults((current) => {
+        const next = { ...current };
+        delete next[muscle];
+        return next;
+      });
+    }
+  }
+
+  function toggleGroupExercise(muscle, exerciseName, isTypedCustom = false) {
+    const cleanExerciseName = exerciseName.trim();
+    if (!cleanExerciseName) return;
+
+    const selectedExercises = getSelectedExercisesForMuscle(muscle);
+    const existingSelection = selectedExercises.find(
+      (exercise) => toExerciseKey(exercise.exercise_name) === toExerciseKey(cleanExerciseName)
+    );
+
+    if (existingSelection) {
+      clearBuilderExercise(existingSelection.index);
+      return;
+    }
+
+    const targetCount = getTargetCountForMuscle(muscle);
+    if (selectedExercises.length >= targetCount) {
+      setMessage(`${muscle} already has ${targetCount} selected exercises. Remove one to choose another.`);
+      return;
+    }
+
+    const targetIndex = form.exercises.findIndex(
+      (exercise) => (exercise.muscle_group || "Chest") === muscle && !exercise.exercise_name.trim()
+    );
+
+    if (targetIndex < 0) return;
+
+    const isCustomExercise = isTypedCustom || !knownExerciseKeys.has(toExerciseKey(cleanExerciseName));
+    setActiveBuilderExerciseIndex(targetIndex);
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise, exerciseIndex) =>
+        exerciseIndex === targetIndex
+          ? {
+              ...exercise,
+              exercise_name: cleanExerciseName,
+              is_custom_exercise: isCustomExercise,
+              search: "",
+              selection_confirmed: true,
+              template_sets: createBlankTemplateSets(exercise.sets)
+            }
+          : exercise
+      )
+    }));
+    updateGroupSearch(muscle, "");
+    setMessage("");
+  }
+
+  function clearBuilderExercise(index) {
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise, exerciseIndex) =>
+        exerciseIndex === index
+          ? {
+              ...exercise,
+              exercise_name: "",
+              is_custom_exercise: false,
+              search: "",
+              selection_confirmed: false,
+              template_sets: createBlankTemplateSets(exercise.sets)
+            }
+          : exercise
+      )
+    }));
+    setMessage("");
+  }
+
+  async function refreshGroupSuggestions(muscle) {
+    const muscleKey = muscle || "Chest";
+    const currentExtras = builderSuggestionExtras[muscleKey] || [];
+    const nextOffset = currentExtras.length + (exerciseLibrary[muscleKey] || []).length;
+
+    await loadCustomExerciseOptions();
+
+    const [catalogResponse, exerciseDbNames] = await Promise.all([
+      supabase && user.id !== "demo-user"
+        ? supabase
+            .from("exercise_catalog")
+            .select("exercise_name")
+            .ilike("muscle_group", `%${muscleKey}%`)
+            .order("exercise_name", { ascending: true })
+            .range(nextOffset, nextOffset + 15)
+        : Promise.resolve({ data: [], error: null }),
+      searchExerciseDb({
+        muscle: muscleKey,
+        limit: 16,
+        offset: nextOffset
+      })
+    ]);
+
+    const catalogNames = catalogResponse.error ? [] : (catalogResponse.data || []).map((row) => row.exercise_name);
+    const extraNames = uniqueNames([...currentExtras, ...catalogNames, ...exerciseDbNames]);
+    setBuilderSuggestionExtras((current) => ({ ...current, [muscleKey]: extraNames }));
+    if (extraNames.length) {
+      setCatalogExerciseNames((current) => new Set([...current, ...extraNames]));
+    }
+    setMessage("");
   }
 
   function updateMuscleTarget(muscle, change) {
@@ -2159,10 +2369,48 @@ export function WorkoutLibraryScreen({
       ...current,
       exercises: current.exercises.map((exercise, exerciseIndex) =>
         exerciseIndex === index
-          ? { ...exercise, sets: Math.max(1, Math.min(12, (Number(exercise.sets) || 1) + change)) }
+          ? (() => {
+              const nextSets = Math.max(1, Math.min(12, (Number(exercise.sets) || 1) + change));
+              const currentRows = Array.isArray(exercise.template_sets) ? exercise.template_sets : [];
+              return {
+                ...exercise,
+                sets: nextSets,
+                template_sets:
+                  nextSets > currentRows.length
+                    ? [...currentRows, ...createBlankTemplateSets(nextSets - currentRows.length)]
+                    : currentRows.slice(0, nextSets)
+              };
+            })()
           : exercise
       )
     }));
+  }
+
+  function updateTemplateSet(index, setIndex, field, value) {
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise, exerciseIndex) => {
+        if (exerciseIndex !== index) return exercise;
+        const rows = Array.isArray(exercise.template_sets)
+          ? [...exercise.template_sets]
+          : createBlankTemplateSets(exercise.sets);
+        rows[setIndex] = { ...(rows[setIndex] || { kg: "", reps: "" }), [field]: value };
+        const firstFilledRow = rows.find((row) => row.kg !== "" || row.reps !== "");
+        return {
+          ...exercise,
+          template_sets: rows,
+          start_kg: firstFilledRow?.kg ?? "",
+          rep_min: firstFilledRow?.reps ?? "",
+          rep_max: firstFilledRow?.reps ?? ""
+        };
+      })
+    }));
+  }
+
+  function getTemplateSetRows(exercise) {
+    const rowCount = Math.max(1, Number(exercise.sets) || 1);
+    const rows = Array.isArray(exercise.template_sets) ? exercise.template_sets : [];
+    return Array.from({ length: rowCount }, (_, index) => rows[index] || { kg: "", reps: "" });
   }
 
   function removeExercise(index) {
@@ -3762,6 +4010,146 @@ export function WorkoutLibraryScreen({
     );
   }
 
+  function renderGroupedStrengthExercisePicker() {
+    const groups = getBuilderMuscleGroups();
+
+    if (groups.length === 0) {
+      return (
+        <div className="setup-card">
+          <p className="compact-help">Go back and choose at least one muscle group.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="builder-group-grid">
+        {groups.map((muscle) => {
+          const targetCount = getTargetCountForMuscle(muscle);
+          const selectedExercises = getSelectedExercisesForMuscle(muscle);
+          const selectedNames = new Set(selectedExercises.map((exercise) => exercise.exercise_name));
+          const options = getGroupExerciseOptions(muscle);
+          const searchValue = builderGroupSearches[muscle] || "";
+          const searchResults = searchValue
+            ? uniqueNames([
+                ...(builderGroupSearchResults[muscle] || []),
+                ...getLocalExerciseNames().filter((name) =>
+                  name.toLowerCase().includes(searchValue.toLowerCase())
+                ),
+                ...customExerciseList.filter((name) =>
+                  name.toLowerCase().includes(searchValue.toLowerCase())
+                )
+              ]).slice(0, 8)
+            : [];
+          const hasReachedTarget = selectedExercises.length >= targetCount;
+
+          return (
+            <article
+              className={selectedExercises.length === targetCount ? "builder-group-card complete" : "builder-group-card"}
+              key={muscle}
+            >
+              <div className="builder-group-head">
+                <div>
+                  <p className="eyebrow">{muscle} exercises</p>
+                  <h3>
+                    {selectedExercises.length}/{targetCount} selected
+                  </h3>
+                </div>
+                <button className="primary-action compact" onClick={() => refreshGroupSuggestions(muscle)} type="button">
+                  Refresh
+                </button>
+              </div>
+
+              <div className="builder-option-list">
+                {options.map((option) => {
+                  const isSelected = selectedNames.has(option);
+                  return (
+                    <button
+                      className={isSelected ? "builder-option selected" : "builder-option"}
+                      disabled={!isSelected && hasReachedTarget}
+                      key={option}
+                      onClick={() => toggleGroupExercise(muscle, option)}
+                      type="button"
+                    >
+                      <span>{option}</span>
+                      <strong>{isSelected ? "x" : "+"}</strong>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <label className="builder-group-search">
+                Search exercises
+                <input
+                  onChange={(event) => updateGroupSearch(muscle, event.target.value)}
+                  placeholder={`Search ${muscle} exercises...`}
+                  value={searchValue}
+                />
+              </label>
+
+              {searchResults.length > 0 ? (
+                <div className="search-results builder-search-results">
+                  {searchResults.map((result) => {
+                    const isSelected = selectedNames.has(result);
+                    return (
+                      <button
+                        disabled={!isSelected && hasReachedTarget}
+                        key={result}
+                        onClick={() => toggleGroupExercise(muscle, result)}
+                        type="button"
+                      >
+                        {isSelected ? "Remove " : "Add "}
+                        {result}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : searchValue.trim() ? (
+                <button
+                  className="primary-action compact builder-custom-request-action"
+                  disabled={hasReachedTarget}
+                  onClick={() => toggleGroupExercise(muscle, searchValue, true)}
+                  type="button"
+                >
+                  Request YouTube link + choose this
+                </button>
+              ) : null}
+
+              <div className="builder-confirmed-panel">
+                <div className="builder-confirmed-head">
+                  <strong>Confirmed exercises</strong>
+                  <span>
+                    {selectedExercises.length}/{targetCount}
+                  </span>
+                </div>
+                {selectedExercises.length > 0 ? (
+                  <div className="builder-confirmed-list">
+                    {selectedExercises.map((exercise) => (
+                      <div className="builder-confirmed-item" key={exercise.id || exercise.index}>
+                        <button onClick={() => clearBuilderExercise(exercise.index)} type="button">
+                          x
+                        </button>
+                        <span>{exercise.exercise_name}</span>
+                        <button
+                          className="text-link"
+                          onClick={() => showDemo(exercise.exercise_name)}
+                          type="button"
+                        >
+                          Demo
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="compact-help">Choose {targetCount} exercises for {muscle}.</p>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    );
+  }
+
   function renderSwapPanel(exercise) {
     const muscleOptions = exerciseLibrary[exercise?.muscle_group] || [];
     const hasSearch = swapSearch.trim().length >= 2;
@@ -5202,14 +5590,16 @@ export function WorkoutLibraryScreen({
             <div className="section-row exercise-list-head">
               <div>
                 <p className="eyebrow">Step 2</p>
-                <h2>Pick movements</h2>
+                <h2>Select exercises</h2>
+                <p>Choose the required number for each muscle group.</p>
               </div>
               <button className="primary-action compact" onClick={addExercise} type="button">
                 Add Exercise
               </button>
             </div>
 
-            {form.exercises.map((exercise, index) => {
+            {form.workout_type === "hiit" ? (
+              form.exercises.map((exercise, index) => {
               const searchResults = exercise.search
                 ? uniqueNames([
                     ...(catalogSearchResults[index] || []),
@@ -5356,7 +5746,10 @@ export function WorkoutLibraryScreen({
                   ) : null}
                 </div>
               );
-            })}
+              })
+            ) : (
+              renderGroupedStrengthExercisePicker()
+            )}
           </div>
           <div className="form-footer-actions">
             <button className="primary-action filled" onClick={goToWorkoutReview} type="button">
@@ -5511,53 +5904,46 @@ export function WorkoutLibraryScreen({
                       </>
                     ) : (
                       <>
-                        <div className="builder-set-review-row">
-                          <span>Sets</span>
-                          <div className="stepper-control">
-                            <button onClick={() => updateExerciseSetCount(index, -1)} type="button">
-                              -
-                            </button>
-                            <strong>{exercise.sets || 1}</strong>
-                            <button onClick={() => updateExerciseSetCount(index, 1)} type="button">
-                              +
-                            </button>
+                        <div className="session-set-table builder-template-set-table">
+                          <div className="session-set-row session-set-head">
+                            <span>Set</span>
+                            <span>Kg</span>
+                            <span>Reps</span>
+                            <span>Done</span>
                           </div>
+                          {getTemplateSetRows(exercise).map((row, setIndex) => (
+                            <div className="session-set-row builder-template-set-row" key={`${index}-${setIndex}`}>
+                              <strong>{setIndex + 1}</strong>
+                              <input
+                                inputMode="decimal"
+                                min="0"
+                                onChange={(event) => updateTemplateSet(index, setIndex, "kg", event.target.value)}
+                                placeholder="kg"
+                                step="0.25"
+                                type="number"
+                                value={row.kg}
+                              />
+                              <input
+                                inputMode="numeric"
+                                min="0"
+                                onChange={(event) => updateTemplateSet(index, setIndex, "reps", event.target.value)}
+                                placeholder="reps"
+                                type="number"
+                                value={row.reps}
+                              />
+                              <button className="set-toggle" disabled type="button">
+                                Done
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                        <div className="form-grid two builder-metric-grid">
-                          <label>
-                            Reps
-                            <input
-                              min="0"
-                              onChange={(event) => {
-                                updateExercise(index, "rep_min", event.target.value);
-                                updateExercise(index, "rep_max", event.target.value);
-                              }}
-                              type="number"
-                              value={exercise.rep_min}
-                            />
-                          </label>
-                          <label>
-                            Start kg
-                            <input
-                              min="0"
-                              onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
-                              step="0.25"
-                              type="number"
-                              value={exercise.start_kg}
-                            />
-                          </label>
-                        </div>
-                        <div className="form-grid one builder-rest-grid">
-                          <label>
-                            Rest sec
-                            <input
-                              min="0"
-                              onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
-                              type="number"
-                              value={exercise.rest_seconds}
-                            />
-                          </label>
-                        </div>
+                        <button
+                          className="primary-action builder-add-set-action"
+                          onClick={() => updateExerciseSetCount(index, 1)}
+                          type="button"
+                        >
+                          Add Set
+                        </button>
                       </>
                     )}
                   </article>

@@ -1510,6 +1510,141 @@ button {
   gap: 14px;
 }
 
+.builder-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.builder-group-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(10, 23, 31, 0.08);
+}
+
+.builder-group-card.complete {
+  border-color: color-mix(in srgb, var(--teal) 54%, var(--line));
+  box-shadow: 0 16px 34px rgba(35, 190, 202, 0.14);
+}
+
+.builder-group-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.builder-group-head h3 {
+  margin: 2px 0 0;
+}
+
+.builder-option-list,
+.builder-confirmed-list {
+  display: grid;
+  gap: 8px;
+}
+
+.builder-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #f8fbfd;
+  color: var(--text);
+  font-weight: 800;
+  text-align: left;
+}
+
+.builder-option:disabled {
+  opacity: 0.46;
+}
+
+.builder-option.selected {
+  border-color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 12%, #ffffff);
+}
+
+.builder-option strong {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--teal);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.builder-option.selected strong {
+  border: 1px solid color-mix(in srgb, var(--danger) 65%, #ffffff);
+  color: var(--danger);
+}
+
+.builder-group-search input {
+  background: #fff9dc;
+  color: var(--text);
+}
+
+.builder-confirmed-block,
+.builder-confirmed-panel {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.builder-confirmed-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.builder-confirmed-row,
+.builder-confirmed-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.builder-confirmed-row span,
+.builder-confirmed-item span {
+  font-weight: 850;
+}
+
+.builder-confirmed-row button,
+.builder-confirmed-item button {
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbfd;
+  color: var(--teal);
+  font-weight: 850;
+}
+
+.builder-confirmed-row button:first-child,
+.builder-confirmed-item button:first-child {
+  color: var(--danger);
+}
+
 .exercise-review-card {
   display: grid;
   gap: 14px;
@@ -1561,6 +1696,18 @@ button {
   font-weight: 850;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.builder-template-set-table .session-set-row {
+  grid-template-columns: 52px minmax(82px, 1fr) minmax(82px, 1fr) 86px;
+}
+
+.builder-template-set-row input {
+  background: #fffdf1;
+}
+
+.builder-add-set-action {
+  min-height: 48px;
 }
 
 .muscle-label {
@@ -3904,6 +4051,11 @@ button {
   border-color: var(--teal);
   background: var(--teal);
   color: #05282f;
+}
+
+.builder-template-set-table .session-set-head,
+.builder-template-set-table .session-set-row {
+  grid-template-columns: 52px minmax(82px, 1fr) minmax(82px, 1fr) 86px;
 }
 
 .session-end-actions {
@@ -8956,6 +9108,21 @@ button {
   display: none;
 }
 
+@media (max-width: 720px) {
+  .builder-template-set-table .session-set-head,
+  .builder-template-set-table .session-set-row {
+    grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 54px;
+  }
+
+  .builder-group-card {
+    padding: 12px;
+  }
+
+  .builder-group-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .builder-refresh-action {
   width: 100%;
   min-height: 38px;
@@ -10820,4 +10987,11 @@ textarea::placeholder {
 .coach-checkin-latest {
   border-color: color-mix(in srgb, var(--gold) 30%, var(--line));
   background: color-mix(in srgb, var(--gold) 6%, #ffffff);
+}
+
+@media (max-width: 720px) {
+  .builder-template-set-table .session-set-head,
+  .builder-template-set-table .session-set-row {
+    grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 54px;
+  }
 }
