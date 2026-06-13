@@ -280,21 +280,39 @@ export function AdminSettingsScreen({ onPreviewAccount, previewAccount, user }) 
     setSaving("coach-invite");
     setMessage("");
 
-    const { data, error } = await supabase.rpc("create_admin_coach_invite", {
-      invite_email_input: coachInviteEmail.trim() || null
-    });
-
-    setSaving("");
-
-    if (error) {
-      setMessage(`${error.message}. Run the latest supabase/phase-31-admin-coach-invites.sql in Supabase, then refresh.`);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      setSaving("");
+      setMessage("Could not confirm admin login. Sign out and back in, then try again.");
       return;
     }
 
-    const inviteCode = data?.[0]?.invite_code;
-    const nextLink = buildCoachInviteLink(inviteCode);
-    setCoachInviteLink(nextLink);
-    setMessage("Free coach invite created.");
+    try {
+      const response = await fetch("/api/create-admin-coach-invite", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: coachInviteEmail.trim() || null })
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      setSaving("");
+
+      if (!response.ok) {
+        setMessage(payload.error || "Could not create free coach invite.");
+        return;
+      }
+
+      const nextLink = buildCoachInviteLink(payload.inviteCode);
+      setCoachInviteLink(nextLink);
+      setMessage("Free coach invite created.");
+    } catch {
+      setSaving("");
+      setMessage("Could not create free coach invite. Check Vercel logs for details.");
+    }
   }
 
   async function copyCoachInvite() {
