@@ -1,4 +1,4 @@
-export const movementzIconSrc = "/assets/movementz-icon.png";
+export const movementzIconSrc = "/assets/movementz-icon-transparent.png";
 export const movementzWordmarkSrc = "/assets/movementz-wordmark.png";
 
 export function buildAppUrl(path = "/") {

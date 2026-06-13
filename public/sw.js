@@ -9,8 +9,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Movementz";
   const options = {
     body: data.body || "You have a new update.",
-    icon: "/assets/movementz-icon.png",
-    badge: "/assets/movementz-icon.png",
+    icon: "/assets/movementz-app-icon-192.png",
+    badge: "/assets/movementz-app-icon-192.png",
     data: {
       url: data.url || "/"
     },
