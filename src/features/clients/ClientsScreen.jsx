@@ -300,6 +300,7 @@ export function ClientsScreen({ profile, user }) {
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [searching, setSearching] = useState(false);
   const [savingClientId, setSavingClientId] = useState(null);
+  const [unlinkingClientId, setUnlinkingClientId] = useState("");
   const [message, setMessage] = useState("");
 
   const activeCount = useMemo(() => clients.filter((client) => client.status === "active").length, [clients]);
@@ -694,6 +695,33 @@ export function ClientsScreen({ profile, user }) {
     setMessage("Client invite created. Copy it from the box below or open the prepared email.");
   }
 
+  async function unlinkClient(client) {
+    if (!client?.client_id || !supabase || user.id === "demo-user") return;
+
+    const name = clientName(client);
+    const confirmed = window.confirm(
+      `Unlink ${name} from your coaching account?\n\nTheir workout history stays saved, but coach-granted full access is removed if they do not have another paid or coach-client entitlement.`
+    );
+    if (!confirmed) return;
+
+    setMessage("");
+    setUnlinkingClientId(client.client_id);
+
+    const { error } = await supabase.rpc("unlink_coach_client", {
+      p_client_id: client.client_id
+    });
+
+    setUnlinkingClientId("");
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-41-coach-unlink-and-mutual-workout-shares.sql in Supabase.`);
+      return;
+    }
+
+    setMessage(`${name} was unlinked. They are now free access unless another entitlement applies.`);
+    await loadClients();
+  }
+
   return (
     <section className="screen-stack clients-screen">
       <div className="screen-heading library-heading">
@@ -812,13 +840,23 @@ export function ClientsScreen({ profile, user }) {
               <h2>{clientName(selectedClient)}</h2>
               <p>Progress photos and tracker information update from this client.</p>
             </div>
-            <select value={selectedClient?.client_id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
-              {activeClients.map((client) => (
-                <option key={client.client_id} value={client.client_id}>
-                  {clientName(client)}
-                </option>
-              ))}
-            </select>
+            <div className="client-header-actions">
+              <select value={selectedClient?.client_id || ""} onChange={(event) => setSelectedClientId(event.target.value)}>
+                {activeClients.map((client) => (
+                  <option key={client.client_id} value={client.client_id}>
+                    {clientName(client)}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="danger-link"
+                disabled={!selectedClient || unlinkingClientId === selectedClient.client_id}
+                onClick={() => unlinkClient(selectedClient)}
+                type="button"
+              >
+                {unlinkingClientId === selectedClient?.client_id ? "Unlinking..." : "Unlink client"}
+              </button>
+            </div>
           </div>
 
           <div className="client-metric-grid">

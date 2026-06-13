@@ -1826,6 +1826,16 @@ button {
   font-weight: 750;
 }
 
+.client-header-actions {
+  display: grid;
+  gap: 8px;
+  min-width: min(280px, 100%);
+}
+
+.client-header-actions select {
+  width: 100%;
+}
+
 .workout-card {
   display: grid;
   gap: 12px;
@@ -7546,7 +7556,7 @@ button {
 }
 
 .library-view-tabs {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 }
 
 .schedule-day-tabs {

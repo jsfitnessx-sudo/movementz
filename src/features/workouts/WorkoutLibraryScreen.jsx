@@ -730,6 +730,8 @@ export function WorkoutLibraryScreen({
   const [workouts, setWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
   const [assignedWorkouts, setAssignedWorkouts] = useState([]);
+  const [mutualSharedWorkouts, setMutualSharedWorkouts] = useState([]);
+  const [mutualRecipients, setMutualRecipients] = useState([]);
   const [libraryView, setLibraryView] = useState("library");
   const [showArchivedWorkouts, setShowArchivedWorkouts] = useState(false);
   const [recentSessions, setRecentSessions] = useState([]);
@@ -773,6 +775,8 @@ export function WorkoutLibraryScreen({
   const [assignSearchResults, setAssignSearchResults] = useState([]);
   const [searchingAssignClients, setSearchingAssignClients] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [sharingWorkout, setSharingWorkout] = useState(null);
+  const [sharing, setSharing] = useState(false);
   const [openBuilderExerciseMenu, setOpenBuilderExerciseMenu] = useState(null);
   const [activeBuilderExerciseIndex, setActiveBuilderExerciseIndex] = useState(0);
   const sessionInputRefs = useRef({});
@@ -934,6 +938,38 @@ export function WorkoutLibraryScreen({
 
     setAssignedWorkouts(data || []);
   }, [role, user.id]);
+
+  const loadMutualRecipients = useCallback(async () => {
+    if (!supabase || user.id === "demo-user") {
+      setMutualRecipients([]);
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("get_my_mutual_workout_recipients");
+
+    if (error) {
+      setMutualRecipients([]);
+      return;
+    }
+
+    setMutualRecipients(data || []);
+  }, [user.id]);
+
+  const loadMutualSharedWorkouts = useCallback(async () => {
+    if (!supabase || user.id === "demo-user") {
+      setMutualSharedWorkouts([]);
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("get_my_mutual_shared_workouts");
+
+    if (error) {
+      setMutualSharedWorkouts([]);
+      return;
+    }
+
+    setMutualSharedWorkouts(data || []);
+  }, [user.id]);
 
   const loadCoachClients = useCallback(async () => {
     if (role !== "coach" || !supabase || user.id === "demo-user") {
@@ -1248,11 +1284,13 @@ export function WorkoutLibraryScreen({
       await loadCustomExerciseOptions();
       await loadCoachClients();
       await loadAssignedWorkouts();
+      await loadMutualRecipients();
+      await loadMutualSharedWorkouts();
     });
     return () => {
       void load;
     };
-  }, [loadArchivedWorkouts, loadAssignedWorkouts, loadCoachClients, loadCustomExerciseOptions, loadRecentSessions, loadWorkouts]);
+  }, [loadArchivedWorkouts, loadAssignedWorkouts, loadCoachClients, loadCustomExerciseOptions, loadMutualRecipients, loadMutualSharedWorkouts, loadRecentSessions, loadWorkouts]);
 
   useEffect(() => {
     if (!supabase || user.id === "demo-user" || mode !== "editor") return undefined;
@@ -2877,11 +2915,20 @@ export function WorkoutLibraryScreen({
   function openAssignWorkout(workout) {
     setOpenWorkoutMenu(null);
     setAssignWorkout(workout);
+    setSharingWorkout(null);
     setAssignClientIds([]);
     setAssignSearch("");
     setAssignSearchResults([]);
     setMessage("");
     void loadCoachClients();
+  }
+
+  function openShareWorkout(workout) {
+    setOpenWorkoutMenu(null);
+    setAssignWorkout(null);
+    setSharingWorkout(workout);
+    setMessage("");
+    void loadMutualRecipients();
   }
 
   function toggleAssignClient(clientId) {
@@ -2976,6 +3023,34 @@ export function WorkoutLibraryScreen({
 
     await assignWorkoutToClients([clientId]);
     await loadCoachClients();
+  }
+
+  async function shareWorkoutWithMutual(recipientId) {
+    if (!sharingWorkout || !recipientId) return;
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Connect Supabase to share workouts.");
+      return;
+    }
+
+    setSharing(true);
+    setMessage("");
+
+    const { error } = await supabase.rpc("share_workout_with_mutual", {
+      p_workout_template_id: sharingWorkout.id,
+      p_recipient_id: recipientId
+    });
+
+    setSharing(false);
+
+    if (error) {
+      setMessage(`${error.message}. Run supabase/phase-41-coach-unlink-and-mutual-workout-shares.sql in Supabase.`);
+      return;
+    }
+
+    const recipient = mutualRecipients.find((item) => item.user_id === recipientId);
+    setMessage(`${sharingWorkout.name} shared with ${recipient?.full_name || recipient?.email || "your mutual"}.`);
+    setSharingWorkout(null);
   }
 
   async function toggleWorkoutDetails(workout) {
@@ -6107,7 +6182,43 @@ export function WorkoutLibraryScreen({
         </div>
       ) : null}
 
-      {role === "client" ? (
+      {sharingWorkout ? (
+        <div className="panel assignment-panel">
+          <div className="section-row">
+            <div>
+              <p className="eyebrow">Share workout</p>
+              <h2>{sharingWorkout.name}</h2>
+              <p className="compact-help">
+                Share a copy with a paid mutual. Coach-assigned workouts cannot be shared.
+              </p>
+            </div>
+            <button className="secondary-action" onClick={() => setSharingWorkout(null)} type="button">
+              Close
+            </button>
+          </div>
+
+          {mutualRecipients.length ? (
+            <div className="assignment-client-list">
+              {mutualRecipients.map((recipient) => (
+                <button
+                  className="client-assignment"
+                  disabled={sharing}
+                  key={recipient.user_id}
+                  onClick={() => shareWorkoutWithMutual(recipient.user_id)}
+                  type="button"
+                >
+                  <span>{recipient.full_name || recipient.email || "Movementz athlete"}</span>
+                  <strong>{sharing ? "Sharing..." : "Share"}</strong>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="compact-help">No paid mutuals available to share workouts with yet.</p>
+          )}
+        </div>
+      ) : null}
+
+      {role === "client" || mutualSharedWorkouts.length || mutualRecipients.length ? (
         <div className="library-view-tabs" role="tablist" aria-label="Workout library view">
           <button
             className={libraryView === "library" ? "active" : ""}
@@ -6116,18 +6227,73 @@ export function WorkoutLibraryScreen({
           >
             My Library
           </button>
+          {role === "client" ? (
+            <button
+              className={libraryView === "assigned" ? "active" : ""}
+              onClick={() => setLibraryView("assigned")}
+              type="button"
+            >
+              Coach Assigned
+              <span>{assignedWorkouts.length}</span>
+            </button>
+          ) : null}
           <button
-            className={libraryView === "assigned" ? "active" : ""}
-            onClick={() => setLibraryView("assigned")}
+            className={libraryView === "shared" ? "active" : ""}
+            onClick={() => setLibraryView("shared")}
             type="button"
           >
-            Coach Assigned
-            <span>{assignedWorkouts.length}</span>
+            Mutual Shared
+            <span>{mutualSharedWorkouts.length}</span>
           </button>
         </div>
       ) : null}
 
-      {role === "client" && libraryView === "assigned" ? (
+      {libraryView === "shared" ? (
+        mutualSharedWorkouts.length ? (
+          <div className="workout-card-list">
+            {mutualSharedWorkouts.map((share) => {
+              const workout = share.workout || {};
+              const sharedWorkout = {
+                ...workout,
+                share_id: share.share_id,
+                isMutualSharedWorkout: true
+              };
+              const exercises = workout.workout_template_exercises || [];
+              const muscleSummary = [...new Set(exercises.map((exercise) => exercise.muscle_group).filter(Boolean))];
+              const sharedDate = share.shared_at
+                ? new Date(share.shared_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })
+                : "";
+
+              return (
+                <article className="workout-card assigned-library-card" key={share.share_id}>
+                  <div className="workout-card-head">
+                    <div>
+                      <p className="eyebrow">Mutual shared</p>
+                      <h2>{workout.name || "Shared workout"}</h2>
+                      <p>{workoutSummary(workout)}</p>
+                    </div>
+                    <span className="status-pill active">Mutual</span>
+                  </div>
+                  <div className="workout-card-meta">
+                    <span>{muscleSummary.length ? muscleSummary.join(", ") : "Shared workout"}</span>
+                    <span>{share.shared_by_name ? `From ${share.shared_by_name}` : "From mutual"}</span>
+                    <span>{sharedDate ? `Shared ${sharedDate}` : "Shared"}</span>
+                  </div>
+                  {workout.notes ? <p className="workout-notes">{workout.notes}</p> : null}
+                  <button className="primary-action filled" onClick={() => startSession(sharedWorkout)} type="button">
+                    Start
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="panel empty-state">
+            <h2>No mutual shared workouts yet</h2>
+            <p>Workouts shared by mutuals will appear here.</p>
+          </div>
+        )
+      ) : role === "client" && libraryView === "assigned" ? (
         assignedWorkouts.length ? (
           <div className="workout-card-list">
             {assignedWorkouts.map((assignment) => {
@@ -6293,6 +6459,14 @@ export function WorkoutLibraryScreen({
                             >
                               Duplicate
                             </button>
+                            {mutualRecipients.length ? (
+                              <button
+                                onClick={() => openShareWorkout(workout)}
+                                type="button"
+                              >
+                                Share with mutual
+                              </button>
+                            ) : null}
                             <button
                               onClick={() => {
                                 setOpenWorkoutMenu(null);

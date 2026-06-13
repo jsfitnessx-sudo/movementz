@@ -1,6 +1,10 @@
 -- Movementz Phase 31: admin-only free coach invites for beta testing.
 -- Run after phase-30-role-upgrade-guard.sql.
 
+drop function if exists public.create_admin_coach_invite(text);
+drop function if exists public.preview_admin_coach_invite(text);
+drop function if exists public.accept_admin_coach_invite(text);
+
 create or replace function public.prevent_self_role_upgrade()
 returns trigger
 language plpgsql
@@ -172,3 +176,5 @@ end;
 $$;
 
 grant execute on function public.accept_admin_coach_invite(text) to authenticated;
+
+notify pgrst, 'reload schema';
