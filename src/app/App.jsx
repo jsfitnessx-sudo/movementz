@@ -53,10 +53,14 @@ function hasPendingCoachSignupIntent(authUser) {
 }
 
 function clearPendingCoachSignupIntent(authUser) {
-  if (typeof window === "undefined" || !authUser?.email) return;
-  if (hasPendingCoachSignupIntent(authUser)) {
+  if (typeof window === "undefined") return;
+  if (!authUser?.email || hasPendingCoachSignupIntent(authUser)) {
     window.localStorage.removeItem(COACH_SIGNUP_INTENT_KEY);
   }
+}
+
+function isAdminProfile(profile) {
+  return profile?.role === "admin" || profile?.access_tier === "admin";
 }
 
 async function loadProfile(authUser) {
@@ -152,7 +156,7 @@ function buildUser(session, profile) {
 
 function isCoachPaymentPending(session, profile) {
   if (!session?.user || !profile) return false;
-  if (profile.role === "admin" || profile.access_tier === "admin") return false;
+  if (isAdminProfile(profile)) return false;
   const intendedRole = session.user.user_metadata?.intended_role;
   const hasLocalCoachIntent = hasPendingCoachSignupIntent(session.user);
   const isPendingCoachProfile = profile.subscription_status === "pending_coach";
@@ -496,6 +500,39 @@ export function App() {
 
     async function boot() {
       try {
+        const { data } = await withTimeout(supabase.auth.getSession(), BOOT_TIMEOUT_MS, "Session load");
+        if (!alive) return;
+
+        const nextSession = data.session;
+        if (nextSession?.user) {
+          const nextProfile = await loadProfile(nextSession.user);
+          if (!alive) return;
+          if (isAdminProfile(nextProfile)) {
+            clearPendingCoachSignupIntent(nextSession.user);
+            if (forcedSignupMode) {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            setSession(nextSession);
+            setProfile(nextProfile);
+            setRole(nextProfile?.role || "normal_user");
+            return;
+          }
+
+          if (forcedSignupMode) {
+            await withTimeout(supabase.auth.signOut({ scope: "local" }), BOOT_TIMEOUT_MS, "Sign out");
+            if (!alive) return;
+            setSession(null);
+            setProfile(null);
+            setRole("normal_user");
+            return;
+          }
+
+          setSession(nextSession);
+          setProfile(nextProfile);
+          setRole(nextProfile?.role || "normal_user");
+          return;
+        }
+
         if (forcedSignupMode) {
           await withTimeout(supabase.auth.signOut({ scope: "local" }), BOOT_TIMEOUT_MS, "Sign out");
           if (!alive) return;
@@ -505,21 +542,7 @@ export function App() {
           return;
         }
 
-        const { data } = await withTimeout(supabase.auth.getSession(), BOOT_TIMEOUT_MS, "Session load");
-        if (!alive) return;
-
-        const nextSession = data.session;
-        setSession(nextSession);
-
-        if (nextSession?.user) {
-          const nextProfile = await loadProfile(nextSession.user);
-          if (!alive) return;
-          if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
-            clearPendingCoachSignupIntent(nextSession.user);
-          }
-          setProfile(nextProfile);
-          setRole(nextProfile?.role || "normal_user");
-        }
+        setSession(null);
       } catch (error) {
         console.warn("App boot failed", error);
         if (!alive) return;
@@ -542,7 +565,7 @@ export function App() {
 
         if (nextSession?.user) {
           const nextProfile = await loadProfile(nextSession.user);
-          if (nextProfile?.role === "admin" || nextProfile?.access_tier === "admin") {
+          if (isAdminProfile(nextProfile)) {
             clearPendingCoachSignupIntent(nextSession.user);
           }
           setProfile(nextProfile);
@@ -693,23 +716,27 @@ export function App() {
   }
 
   function needsCoachSubscription(nextSession, nextProfile) {
+    if (isAdminProfile(nextProfile)) return false;
     const intendedRole = nextSession?.user?.user_metadata?.intended_role;
-  const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
-  const currentRole = nextProfile?.role || "normal_user";
-  const currentTier = nextProfile?.access_tier || "";
-  if (currentRole === "admin" || currentTier === "admin") return false;
-  const isPendingCoachProfile = nextProfile?.subscription_status === "pending_coach";
+    const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
+    const currentRole = nextProfile?.role || "normal_user";
+    const currentTier = nextProfile?.access_tier || "";
+    const isPendingCoachProfile = nextProfile?.subscription_status === "pending_coach";
     const status = String(nextProfile?.subscription_status || "").toLowerCase();
     const isUnlockedCoach = currentTier === "coach" || (currentRole === "coach" && ["active", "trialing"].includes(status));
-    return (intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile) && !isUnlockedCoach;
+    const isCoachAttempt = currentRole === "coach" || intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile;
+    return isCoachAttempt && !isUnlockedCoach;
   }
 
   async function handleAuthComplete(nextSession) {
     if (!nextSession?.user) return;
     const nextProfile = await loadProfile(nextSession.user);
     let resolvedProfile = nextProfile;
-    if (resolvedProfile?.role === "admin" || resolvedProfile?.access_tier === "admin") {
+    if (isAdminProfile(resolvedProfile)) {
       clearPendingCoachSignupIntent(nextSession.user);
+      if (forcedSignupMode) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     }
 
     if (pendingCoachInviteCode && supabase) {
@@ -724,7 +751,7 @@ export function App() {
         setPendingCoachInviteCode("");
         window.history.replaceState({}, document.title, window.location.pathname);
       }
-    } else if (forcedSignupMode === "coach" || needsCoachSubscription(nextSession, resolvedProfile)) {
+    } else if (needsCoachSubscription(nextSession, resolvedProfile)) {
       setAppMessage("Coach account created. Complete the coach subscription to unlock your dashboard.");
       window.history.replaceState({}, document.title, window.location.pathname);
       setCoachCheckoutRedirecting(true);
@@ -795,6 +822,7 @@ export function App() {
   }
 
   async function handleSignOut() {
+    clearPendingCoachSignupIntent();
     if (supabase) {
       await supabase.auth.signOut();
     }
