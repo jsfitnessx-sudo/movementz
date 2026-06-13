@@ -183,6 +183,17 @@ function isCoachPaymentPending(session, profile) {
   return (intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile) && !isUnlockedCoach;
 }
 
+function hasCoachAccess(profile) {
+  const status = String(profile?.subscription_status || "").toLowerCase();
+  return (
+    profile?.access_tier === "coach" ||
+    (
+      profile?.role === "coach" &&
+      (profile?.admin_granted_paid_access || status !== "pending_coach")
+    )
+  );
+}
+
 function CoachCheckoutGate({ appMessage, onContinue, onSignOut }) {
   return (
     <main className="auth-screen">
@@ -312,7 +323,7 @@ export function App() {
         if (nextRole === "admin") {
           clearPendingCoachSignupIntent(session.user);
           setAppMessage("Admin access restored. Coach checkout is not required.");
-        } else if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
+        } else if (hasCoachAccess(nextProfile)) {
           clearPendingCoachSignupIntent(session.user);
           setAppMessage("Coach access unlocked.");
         } else {
@@ -333,7 +344,7 @@ export function App() {
         clearPendingCoachSignupIntent(session.user);
         setActiveTab((roleTabs.admin ?? roleTabs.normal_user)[0].id);
         setAppMessage("Admin access restored. Coach checkout is not required.");
-      } else if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
+      } else if (hasCoachAccess(nextProfile)) {
         clearPendingCoachSignupIntent(session.user);
         setActiveTab((roleTabs.coach ?? roleTabs.normal_user)[0].id);
         setAppMessage("Coach access unlocked.");
@@ -758,12 +769,10 @@ export function App() {
     if (isAdminProfile(nextProfile, nextSession?.user)) return false;
     const intendedRole = nextSession?.user?.user_metadata?.intended_role;
     const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
-    const currentRole = nextProfile?.role || "normal_user";
-    const currentTier = nextProfile?.access_tier || "";
     const isPendingCoachProfile = nextProfile?.subscription_status === "pending_coach";
-    const status = String(nextProfile?.subscription_status || "").toLowerCase();
-    const isUnlockedCoach = currentTier === "coach" || (currentRole === "coach" && ["active", "trialing"].includes(status));
+    const currentRole = nextProfile?.role || "normal_user";
     const isCoachAttempt = currentRole === "coach" || intendedRole === "coach" || hasLocalCoachIntent || isPendingCoachProfile;
+    const isUnlockedCoach = hasCoachAccess(nextProfile);
     return isCoachAttempt && !isUnlockedCoach;
   }
 
@@ -817,7 +826,7 @@ export function App() {
     setProfile(resolvedProfile);
     setRole(roleForProfile(resolvedProfile, nextSession.user));
     setSession(nextSession);
-    if (isAdminProfile(resolvedProfile, nextSession.user) || resolvedProfile?.role === "coach" || resolvedProfile?.access_tier === "coach") {
+    if (isAdminProfile(resolvedProfile, nextSession.user) || hasCoachAccess(resolvedProfile)) {
       clearPendingCoachSignupIntent(nextSession.user);
     }
     const nextRole = roleForProfile(resolvedProfile, nextSession.user);

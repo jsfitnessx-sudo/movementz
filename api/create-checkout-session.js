@@ -33,6 +33,16 @@ function isAdminAccount(profile, authUser) {
   );
 }
 
+function hasCoachAccess(profile) {
+  return (
+    profile?.access_tier === "coach" ||
+    (
+      profile?.role === "coach" &&
+      (profile?.admin_granted_paid_access || String(profile?.subscription_status || "").toLowerCase() !== "pending_coach")
+    )
+  );
+}
+
 async function stripeRequest(path, params) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
   const response = await fetch(`https://api.stripe.com/v1/${path}`, {
@@ -124,7 +134,7 @@ export default async function handler(request, response) {
   try {
     const { data: profile } = await serviceClient
       .from("profiles")
-      .select("id,email,full_name,first_name,last_name,role,access_tier,stripe_customer_id")
+      .select("id,email,full_name,first_name,last_name,role,access_tier,admin_granted_paid_access,subscription_status,stripe_customer_id")
       .eq("id", authUser.id)
       .maybeSingle();
 
@@ -132,6 +142,14 @@ export default async function handler(request, response) {
       json(response, 403, {
         error: "Admin accounts do not need coach checkout.",
         code: "admin_checkout_blocked"
+      });
+      return;
+    }
+
+    if (checkoutType === "coach" && hasCoachAccess(profile)) {
+      json(response, 409, {
+        error: "This coach account already has free beta access.",
+        code: "coach_access_already_granted"
       });
       return;
     }

@@ -5,6 +5,12 @@ drop function if exists public.create_admin_coach_invite(text);
 drop function if exists public.preview_admin_coach_invite(text);
 drop function if exists public.accept_admin_coach_invite(text);
 
+alter table public.profiles
+  add column if not exists access_tier text not null default 'free'
+    check (access_tier in ('free', 'paid', 'coach', 'admin')),
+  add column if not exists admin_granted_paid_access boolean not null default false,
+  add column if not exists subscription_status text;
+
 create or replace function public.is_admin()
 returns boolean
 language sql
@@ -156,13 +162,32 @@ begin
 
   perform set_config('movementz.role_provisioning', 'true', true);
 
-  insert into public.profiles (id, email, full_name, role)
-  values (auth.uid(), current_auth_user.email, profile_name, 'coach')
+  insert into public.profiles (
+    id,
+    email,
+    full_name,
+    role,
+    access_tier,
+    admin_granted_paid_access,
+    subscription_status
+  )
+  values (
+    auth.uid(),
+    current_auth_user.email,
+    profile_name,
+    'coach',
+    'coach',
+    true,
+    null
+  )
   on conflict (id)
   do update set
     email = coalesce(public.profiles.email, excluded.email),
     full_name = coalesce(nullif(public.profiles.full_name, ''), excluded.full_name),
     role = 'coach',
+    access_tier = 'coach',
+    admin_granted_paid_access = true,
+    subscription_status = null,
     updated_at = now();
 
   insert into public.coach_profiles (
