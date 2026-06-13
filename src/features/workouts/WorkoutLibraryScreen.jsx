@@ -555,6 +555,13 @@ function primaryAchievementMoment(session) {
   };
 }
 
+function primaryStrengthShareMoment(session) {
+  const liftMoment = (session?.achievementMoments || []).find((moment) =>
+    ["lift-", "strength-", "best-lift"].some((prefix) => String(moment.id || "").startsWith(prefix))
+  );
+  return liftMoment || primaryAchievementMoment(session);
+}
+
 function formatDuration(totalSeconds = 0) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -3890,7 +3897,9 @@ export function WorkoutLibraryScreen({
           month: "short"
         })
       : "";
-    const moment = primaryAchievementMoment(completedSession);
+    const moment = isForTimeSession
+      ? primaryAchievementMoment(completedSession)
+      : primaryStrengthShareMoment(completedSession);
 
     ctx.fillStyle = "#101b25";
     ctx.fillRect(0, 0, width, height);
@@ -4005,37 +4014,28 @@ export function WorkoutLibraryScreen({
 
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffffff";
-    ctx.font = "800 54px Arial";
-    ctx.fillText("WORKOUT COMPLETE", width / 2, 310);
-    ctx.font = "900 86px Arial";
-    drawTrimmedText(completedSession?.name || "Workout", width / 2, 420, width - 170);
-    ctx.font = "700 38px Arial";
-    ctx.fillText(date, width / 2, 600);
-    ctx.fillStyle = "rgba(255,255,255,0.74)";
-    ctx.font = "800 34px Arial";
-    ctx.fillText(String(moment.label || "Achievement moment").toUpperCase(), width / 2, 880);
-    ctx.fillStyle = "#50d0c7";
-    ctx.font = "900 70px Arial";
-    drawTrimmedText(moment.title, width / 2, 980, width - 170);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "750 34px Arial";
-    drawTrimmedText(moment.detail, width / 2, 1050, width - 220);
+    ctx.font = "800 48px Arial";
+    ctx.fillText("WORKOUT COMPLETE", width / 2, 340);
+    ctx.font = "900 92px Arial";
+    drawTrimmedText(completedSession?.name || "Workout", width / 2, 460, width - 150);
 
-    ctx.fillStyle = "rgba(7, 16, 24, 0.58)";
-    ctx.fillRect(150, 1240, width - 300, 170);
-    ctx.fillStyle = "rgba(255,255,255,0.72)";
-    ctx.font = "800 26px Arial";
-    ctx.fillText("DURATION", 300, 1300);
-    ctx.fillText("VOLUME", width - 300, 1300);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "900 42px Arial";
-    ctx.fillText(duration, 300, 1365);
-    ctx.fillText(`${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`, width - 300, 1365);
+    const centerStats = [
+      ["VOLUME", `${Math.round(completedSession?.totalVolumeKg || 0).toLocaleString()}kg`],
+      ["DURATION", duration],
+      ["BEST LIFT", moment.title || "Best lift"],
+      ["WEIGHT", moment.detail || ""]
+    ];
+    centerStats.forEach(([label, value], index) => {
+      const y = 720 + index * 180;
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.font = "800 30px Arial";
+      ctx.fillText(label, width / 2, y);
+      ctx.fillStyle = index === 2 ? "#50d0c7" : "#ffffff";
+      ctx.font = index === 2 ? "900 58px Arial" : "900 66px Arial";
+      drawTrimmedText(value, width / 2, y + 78, width - 180);
+    });
 
-    drawIcon(width / 2, 1580, 108);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "700 30px Arial";
-    ctx.fillText("MOVE - TRAIN - GROW", width / 2, 1740);
+    drawIcon(width / 2, 1580, 132);
   }
 
   async function saveShareImage() {
@@ -4918,7 +4918,9 @@ export function WorkoutLibraryScreen({
       month: "short"
     });
     const isForTimeSession = completedSession.sessionType === "for_time";
-    const shareMoment = primaryAchievementMoment(completedSession);
+    const shareMoment = isForTimeSession
+      ? primaryAchievementMoment(completedSession)
+      : primaryStrengthShareMoment(completedSession);
 
     return (
       <section className="screen-stack workout-library share-workout-screen">
@@ -4999,25 +5001,26 @@ export function WorkoutLibraryScreen({
                 <>
                   <p className="share-complete">Workout Complete</p>
                   <h2>{completedSession.name}</h2>
-                  <div className="share-details achievement-share-details">
-                    <strong>{shareMoment.label}</strong>
-                    <em>{shareMoment.title}</em>
-                    <span>{sessionDate}</span>
-                  </div>
-                  <strong className="share-achievement-title">{shareMoment.detail}</strong>
-                  <div className="share-bottom-stats strength-share-stats">
-                    <span>
-                      <small>Duration</small>
-                      <strong>{duration}</strong>
-                    </span>
+                  <div className="standard-share-summary">
                     <span>
                       <small>Volume</small>
                       <strong>{Math.round(completedSession.totalVolumeKg).toLocaleString()}kg</strong>
                     </span>
+                    <span>
+                      <small>Duration</small>
+                      <strong>{duration}</strong>
+                    </span>
+                    <span className="standard-share-highlight">
+                      <small>Best lift</small>
+                      <strong>{shareMoment.title}</strong>
+                    </span>
+                    <span>
+                      <small>Weight</small>
+                      <strong>{shareMoment.detail}</strong>
+                    </span>
                   </div>
                   <div className="share-footer">
                     <img className="share-footer-icon" src={movementzIconSrc} alt="Movementz" />
-                    <span>Move - Train - Grow</span>
                   </div>
                 </>
               )}

@@ -4431,6 +4431,20 @@ button {
   line-height: 1.05;
 }
 
+.share-preview-overlay:not(.for-time-share) {
+  align-content: center;
+  padding-top: 48px;
+}
+
+.share-preview-overlay:not(.for-time-share) .share-complete {
+  margin-bottom: 10px;
+}
+
+.share-preview-overlay:not(.for-time-share) h2 {
+  width: min(560px, 94%);
+  margin-bottom: 66px;
+}
+
 .for-time-share .share-logo {
   margin-bottom: 28px;
   font-size: 15px;
@@ -4497,6 +4511,43 @@ button {
   color: rgba(255, 255, 255, 0.88);
   font-size: 24px;
   line-height: 1.1;
+}
+
+.standard-share-summary {
+  display: grid;
+  gap: 24px;
+  width: min(560px, 94%);
+  margin-bottom: 92px;
+}
+
+.standard-share-summary span {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  min-width: 0;
+}
+
+.standard-share-summary small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.standard-share-summary strong {
+  max-width: 100%;
+  overflow: hidden;
+  color: #fff;
+  font-size: 34px;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.standard-share-summary .standard-share-highlight strong {
+  color: var(--teal);
+  font-size: 38px;
 }
 
 .share-duration {
@@ -4620,6 +4671,11 @@ button {
   width: 56px;
   height: 56px;
   object-fit: contain;
+}
+
+.share-preview-overlay:not(.for-time-share) .share-footer-icon {
+  width: 74px;
+  height: 74px;
 }
 
 .share-footer span {
@@ -8480,6 +8536,38 @@ button {
   .share-preview h2 {
     margin-bottom: 46px;
     font-size: 34px;
+  }
+
+  .share-preview-overlay:not(.for-time-share) {
+    padding: 42px 18px 24px;
+  }
+
+  .share-preview-overlay:not(.for-time-share) h2 {
+    margin-bottom: 52px;
+    font-size: 36px;
+  }
+
+  .standard-share-summary {
+    gap: 18px;
+    width: 96%;
+    margin-bottom: 68px;
+  }
+
+  .standard-share-summary small {
+    font-size: 10px;
+  }
+
+  .standard-share-summary strong {
+    font-size: 27px;
+  }
+
+  .standard-share-summary .standard-share-highlight strong {
+    font-size: 30px;
+  }
+
+  .share-preview-overlay:not(.for-time-share) .share-footer-icon {
+    width: 66px;
+    height: 66px;
   }
 
   .for-time-share .share-logo {
