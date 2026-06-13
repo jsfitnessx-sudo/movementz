@@ -60,11 +60,13 @@ export function AuthScreen({
 
   useEffect(() => {
     if (!clientInvite || mode === "login") return;
-    setForm((current) => ({
-      ...current,
-      fullName: current.fullName || clientInvite.invitee_full_name || "",
-      email: current.email || clientInvite.invite_email || ""
-    }));
+    Promise.resolve().then(() => {
+      setForm((current) => ({
+        ...current,
+        fullName: current.fullName || clientInvite.invitee_full_name || "",
+        email: current.email || clientInvite.invite_email || ""
+      }));
+    });
   }, [clientInvite, mode]);
 
   function updateField(field, value) {

@@ -931,6 +931,30 @@ button {
   color: #061017;
 }
 
+.workout-heading-actions .ai-workout-action.filled {
+  border-color: #101820;
+  background: #101820;
+  color: #ffffff;
+}
+
+.ai-builder-screen {
+  max-width: 760px;
+}
+
+.ai-builder-panel {
+  border-color: color-mix(in srgb, var(--teal) 38%, var(--line));
+}
+
+.ai-builder-status {
+  border-color: color-mix(in srgb, var(--gold) 44%, var(--line));
+  background: color-mix(in srgb, var(--gold) 8%, #ffffff);
+}
+
+.ai-builder-filters select,
+.ai-builder-filters input {
+  min-width: 0;
+}
+
 .library-toolbar,
 .section-row,
 .workout-card-head,

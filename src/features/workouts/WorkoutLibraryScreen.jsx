@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { movementzIconSrc } from "../../lib/brandAssets.js";
+import { hasFullUserAccess } from "../../lib/access/paidAccess.js";
 import { supabase } from "../../lib/supabase/client.js";
 
 const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core", "Body Weight", "Banded"];
@@ -671,6 +672,17 @@ function createEmptyForm() {
   };
 }
 
+function createAiBuilderForm() {
+  return {
+    prompt: "Build me a 45-minute dumbbell upper body session for beginner/intermediate.",
+    duration: "45",
+    level: "Beginner/intermediate",
+    equipment: "Dumbbells",
+    goal: "Strength",
+    focus: "Upper body"
+  };
+}
+
 function createQuickStrengthExercise() {
   return { exercise_name: "", kg: "", reps: "" };
 }
@@ -732,6 +744,7 @@ export function WorkoutLibraryScreen({
   initialMode = "list",
   onClose,
   onWorkoutSaved,
+  profile = null,
   role = "normal_user",
   user
 }) {
@@ -750,6 +763,9 @@ export function WorkoutLibraryScreen({
   const [editingId, setEditingId] = useState(null);
   const [setup, setSetup] = useState(createDefaultSetup);
   const [form, setForm] = useState(createEmptyForm);
+  const [aiBuilderForm, setAiBuilderForm] = useState(createAiBuilderForm);
+  const [aiBuilderUsage, setAiBuilderUsage] = useState({ loading: false, unlimited: false, limit: null, used: 0, remaining: null });
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [activeWorkout, setActiveWorkout] = useState(null);
   const [quickLogForm, setQuickLogForm] = useState(createQuickLogForm);
   const [hiitInterval, setHiitInterval] = useState(null);
@@ -798,10 +814,62 @@ export function WorkoutLibraryScreen({
   const hiitLastBeepRef = useRef("");
   const audioContextRef = useRef(null);
   const recoveryHydratedRef = useRef(false);
+  const canUseAiBuilder = role === "admin" || role === "coach" || hasFullUserAccess(profile, role);
+  const isLimitedAiBuilderUser = canUseAiBuilder && role !== "admin" && role !== "coach";
 
   useEffect(() => {
-    setLibraryView(initialLibraryView || "library");
+    Promise.resolve().then(() => {
+      setLibraryView(initialLibraryView || "library");
+    });
   }, [initialLibraryView]);
+
+  useEffect(() => {
+    if (mode !== "ai-builder" || !canUseAiBuilder || !supabase || user.id === "demo-user") return undefined;
+
+    let alive = true;
+
+    Promise.resolve().then(async () => {
+      if (!alive) return;
+      setAiBuilderUsage((current) => ({ ...current, loading: true }));
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        if (alive) {
+          setAiBuilderUsage((current) => ({ ...current, loading: false }));
+          setMessage("Log in before using AI Builder.");
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/generate-ai-workout", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const payload = await response.json();
+        if (!alive) return;
+        if (!response.ok) {
+          setMessage(payload.error || "Could not check AI Builder usage.");
+          setAiBuilderUsage((current) => ({ ...current, loading: false }));
+          return;
+        }
+        setAiBuilderUsage({
+          loading: false,
+          unlimited: Boolean(payload.unlimited),
+          limit: payload.limit ?? null,
+          used: Number(payload.used || 0),
+          remaining: payload.remaining ?? null
+        });
+      } catch (error) {
+        if (!alive) return;
+        setAiBuilderUsage((current) => ({ ...current, loading: false }));
+        setMessage(error.message || "Could not check AI Builder usage.");
+      }
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [canUseAiBuilder, mode, user.id]);
 
   const recoveryKey = useMemo(() => {
     if (!user?.id) return "";
@@ -824,7 +892,6 @@ export function WorkoutLibraryScreen({
     () => Object.entries(setup.muscleTargets).filter(([, count]) => Number(count) > 0),
     [setup.muscleTargets]
   );
-
   const customExerciseList = useMemo(
     () => Array.from(customExerciseNames).sort((a, b) => a.localeCompare(b)),
     [customExerciseNames]
@@ -1681,10 +1748,134 @@ export function WorkoutLibraryScreen({
     setMode("setup");
   }
 
+  function startAiBuilder() {
+    setMessage("");
+    if (!canUseAiBuilder) {
+      setMessage("AI Builder is available to paid users, coaches and admins.");
+      return;
+    }
+    setEditingId(null);
+    setAiBuilderForm(createAiBuilderForm());
+    setMode("ai-builder");
+  }
+
   function startQuickLog() {
     setQuickLogForm(createQuickLogForm());
     setMessage("");
     setMode("quick-log");
+  }
+
+  function updateAiBuilderField(field, value) {
+    setAiBuilderForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function buildAiWorkoutForm(workoutDraft) {
+    const exercises = (workoutDraft.exercises || []).map((exercise, index) => {
+      const sets = Number(exercise.sets) || 3;
+      const repMin = Number(exercise.rep_min) || 8;
+      const repMax = Number(exercise.rep_max) || repMin;
+      return {
+        ...emptyExercise,
+        id: `ai-${Date.now()}-${index}`,
+        exercise_name: exercise.exercise_name || `Exercise ${index + 1}`,
+        muscle_group: exercise.muscle_group || "Full Body",
+        sets,
+        rep_min: repMin,
+        rep_max: repMax,
+        rest_seconds: Number(exercise.rest_seconds) || 75,
+        tip: exercise.notes || "",
+        search: "",
+        selection_confirmed: true,
+        template_sets: createBlankTemplateSets(sets).map((row) => ({
+          ...row,
+          reps: repMax || repMin || ""
+        }))
+      };
+    });
+
+    const notes = [
+      workoutDraft.warm_up ? `Warm-up: ${workoutDraft.warm_up}` : "",
+      workoutDraft.notes || "",
+      workoutDraft.cooldown ? `Cooldown: ${workoutDraft.cooldown}` : ""
+    ].filter(Boolean).join("\n\n");
+
+    return {
+      ...createEmptyForm(),
+      name: workoutDraft.name || "AI workout",
+      notes,
+      workout_type: "strength",
+      exercises
+    };
+  }
+
+  async function generateAiWorkout(event) {
+    event.preventDefault();
+    setMessage("");
+
+    if (!canUseAiBuilder) {
+      setMessage("AI Builder is available to paid users, coaches and admins.");
+      return;
+    }
+
+    if (!aiBuilderForm.prompt.trim()) {
+      setMessage("Describe the workout you want first.");
+      return;
+    }
+
+    if (!supabase || user.id === "demo-user") {
+      setMessage("Connect Supabase before using AI Builder.");
+      return;
+    }
+
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) {
+      setMessage("Log in before using AI Builder.");
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const response = await fetch("/api/generate-ai-workout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(aiBuilderForm)
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setMessage(payload.error || "Could not generate AI workout.");
+        if (payload.code === "monthly_ai_workout_limit") {
+          setAiBuilderUsage({
+            loading: false,
+            unlimited: false,
+            limit: payload.limit ?? 1,
+            used: Number(payload.used || 1),
+            remaining: 0
+          });
+        }
+        return;
+      }
+
+      setAiBuilderUsage({
+        loading: false,
+        unlimited: Boolean(payload.usage?.unlimited),
+        limit: payload.usage?.limit ?? null,
+        used: Number(payload.usage?.used || 0),
+        remaining: payload.usage?.remaining ?? null
+      });
+      setForm(buildAiWorkoutForm(payload.workout || {}));
+      setBuilderSuggestionExtras({});
+      setActiveBuilderExerciseIndex(0);
+      setMode("review");
+      setMessage("AI workout drafted. Review and edit before saving.");
+    } catch (error) {
+      setMessage(error.message || "Could not generate AI workout.");
+    } finally {
+      setAiGenerating(false);
+    }
   }
 
   function toggleQuickType(type) {
@@ -5376,6 +5567,124 @@ export function WorkoutLibraryScreen({
     );
   }
 
+  if (mode === "ai-builder") {
+    const aiUsageText = aiBuilderUsage.loading
+      ? "Checking allowance..."
+      : aiBuilderUsage.unlimited
+        ? "Coach/admin access"
+        : `${aiBuilderUsage.remaining ?? 1} of ${aiBuilderUsage.limit ?? 1} left this month`;
+
+    return (
+      <section className="screen-stack workout-library ai-builder-screen">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">AI workout builder</p>
+            <h1>Draft workout</h1>
+            <p>Generate a structured workout, then edit and save it in the normal builder.</p>
+          </div>
+          <button className="primary-action compact" onClick={() => setMode("list")} type="button">
+            Cancel
+          </button>
+        </div>
+
+        {message ? (
+          <p className={message.includes("drafted") ? "form-message success" : "form-message error"}>{message}</p>
+        ) : null}
+
+        <form className="workout-editor panel ai-builder-panel" onSubmit={generateAiWorkout}>
+          <section className="setup-card ai-builder-status">
+            <div>
+              <p className="eyebrow">{isLimitedAiBuilderUser ? "Paid user limit" : "Access"}</p>
+              <h2>{aiUsageText}</h2>
+              <p className="compact-help">
+                Paid users can generate 1 AI workout per month. Coaches and admins are not capped.
+              </p>
+            </div>
+          </section>
+
+          <label>
+            What should Muvmentz build?
+            <textarea
+              maxLength={700}
+              onChange={(event) => updateAiBuilderField("prompt", event.target.value)}
+              placeholder="e.g. Build me a 45-minute dumbbell upper body session for beginner/intermediate."
+              value={aiBuilderForm.prompt}
+            />
+          </label>
+
+          <div className="form-grid three ai-builder-filters">
+            <label>
+              Duration
+              <select
+                onChange={(event) => updateAiBuilderField("duration", event.target.value)}
+                value={aiBuilderForm.duration}
+              >
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">60 min</option>
+                <option value="75">75 min</option>
+              </select>
+            </label>
+            <label>
+              Level
+              <select
+                onChange={(event) => updateAiBuilderField("level", event.target.value)}
+                value={aiBuilderForm.level}
+              >
+                <option>Beginner</option>
+                <option>Beginner/intermediate</option>
+                <option>Intermediate</option>
+                <option>Advanced</option>
+              </select>
+            </label>
+            <label>
+              Goal
+              <select
+                onChange={(event) => updateAiBuilderField("goal", event.target.value)}
+                value={aiBuilderForm.goal}
+              >
+                <option>Strength</option>
+                <option>Hypertrophy</option>
+                <option>Conditioning</option>
+                <option>Fat loss</option>
+                <option>General fitness</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="form-grid two ai-builder-filters">
+            <label>
+              Equipment
+              <input
+                onChange={(event) => updateAiBuilderField("equipment", event.target.value)}
+                placeholder="Dumbbells, barbell, cables..."
+                value={aiBuilderForm.equipment}
+              />
+            </label>
+            <label>
+              Focus
+              <input
+                onChange={(event) => updateAiBuilderField("focus", event.target.value)}
+                placeholder="Upper body, legs, full body..."
+                value={aiBuilderForm.focus}
+              />
+            </label>
+          </div>
+
+          <div className="form-footer-actions">
+            <button
+              className="primary-action filled"
+              disabled={aiGenerating || aiBuilderUsage.loading || (!aiBuilderUsage.unlimited && aiBuilderUsage.remaining === 0)}
+              type="submit"
+            >
+              {aiGenerating ? "Generating..." : "Generate Workout"}
+            </button>
+          </div>
+        </form>
+      </section>
+    );
+  }
+
   if (mode === "setup") {
     return (
       <section className="screen-stack workout-library">
@@ -6131,6 +6440,11 @@ export function WorkoutLibraryScreen({
           <p>Create workouts once, start them later, or use them inside plans.</p>
         </div>
         <div className="workout-heading-actions">
+          {canUseAiBuilder ? (
+            <button className="primary-action filled ai-workout-action" onClick={startAiBuilder} type="button">
+              AI Builder
+            </button>
+          ) : null}
           <button className="primary-action filled build-workout-action" onClick={startNewWorkout} type="button">
             Build Workout
           </button>

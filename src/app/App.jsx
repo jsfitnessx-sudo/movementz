@@ -1025,6 +1025,7 @@ export function App() {
         <WorkoutLibraryScreen
           initialMode={workoutIntent === "quick" ? "quick-log" : workoutIntent === "build" ? "setup" : "list"}
           initialLibraryView={workoutIntent === "shared" ? "shared" : "library"}
+          profile={effectiveProfile}
           role={effectiveRole}
           user={user}
         />
