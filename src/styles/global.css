@@ -310,8 +310,8 @@ button {
 }
 
 .brand-wordmark-img {
-  width: clamp(210px, 30vw, 330px);
-  max-height: 54px;
+  width: clamp(250px, 34vw, 390px);
+  max-height: 64px;
   object-fit: contain;
 }
 
