@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { movementzIconSrc } from "../../lib/brandAssets.js";
 import { supabase } from "../../lib/supabase/client.js";
 
-const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core"];
+const muscleGroups = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Core", "Body Weight", "Banded"];
 const hiitFocusAreas = ["Full Body", "Upper", "Lower", "Core", "Cardio"];
 const hiitTimerTypes = [
   { value: "interval", label: "Interval" },
@@ -15,6 +15,7 @@ const hiitTargetTypes = [
   { value: "calories", label: "Cal" }
 ];
 const CATALOG_SEARCH_LIMIT = 8;
+const BUILDER_GROUP_OPTION_LIMIT = 5;
 const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
 const recoverableWorkoutModes = new Set(["setup", "editor", "review", "quick-log", "session", "hiit-session", "hiit-for-time"]);
 
@@ -132,6 +133,38 @@ const exerciseLibrary = {
     "Russian Twist",
     "Pallof Press",
     "Side Plank"
+  ],
+  "Body Weight": [
+    "Push Up",
+    "Pull Up",
+    "Bodyweight Squat",
+    "Reverse Lunge",
+    "Walking Lunge",
+    "Plank",
+    "Mountain Climber",
+    "Burpee",
+    "Bench Dip",
+    "Glute Bridge",
+    "Step Up",
+    "Side Plank",
+    "Hollow Hold",
+    "Bear Crawl"
+  ],
+  Banded: [
+    "Banded Squat",
+    "Banded Glute Bridge",
+    "Banded Row",
+    "Banded Chest Press",
+    "Banded Face Pull",
+    "Banded Lateral Walk",
+    "Banded Pull Apart",
+    "Banded Shoulder Press",
+    "Banded Hamstring Curl",
+    "Banded Triceps Pushdown",
+    "Banded Biceps Curl",
+    "Banded Dead Bug",
+    "Banded Hip Thrust",
+    "Banded Pallof Press"
   ],
   "Full Body": [
     "Bear Crawl",
@@ -728,6 +761,7 @@ export function WorkoutLibraryScreen({
   const [builderGroupSearches, setBuilderGroupSearches] = useState({});
   const [builderGroupSearchResults, setBuilderGroupSearchResults] = useState({});
   const [builderSuggestionExtras, setBuilderSuggestionExtras] = useState({});
+  const [builderGroupOffsets, setBuilderGroupOffsets] = useState({});
   const [swapCatalogResults, setSwapCatalogResults] = useState([]);
   const [swapExerciseDbResults, setSwapExerciseDbResults] = useState([]);
   const [demoVideo, setDemoVideo] = useState(null);
@@ -1836,6 +1870,7 @@ export function WorkoutLibraryScreen({
     setBuilderSuggestionExtras({});
     setBuilderGroupSearches({});
     setBuilderGroupSearchResults({});
+    setBuilderGroupOffsets({});
     setActiveBuilderExerciseIndex(0);
     setMessage("");
     setMode("editor");
@@ -1847,6 +1882,7 @@ export function WorkoutLibraryScreen({
 
     setEditingId(detailedWorkout.id);
     setBuilderSuggestionExtras({});
+    setBuilderGroupOffsets({});
     setForm({
       name: detailedWorkout.name || "",
       notes: detailedWorkout.notes || "",
@@ -1880,6 +1916,7 @@ export function WorkoutLibraryScreen({
     setActiveBuilderExerciseIndex(0);
     setBuilderGroupSearches({});
     setBuilderGroupSearchResults({});
+    setBuilderGroupOffsets({});
     setMessage("");
     setMode("review");
   }
@@ -1940,19 +1977,34 @@ export function WorkoutLibraryScreen({
       .filter((exercise) => (exercise.muscle_group || "Chest") === muscle && exercise.exercise_name.trim());
   }
 
-  function getGroupExerciseOptions(muscle) {
+  function getGroupExercisePool(muscle) {
     const muscleKey = muscle || "Chest";
     const matchingCustomExercises = customExerciseOptions
       .filter((option) => !option.muscle_group || option.muscle_group.toLowerCase() === muscleKey.toLowerCase())
       .map((option) => option.exercise_name);
-    const selectedNames = getSelectedExercisesForMuscle(muscleKey).map((exercise) => exercise.exercise_name);
 
     return uniqueNames([
       ...(exerciseLibrary[muscleKey] || []),
       ...(builderSuggestionExtras[muscleKey] || []),
-      ...matchingCustomExercises,
-      ...selectedNames
-    ]).slice(0, 12);
+      ...matchingCustomExercises
+    ]);
+  }
+
+  function getGroupExerciseOptions(muscle) {
+    const muscleKey = muscle || "Chest";
+    const selectedNames = getSelectedExercisesForMuscle(muscleKey).map((exercise) => exercise.exercise_name);
+    const selectedKeys = new Set(selectedNames.map(toExerciseKey));
+    const pool = getGroupExercisePool(muscleKey).filter((name) => !selectedKeys.has(toExerciseKey(name)));
+    const offset = Number(builderGroupOffsets[muscleKey]) || 0;
+    const visiblePool =
+      pool.length > 0
+        ? Array.from({ length: Math.min(BUILDER_GROUP_OPTION_LIMIT, pool.length) }, (_, index) => {
+            const poolIndex = (offset + index) % pool.length;
+            return pool[poolIndex];
+          })
+        : [];
+
+    return uniqueNames([...visiblePool, ...selectedNames]).slice(0, BUILDER_GROUP_OPTION_LIMIT);
   }
 
   function updateGroupSearch(muscle, value) {
@@ -2035,10 +2087,17 @@ export function WorkoutLibraryScreen({
   async function refreshGroupSuggestions(muscle) {
     const muscleKey = muscle || "Chest";
     const currentExtras = builderSuggestionExtras[muscleKey] || [];
-    const nextOffset = currentExtras.length + (exerciseLibrary[muscleKey] || []).length;
+    const currentPoolLength = getGroupExercisePool(muscleKey).length;
+    const currentOffset = Number(builderGroupOffsets[muscleKey]) || 0;
+    const nextOffset = currentPoolLength
+      ? (currentOffset + BUILDER_GROUP_OPTION_LIMIT) % currentPoolLength
+      : BUILDER_GROUP_OPTION_LIMIT;
+
+    setBuilderGroupOffsets((current) => ({ ...current, [muscleKey]: nextOffset }));
 
     await loadCustomExerciseOptions();
 
+    const fetchOffset = currentExtras.length + (exerciseLibrary[muscleKey] || []).length;
     const [catalogResponse, exerciseDbNames] = await Promise.all([
       supabase && user.id !== "demo-user"
         ? supabase
@@ -2046,12 +2105,12 @@ export function WorkoutLibraryScreen({
             .select("exercise_name")
             .ilike("muscle_group", `%${muscleKey}%`)
             .order("exercise_name", { ascending: true })
-            .range(nextOffset, nextOffset + 15)
+            .range(fetchOffset, fetchOffset + 15)
         : Promise.resolve({ data: [], error: null }),
       searchExerciseDb({
         muscle: muscleKey,
         limit: 16,
-        offset: nextOffset
+        offset: fetchOffset
       })
     ]);
 
@@ -4026,7 +4085,7 @@ export function WorkoutLibraryScreen({
         {groups.map((muscle) => {
           const targetCount = getTargetCountForMuscle(muscle);
           const selectedExercises = getSelectedExercisesForMuscle(muscle);
-          const selectedNames = new Set(selectedExercises.map((exercise) => exercise.exercise_name));
+          const selectedNames = new Set(selectedExercises.map((exercise) => toExerciseKey(exercise.exercise_name)));
           const options = getGroupExerciseOptions(muscle);
           const searchValue = builderGroupSearches[muscle] || "";
           const searchResults = searchValue
@@ -4061,7 +4120,7 @@ export function WorkoutLibraryScreen({
 
               <div className="builder-option-list">
                 {options.map((option) => {
-                  const isSelected = selectedNames.has(option);
+                  const isSelected = selectedNames.has(toExerciseKey(option));
                   return (
                     <button
                       className={isSelected ? "builder-option selected" : "builder-option"}
@@ -4089,7 +4148,7 @@ export function WorkoutLibraryScreen({
               {searchResults.length > 0 ? (
                 <div className="search-results builder-search-results">
                   {searchResults.map((result) => {
-                    const isSelected = selectedNames.has(result);
+                    const isSelected = selectedNames.has(toExerciseKey(result));
                     return (
                       <button
                         disabled={!isSelected && hasReachedTarget}
@@ -5245,7 +5304,7 @@ export function WorkoutLibraryScreen({
                 onClick={() => setSetup((current) => ({ ...current, workout_type: "strength" }))}
                 type="button"
               >
-                Strength
+                Workout
               </button>
               <button
                 className={setup.workout_type === "hiit" ? "segment active hiit" : "segment"}
@@ -5791,7 +5850,7 @@ export function WorkoutLibraryScreen({
 
             <section className="setup-card builder-review-summary">
               <div>
-                <p className="eyebrow">{form.workout_type === "hiit" ? "HIIT workout" : "Strength workout"}</p>
+                <p className="eyebrow">{form.workout_type === "hiit" ? "HIIT workout" : "Workout"}</p>
                 <h2>{form.name || "Untitled workout"}</h2>
                 {form.notes ? <p>{form.notes}</p> : null}
               </div>
@@ -5862,15 +5921,6 @@ export function WorkoutLibraryScreen({
                           </div>
                         ) : null}
                       </div>
-                    </div>
-
-                    <div className="builder-review-actions">
-                      <button className="primary-action compact" onClick={() => showDemo(exercise.exercise_name)} type="button">
-                        Demo
-                      </button>
-                      <button className="primary-action compact" onClick={() => backToExerciseSelection(index)} type="button">
-                        Swap
-                      </button>
                     </div>
 
                     {form.workout_type === "hiit" ? (

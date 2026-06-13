@@ -1507,7 +1507,7 @@ button {
 
 .exercise-review-list {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .builder-group-grid {
@@ -1647,8 +1647,8 @@ button {
 
 .exercise-review-card {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #ffffff;
@@ -1660,12 +1660,12 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: start;
-  padding-bottom: 12px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--line-soft);
 }
 
 .exercise-review-head h2 {
-  margin: 2px 0 4px;
+  margin: 1px 0 2px;
 }
 
 .exercise-review-head p:not(.muscle-label) {
@@ -1699,15 +1699,26 @@ button {
 }
 
 .builder-template-set-table .session-set-row {
-  grid-template-columns: 52px minmax(82px, 1fr) minmax(82px, 1fr) 86px;
+  grid-template-columns: 42px minmax(76px, 1fr) minmax(76px, 1fr) 72px;
+  min-height: 46px;
+  gap: 6px;
+  padding: 6px;
 }
 
 .builder-template-set-row input {
   background: #fffdf1;
+  min-height: 38px;
+  padding: 0 8px;
+  font-size: 14px;
+}
+
+.builder-template-set-table .set-toggle {
+  min-height: 36px;
+  font-size: 11px;
 }
 
 .builder-add-set-action {
-  min-height: 48px;
+  min-height: 42px;
 }
 
 .muscle-label {
@@ -4055,7 +4066,7 @@ button {
 
 .builder-template-set-table .session-set-head,
 .builder-template-set-table .session-set-row {
-  grid-template-columns: 52px minmax(82px, 1fr) minmax(82px, 1fr) 86px;
+  grid-template-columns: 42px minmax(76px, 1fr) minmax(76px, 1fr) 72px;
 }
 
 .session-end-actions {
@@ -9111,7 +9122,7 @@ button {
 @media (max-width: 720px) {
   .builder-template-set-table .session-set-head,
   .builder-template-set-table .session-set-row {
-    grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 54px;
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 48px;
   }
 
   .builder-group-card {
@@ -10992,6 +11003,6 @@ textarea::placeholder {
 @media (max-width: 720px) {
   .builder-template-set-table .session-set-head,
   .builder-template-set-table .session-set-row {
-    grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 54px;
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 48px;
   }
 }
