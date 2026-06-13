@@ -16,7 +16,7 @@ const hiitTargetTypes = [
 ];
 const CATALOG_SEARCH_LIMIT = 8;
 const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
-const recoverableWorkoutModes = new Set(["setup", "editor", "quick-log", "session", "hiit-session", "hiit-for-time"]);
+const recoverableWorkoutModes = new Set(["setup", "editor", "review", "quick-log", "session", "hiit-session", "hiit-for-time"]);
 
 function readRecoveryState(key) {
   if (!key || typeof window === "undefined") return null;
@@ -750,11 +750,6 @@ export function WorkoutLibraryScreen({
     const context = embedded || autoStartWorkout ? "embedded" : "main";
     return `movementz:workout-recovery:${user.id}:${context}`;
   }, [autoStartWorkout, embedded, user?.id]);
-
-  const editingWorkout = useMemo(
-    () => workouts.find((workout) => workout.id === editingId),
-    [editingId, workouts]
-  );
 
   const totalTargetExercises = useMemo(
     () =>
@@ -1829,6 +1824,33 @@ export function WorkoutLibraryScreen({
     });
     setActiveBuilderExerciseIndex(0);
     setMessage("");
+    setMode("review");
+  }
+
+  function goToWorkoutReview() {
+    const selectedExercises = form.exercises.filter((exercise) => exercise.exercise_name.trim());
+    if (selectedExercises.length === 0) {
+      setMessage("Select at least one exercise before reviewing.");
+      return;
+    }
+
+    const firstUnconfirmedIndex = form.exercises.findIndex(
+      (exercise) => exercise.exercise_name.trim() && !exercise.selection_confirmed
+    );
+
+    if (firstUnconfirmedIndex >= 0) {
+      setActiveBuilderExerciseIndex(firstUnconfirmedIndex);
+      setMessage(`Confirm Exercise ${firstUnconfirmedIndex + 1} before reviewing.`);
+      return;
+    }
+
+    setMessage("");
+    setMode("review");
+  }
+
+  function backToExerciseSelection(index = activeBuilderExerciseIndex) {
+    setActiveBuilderExerciseIndex(Math.max(0, Math.min(index, form.exercises.length - 1)));
+    setMessage("");
     setMode("editor");
   }
 
@@ -2107,6 +2129,7 @@ export function WorkoutLibraryScreen({
   }
 
   function addExercise() {
+    const nextIndex = form.exercises.length;
     setForm((current) => ({
       ...current,
       exercises: [
@@ -2126,6 +2149,19 @@ export function WorkoutLibraryScreen({
             : {}
         )
       ]
+    }));
+    setActiveBuilderExerciseIndex(nextIndex);
+    setMode("editor");
+  }
+
+  function updateExerciseSetCount(index, change) {
+    setForm((current) => ({
+      ...current,
+      exercises: current.exercises.map((exercise, exerciseIndex) =>
+        exerciseIndex === index
+          ? { ...exercise, sets: Math.max(1, Math.min(12, (Number(exercise.sets) || 1) + change)) }
+          : exercise
+      )
     }));
   }
 
@@ -5118,13 +5154,13 @@ export function WorkoutLibraryScreen({
         <section className="screen-stack workout-library">
         <div className="screen-heading">
           <p className="eyebrow">Workout library</p>
-          <h1>{editingWorkout ? "Edit workout" : "Choose exercises"}</h1>
-          <p>Use the quick options, refresh them, search, or type a requested exercise name.</p>
+          <h1>Choose exercises</h1>
+          <p>Select your movements first. You will set reps, kg and rest on the review screen.</p>
         </div>
 
         {renderRecoveryBanner("Workout build in progress")}
 
-        <form className="workout-editor panel" onSubmit={saveWorkout}>
+        <div className="workout-editor panel builder-selection-panel">
           <div className="library-toolbar">
             <button
               className="primary-action"
@@ -5164,7 +5200,10 @@ export function WorkoutLibraryScreen({
 
           <div className="exercise-list">
             <div className="section-row exercise-list-head">
-              <h2>Exercises</h2>
+              <div>
+                <p className="eyebrow">Step 2</p>
+                <h2>Pick movements</h2>
+              </div>
               <button className="primary-action compact" onClick={addExercise} type="button">
                 Add Exercise
               </button>
@@ -5315,86 +5354,223 @@ export function WorkoutLibraryScreen({
                       Confirm exercise
                     </button>
                   ) : null}
-
-                  {isConfirmed && form.workout_type === "hiit" ? (
-                    <>
-                      <div className="target-type-picker">
-                        <p className="eyebrow">Target</p>
-                        <div className="segmented-options">
-                          {hiitTargetTypes.map((targetType) => (
-                            <button
-                              className={exercise.target_type === targetType.value ? "segment active hiit" : "segment"}
-                              key={targetType.value}
-                              onClick={() => updateExercise(index, "target_type", targetType.value)}
-                              type="button"
-                            >
-                              {targetType.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="form-grid one builder-target-grid">
-                        <label>
-                          Target value
-                          <input
-                            min="0"
-                            onChange={(event) => updateExercise(index, "target_value", event.target.value)}
-                            type="number"
-                            value={exercise.target_value}
-                          />
-                        </label>
-                      </div>
-                    </>
-                  ) : isConfirmed ? (
-                    <>
-                      <div className="form-grid two builder-metric-grid">
-                        <label>
-                          Reps
-                          <input
-                            min="0"
-                            onChange={(event) => {
-                              updateExercise(index, "rep_min", event.target.value);
-                              updateExercise(index, "rep_max", event.target.value);
-                            }}
-                            type="number"
-                            value={exercise.rep_min}
-                          />
-                        </label>
-                        <label>
-                          Start kg
-                          <input
-                            min="0"
-                            onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
-                            step="0.25"
-                            type="number"
-                            value={exercise.start_kg}
-                          />
-                        </label>
-                      </div>
-
-                      <div className="form-grid one builder-rest-grid">
-                        <label>
-                          Rest sec
-                          <input
-                            min="0"
-                            onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
-                            type="number"
-                            value={exercise.rest_seconds}
-                          />
-                        </label>
-                      </div>
-                    </>
-                  ) : null}
                 </div>
               );
             })}
           </div>
           <div className="form-footer-actions">
-            <button className="primary-action filled" disabled={saving} type="submit">
-              {saving ? "Saving..." : "Save Workout"}
+            <button className="primary-action filled" onClick={goToWorkoutReview} type="button">
+              Review workout
             </button>
           </div>
-        </form>
+        </div>
+        </section>
+        {renderDemoModal()}
+      </>
+    );
+  }
+
+  if (mode === "review") {
+    const selectedExercises = form.exercises.filter((exercise) => exercise.exercise_name.trim());
+
+    return (
+      <>
+        <section className="screen-stack workout-library">
+          <div className="screen-heading">
+            <p className="eyebrow">Workout library</p>
+            <h1>Review workout</h1>
+            <p>Check the selected exercises, targets and starting numbers before saving.</p>
+          </div>
+
+          {renderRecoveryBanner("Workout build in progress")}
+
+          <form className="workout-editor panel builder-review-panel" onSubmit={saveWorkout}>
+            <div className="library-toolbar builder-review-toolbar">
+              <button className="primary-action" onClick={() => backToExerciseSelection()} type="button">
+                Back to exercises
+              </button>
+              <button className="primary-action compact" onClick={addExercise} type="button">
+                Add Exercise
+              </button>
+            </div>
+
+            {message ? <p className="form-message error">{message}</p> : null}
+
+            <section className="setup-card builder-review-summary">
+              <div>
+                <p className="eyebrow">{form.workout_type === "hiit" ? "HIIT workout" : "Strength workout"}</p>
+                <h2>{form.name || "Untitled workout"}</h2>
+                {form.notes ? <p>{form.notes}</p> : null}
+              </div>
+              <div className="builder-review-count">
+                <strong>{selectedExercises.length}</strong>
+                <span>exercises</span>
+              </div>
+            </section>
+
+            <div className="exercise-review-list">
+              {form.exercises.map((exercise, index) => {
+                if (!exercise.exercise_name.trim()) return null;
+
+                const isExerciseMenuOpen = openBuilderExerciseMenu === index;
+
+                return (
+                  <article className="exercise-review-card" key={`${index}-${exercise.id || exercise.exercise_name}`}>
+                    <div className="exercise-review-head">
+                      <div>
+                        <p className="muscle-label">{exercise.muscle_group}</p>
+                        <h2>{exercise.exercise_name}</h2>
+                        {form.workout_type !== "hiit" ? (
+                          <p>Target: {exercise.sets || 1} sets x {exercise.rep_min || 0} reps</p>
+                        ) : (
+                          <p>Target: {exercise.target_value || 0} {exercise.target_type || "reps"}</p>
+                        )}
+                      </div>
+                      <div className="session-menu-wrap">
+                        <button
+                          aria-expanded={isExerciseMenuOpen}
+                          aria-label={`More options for ${exercise.exercise_name}`}
+                          className="icon-action exercise-menu-button"
+                          onClick={() => setOpenBuilderExerciseMenu(isExerciseMenuOpen ? null : index)}
+                          type="button"
+                        >
+                          ...
+                        </button>
+                        {isExerciseMenuOpen ? (
+                          <div className="session-menu exercise-action-menu" role="menu">
+                            <button
+                              onClick={() => {
+                                setOpenBuilderExerciseMenu(null);
+                                showDemo(exercise.exercise_name);
+                              }}
+                              type="button"
+                            >
+                              Demo
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOpenBuilderExerciseMenu(null);
+                                backToExerciseSelection(index);
+                              }}
+                              type="button"
+                            >
+                              Swap
+                            </button>
+                            <button
+                              className="danger-text"
+                              onClick={() => {
+                                setOpenBuilderExerciseMenu(null);
+                                removeExercise(index);
+                              }}
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="builder-review-actions">
+                      <button className="primary-action compact" onClick={() => showDemo(exercise.exercise_name)} type="button">
+                        Demo
+                      </button>
+                      <button className="primary-action compact" onClick={() => backToExerciseSelection(index)} type="button">
+                        Swap
+                      </button>
+                    </div>
+
+                    {form.workout_type === "hiit" ? (
+                      <>
+                        <div className="target-type-picker">
+                          <p className="eyebrow">Target</p>
+                          <div className="segmented-options">
+                            {hiitTargetTypes.map((targetType) => (
+                              <button
+                                className={exercise.target_type === targetType.value ? "segment active hiit" : "segment"}
+                                key={targetType.value}
+                                onClick={() => updateExercise(index, "target_type", targetType.value)}
+                                type="button"
+                              >
+                                {targetType.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="form-grid one builder-target-grid">
+                          <label>
+                            Target value
+                            <input
+                              min="0"
+                              onChange={(event) => updateExercise(index, "target_value", event.target.value)}
+                              type="number"
+                              value={exercise.target_value}
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="builder-set-review-row">
+                          <span>Sets</span>
+                          <div className="stepper-control">
+                            <button onClick={() => updateExerciseSetCount(index, -1)} type="button">
+                              -
+                            </button>
+                            <strong>{exercise.sets || 1}</strong>
+                            <button onClick={() => updateExerciseSetCount(index, 1)} type="button">
+                              +
+                            </button>
+                          </div>
+                        </div>
+                        <div className="form-grid two builder-metric-grid">
+                          <label>
+                            Reps
+                            <input
+                              min="0"
+                              onChange={(event) => {
+                                updateExercise(index, "rep_min", event.target.value);
+                                updateExercise(index, "rep_max", event.target.value);
+                              }}
+                              type="number"
+                              value={exercise.rep_min}
+                            />
+                          </label>
+                          <label>
+                            Start kg
+                            <input
+                              min="0"
+                              onChange={(event) => updateExercise(index, "start_kg", event.target.value)}
+                              step="0.25"
+                              type="number"
+                              value={exercise.start_kg}
+                            />
+                          </label>
+                        </div>
+                        <div className="form-grid one builder-rest-grid">
+                          <label>
+                            Rest sec
+                            <input
+                              min="0"
+                              onChange={(event) => updateExercise(index, "rest_seconds", event.target.value)}
+                              type="number"
+                              value={exercise.rest_seconds}
+                            />
+                          </label>
+                        </div>
+                      </>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            <div className="form-footer-actions">
+              <button className="primary-action filled" disabled={saving} type="submit">
+                {saving ? "Saving..." : "Save Workout"}
+              </button>
+            </div>
+          </form>
         </section>
         {renderDemoModal()}
       </>

@@ -1454,6 +1454,115 @@ button {
   color: color-mix(in srgb, var(--gold) 82%, #ffffff);
 }
 
+.builder-selection-panel {
+  gap: 18px;
+}
+
+.builder-review-panel {
+  gap: 16px;
+}
+
+.builder-review-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.builder-review-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  background: color-mix(in srgb, #ffffff 88%, var(--logo-blue));
+}
+
+.builder-review-summary p:not(.eyebrow) {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.builder-review-count {
+  display: grid;
+  place-items: center;
+  min-width: 86px;
+  min-height: 72px;
+  border: 1px solid color-mix(in srgb, var(--teal) 42%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 8%, #ffffff);
+}
+
+.builder-review-count strong {
+  color: var(--gold);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.builder-review-count span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.exercise-review-list {
+  display: grid;
+  gap: 14px;
+}
+
+.exercise-review-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(10, 23, 31, 0.08);
+}
+
+.exercise-review-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.exercise-review-head h2 {
+  margin: 2px 0 4px;
+}
+
+.exercise-review-head p:not(.muscle-label) {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 750;
+}
+
+.builder-review-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.builder-set-review-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper-soft) 76%, #ffffff);
+}
+
+.builder-set-review-row span {
+  color: var(--muted);
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .muscle-label {
   margin: 0;
   color: var(--muted);
@@ -8938,6 +9047,22 @@ button {
 
   .suggestion-picker .mini-actions .remove-action {
     flex: 0 0 auto;
+  }
+
+  .builder-review-toolbar,
+  .builder-review-summary,
+  .exercise-review-head,
+  .builder-review-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-review-count {
+    min-height: 58px;
+    width: 100%;
+  }
+
+  .exercise-review-card {
+    padding: 14px;
   }
 
   .session-set-head,
