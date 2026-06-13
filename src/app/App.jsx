@@ -29,6 +29,7 @@ import { enablePhonePushNotifications, getPushStatus } from "../lib/pushNotifica
 import { hasSupabaseConfig, supabase } from "../lib/supabase/client.js";
 
 const COACH_SIGNUP_INTENT_KEY = "movementz.pendingCoachSignupEmail";
+const ADMIN_EMAILS = new Set(["jsfitnessx@gmail.com"]);
 const BOOT_TIMEOUT_MS = 8000;
 const PROFILE_TIMEOUT_MS = 8000;
 
@@ -47,6 +48,10 @@ function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
 }
 
+function isAdminEmail(email) {
+  return ADMIN_EMAILS.has(normalizeEmail(email));
+}
+
 function hasPendingCoachSignupIntent(authUser) {
   if (typeof window === "undefined" || !authUser?.email) return false;
   return normalizeEmail(window.localStorage.getItem(COACH_SIGNUP_INTENT_KEY)) === normalizeEmail(authUser.email);
@@ -59,8 +64,17 @@ function clearPendingCoachSignupIntent(authUser) {
   }
 }
 
-function isAdminProfile(profile) {
-  return profile?.role === "admin" || profile?.access_tier === "admin";
+function isAdminProfile(profile, authUser = null) {
+  return (
+    profile?.role === "admin" ||
+    profile?.access_tier === "admin" ||
+    isAdminEmail(profile?.email) ||
+    isAdminEmail(authUser?.email)
+  );
+}
+
+function roleForProfile(profile, authUser = null) {
+  return isAdminProfile(profile, authUser) ? "admin" : profile?.role || "normal_user";
 }
 
 async function loadProfile(authUser) {
@@ -81,15 +95,16 @@ async function loadProfile(authUser) {
 
   const metadata = authUser.user_metadata ?? {};
   const isPendingCoachSignup = metadata.intended_role === "coach";
+  const isProtectedAdmin = isAdminEmail(authUser.email);
   const fallbackProfile = {
     id: authUser.id,
     email: authUser.email,
     full_name: metadata.full_name || "",
-    role: metadata.role === "admin" ? "admin" : isPendingCoachSignup ? "coach" : "normal_user",
+    role: metadata.role === "admin" || isProtectedAdmin ? "admin" : isPendingCoachSignup ? "coach" : "normal_user",
     gender: metadata.gender || null,
     age: metadata.age ? Number(metadata.age) : null,
     location: metadata.location || null,
-    subscription_status: isPendingCoachSignup ? "pending_coach" : null
+    subscription_status: isPendingCoachSignup && !isProtectedAdmin ? "pending_coach" : null
   };
 
   if (isPendingCoachSignup) {
@@ -290,10 +305,14 @@ export function App() {
         }
         const nextProfile = await loadProfile(session.user);
         if (!alive) return;
+        const nextRole = roleForProfile(nextProfile, session.user);
         setProfile(nextProfile);
-        setRole(nextProfile?.role || "normal_user");
-        setActiveTab((roleTabs[nextProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
-        if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
+        setRole(nextRole);
+        setActiveTab((roleTabs[nextRole] ?? roleTabs.normal_user)[0].id);
+        if (nextRole === "admin") {
+          clearPendingCoachSignupIntent(session.user);
+          setAppMessage("Admin access restored. Coach checkout is not required.");
+        } else if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
           clearPendingCoachSignupIntent(session.user);
           setAppMessage("Coach access unlocked.");
         } else {
@@ -307,9 +326,14 @@ export function App() {
     const timers = [900, 2600, 5200].map((delay) => window.setTimeout(async () => {
       const nextProfile = await loadProfile(session.user);
       if (!alive) return;
+      const nextRole = roleForProfile(nextProfile, session.user);
       setProfile(nextProfile);
-      setRole(nextProfile?.role || "normal_user");
-      if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
+      setRole(nextRole);
+      if (nextRole === "admin") {
+        clearPendingCoachSignupIntent(session.user);
+        setActiveTab((roleTabs.admin ?? roleTabs.normal_user)[0].id);
+        setAppMessage("Admin access restored. Coach checkout is not required.");
+      } else if (nextProfile?.role === "coach" || nextProfile?.access_tier === "coach") {
         clearPendingCoachSignupIntent(session.user);
         setActiveTab((roleTabs.coach ?? roleTabs.normal_user)[0].id);
         setAppMessage("Coach access unlocked.");
@@ -507,14 +531,14 @@ export function App() {
         if (nextSession?.user) {
           const nextProfile = await loadProfile(nextSession.user);
           if (!alive) return;
-          if (isAdminProfile(nextProfile)) {
+          if (isAdminProfile(nextProfile, nextSession.user)) {
             clearPendingCoachSignupIntent(nextSession.user);
             if (forcedSignupMode) {
               window.history.replaceState({}, document.title, window.location.pathname);
             }
             setSession(nextSession);
             setProfile(nextProfile);
-            setRole(nextProfile?.role || "normal_user");
+            setRole(roleForProfile(nextProfile, nextSession.user));
             return;
           }
 
@@ -529,7 +553,7 @@ export function App() {
 
           setSession(nextSession);
           setProfile(nextProfile);
-          setRole(nextProfile?.role || "normal_user");
+          setRole(roleForProfile(nextProfile, nextSession.user));
           return;
         }
 
@@ -565,11 +589,11 @@ export function App() {
 
         if (nextSession?.user) {
           const nextProfile = await loadProfile(nextSession.user);
-          if (isAdminProfile(nextProfile)) {
+          if (isAdminProfile(nextProfile, nextSession.user)) {
             clearPendingCoachSignupIntent(nextSession.user);
           }
           setProfile(nextProfile);
-          setRole(nextProfile?.role || "normal_user");
+          setRole(roleForProfile(nextProfile, nextSession.user));
         } else {
           setProfile(null);
           setRole("normal_user");
@@ -629,9 +653,10 @@ export function App() {
 
       const nextProfile = await loadProfile(session.user);
       if (!alive) return;
+      const nextRole = roleForProfile(nextProfile, session.user);
       setProfile(nextProfile);
-      setRole(nextProfile?.role || "normal_user");
-      setActiveTab((roleTabs[nextProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
+      setRole(nextRole);
+      setActiveTab((roleTabs[nextRole] ?? roleTabs.normal_user)[0].id);
       setPendingCoachInviteCode("");
       window.history.replaceState({}, document.title, window.location.pathname);
       setAppMessage("Coach access confirmed.");
@@ -697,6 +722,20 @@ export function App() {
     coachCheckoutStartedRef.current = true;
     setCoachCheckoutRedirecting(true);
 
+    const latestProfile = await loadProfile(nextSession.user);
+    if (isAdminProfile(latestProfile, nextSession.user)) {
+      clearPendingCoachSignupIntent(nextSession.user);
+      coachCheckoutStartedRef.current = false;
+      setCoachCheckoutRedirecting(false);
+      setProfile(latestProfile);
+      setRole("admin");
+      setSession(nextSession);
+      setActiveTab((roleTabs.admin ?? roleTabs.normal_user)[0].id);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setAppMessage("Admin access restored. Coach checkout is not required.");
+      return;
+    }
+
     const response = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: {
@@ -716,7 +755,7 @@ export function App() {
   }
 
   function needsCoachSubscription(nextSession, nextProfile) {
-    if (isAdminProfile(nextProfile)) return false;
+    if (isAdminProfile(nextProfile, nextSession?.user)) return false;
     const intendedRole = nextSession?.user?.user_metadata?.intended_role;
     const hasLocalCoachIntent = hasPendingCoachSignupIntent(nextSession?.user);
     const currentRole = nextProfile?.role || "normal_user";
@@ -732,7 +771,7 @@ export function App() {
     if (!nextSession?.user) return;
     const nextProfile = await loadProfile(nextSession.user);
     let resolvedProfile = nextProfile;
-    if (isAdminProfile(resolvedProfile)) {
+    if (isAdminProfile(resolvedProfile, nextSession.user)) {
       clearPendingCoachSignupIntent(nextSession.user);
       if (forcedSignupMode) {
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -756,8 +795,18 @@ export function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
       setCoachCheckoutRedirecting(true);
       resolvedProfile = await loadProfile(nextSession.user);
+      if (isAdminProfile(resolvedProfile, nextSession.user)) {
+        clearPendingCoachSignupIntent(nextSession.user);
+        setCoachCheckoutRedirecting(false);
+        setProfile(resolvedProfile);
+        setRole("admin");
+        setSession(nextSession);
+        setActiveTab((roleTabs.admin ?? roleTabs.normal_user)[0].id);
+        setAppMessage("Admin access restored. Coach checkout is not required.");
+        return;
+      }
       setProfile(resolvedProfile);
-      setRole(resolvedProfile?.role || "normal_user");
+      setRole(roleForProfile(resolvedProfile, nextSession.user));
       setSession(nextSession);
       await startCoachCheckout(nextSession);
       return;
@@ -766,12 +815,13 @@ export function App() {
     }
 
     setProfile(resolvedProfile);
-    setRole(resolvedProfile?.role || "normal_user");
+    setRole(roleForProfile(resolvedProfile, nextSession.user));
     setSession(nextSession);
-    if (resolvedProfile?.role === "coach" || resolvedProfile?.access_tier === "coach") {
+    if (isAdminProfile(resolvedProfile, nextSession.user) || resolvedProfile?.role === "coach" || resolvedProfile?.access_tier === "coach") {
       clearPendingCoachSignupIntent(nextSession.user);
     }
-    setActiveTab((roleTabs[resolvedProfile?.role || "normal_user"] ?? roleTabs.normal_user)[0].id);
+    const nextRole = roleForProfile(resolvedProfile, nextSession.user);
+    setActiveTab((roleTabs[nextRole] ?? roleTabs.normal_user)[0].id);
     await previewInviteIfNeeded(nextSession);
   }
 
@@ -791,7 +841,7 @@ export function App() {
 
     const nextProfile = await loadProfile(session.user);
     setProfile(nextProfile);
-    setRole(nextProfile?.role || "normal_user");
+    setRole(roleForProfile(nextProfile, session.user));
     setActiveTab("home");
     setPendingInvite(null);
     setClaimedInviteCode(pendingInviteCode);
@@ -838,7 +888,7 @@ export function App() {
 
   function handleProfileSaved(nextProfile) {
     setProfile(nextProfile);
-    setRole(nextProfile?.role || "normal_user");
+    setRole(roleForProfile(nextProfile, session?.user));
   }
 
   function handlePreviewAccount(nextAccount) {

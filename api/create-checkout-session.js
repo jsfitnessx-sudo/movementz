@@ -18,6 +18,21 @@ function json(response, status, payload) {
   response.status(status).json(payload);
 }
 
+const ADMIN_EMAILS = new Set(["jsfitnessx@gmail.com"]);
+
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function isAdminAccount(profile, authUser) {
+  return (
+    profile?.role === "admin" ||
+    profile?.access_tier === "admin" ||
+    ADMIN_EMAILS.has(normalizeEmail(profile?.email)) ||
+    ADMIN_EMAILS.has(normalizeEmail(authUser?.email))
+  );
+}
+
 async function stripeRequest(path, params) {
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY || "";
   const response = await fetch(`https://api.stripe.com/v1/${path}`, {
@@ -107,15 +122,23 @@ export default async function handler(request, response) {
   const metadataName = metadata.full_name || "";
 
   try {
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("id,email,full_name,first_name,last_name,role,access_tier,stripe_customer_id")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (checkoutType === "coach" && isAdminAccount(profile, authUser)) {
+      json(response, 403, {
+        error: "Admin accounts do not need coach checkout.",
+        code: "admin_checkout_blocked"
+      });
+      return;
+    }
+
     if (checkoutType === "coach") {
       await preparePendingCoach(serviceClient, authUser);
     }
-
-    const { data: profile } = await serviceClient
-      .from("profiles")
-      .select("id,email,full_name,first_name,last_name,stripe_customer_id")
-      .eq("id", authUser.id)
-      .maybeSingle();
 
     const displayName = profile?.full_name ||
       [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") ||
