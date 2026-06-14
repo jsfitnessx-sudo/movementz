@@ -6437,8 +6437,8 @@ export function WorkoutLibraryScreen({
           <p>Create workouts once, start them later, or use them inside plans.</p>
         </div>
         <div className="workout-heading-actions">
-          <button className="primary-action filled quick-workout-action" onClick={startQuickLog} type="button">
-            Quick Workout
+          <button className="primary-action filled build-workout-action" onClick={startNewWorkout} type="button">
+            Build Workout
           </button>
           {canUseAiBuilder ? (
             <button className="primary-action filled ai-workout-action" onClick={startAiBuilder} type="button">
@@ -6446,8 +6446,8 @@ export function WorkoutLibraryScreen({
               <span>Coming soon</span>
             </button>
           ) : null}
-          <button className="primary-action filled build-workout-action" onClick={startNewWorkout} type="button">
-            Build Workout
+          <button className="primary-action filled quick-workout-action" onClick={startQuickLog} type="button">
+            Quick Workout
           </button>
         </div>
       </div>

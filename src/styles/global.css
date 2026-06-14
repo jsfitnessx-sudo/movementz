@@ -916,24 +916,21 @@ button {
 }
 
 .build-workout-action {
+  grid-column: 1 / -1;
   min-width: 0;
-}
-
-.workout-heading-actions .build-workout-action:nth-child(2):last-child {
-  grid-column: 1 / -1;
-}
-
-.quick-workout-action {
-  grid-column: 1 / -1;
   min-height: 46px;
   padding: 0 14px;
   font-size: 14px;
 }
 
-.workout-heading-actions .quick-workout-action.filled {
+.workout-heading-actions .build-workout-action.filled {
   border-color: #4fcac1;
   background: #4fcac1;
   color: #061017;
+}
+
+.quick-workout-action {
+  min-width: 0;
 }
 
 .workout-heading-actions .ai-workout-action.filled {
@@ -7962,13 +7959,13 @@ button {
   }
 
   .build-workout-action {
+    grid-column: 1 / -1;
     min-height: 52px;
     min-width: 0;
     font-size: 16px;
   }
 
   .quick-workout-action {
-    grid-column: 1 / -1;
     min-height: 52px;
     padding: 0 10px;
     font-size: 14px;
