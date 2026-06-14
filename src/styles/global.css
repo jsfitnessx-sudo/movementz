@@ -1635,6 +1635,14 @@ button {
   color: var(--text);
 }
 
+.builder-group-card {
+  scroll-margin-bottom: 320px;
+}
+
+.builder-search-results {
+  scroll-margin-bottom: 320px;
+}
+
 .builder-confirmed-block,
 .builder-confirmed-panel {
   display: grid;

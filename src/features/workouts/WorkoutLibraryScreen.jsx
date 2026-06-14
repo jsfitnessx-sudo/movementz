@@ -2252,6 +2252,14 @@ export function WorkoutLibraryScreen({
     }
   }
 
+  function keepBuilderSearchVisible(event) {
+    const container = event.currentTarget.closest(".builder-group-card");
+    if (!container) return;
+    window.setTimeout(() => {
+      container.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 280);
+  }
+
   function toggleGroupExercise(muscle, exerciseName, isTypedCustom = false) {
     const cleanExerciseName = exerciseName.trim();
     if (!cleanExerciseName) return;
@@ -4421,7 +4429,11 @@ export function WorkoutLibraryScreen({
               <label className="builder-group-search">
                 Search exercises
                 <input
-                  onChange={(event) => updateGroupSearch(muscle, event.target.value)}
+                  onChange={(event) => {
+                    updateGroupSearch(muscle, event.target.value);
+                    keepBuilderSearchVisible(event);
+                  }}
+                  onFocus={keepBuilderSearchVisible}
                   placeholder={`Search ${muscle} exercises...`}
                   value={searchValue}
                 />
