@@ -942,6 +942,21 @@ button {
   color: #ffffff;
 }
 
+.ai-workout-action {
+  display: grid;
+  place-items: center;
+  line-height: 1.05;
+}
+
+.ai-workout-action span {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 900;
+  opacity: 0.72;
+  text-transform: uppercase;
+}
+
 .ai-builder-screen {
   max-width: 760px;
 }

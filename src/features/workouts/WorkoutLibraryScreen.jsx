@@ -1750,13 +1750,7 @@ export function WorkoutLibraryScreen({
 
   function startAiBuilder() {
     setMessage("");
-    if (!canUseAiBuilder) {
-      setMessage("AI Builder is available to paid users, coaches and admins.");
-      return;
-    }
-    setEditingId(null);
-    setAiBuilderForm(createAiBuilderForm());
-    setMode("ai-builder");
+    setMessage("AI Builder is coming soon. We are reviewing pricing before turning it on.");
   }
 
   function startQuickLog() {
@@ -6449,6 +6443,7 @@ export function WorkoutLibraryScreen({
           {canUseAiBuilder ? (
             <button className="primary-action filled ai-workout-action" onClick={startAiBuilder} type="button">
               AI Builder
+              <span>Coming soon</span>
             </button>
           ) : null}
           <button className="primary-action filled build-workout-action" onClick={startNewWorkout} type="button">
@@ -6457,7 +6452,9 @@ export function WorkoutLibraryScreen({
         </div>
       </div>
 
-      {message ? <p className="form-message error">{message}</p> : null}
+      {message ? (
+        <p className={message.includes("coming soon") ? "form-message success" : "form-message error"}>{message}</p>
+      ) : null}
       {assignWorkout ? (
         <div className="panel assignment-panel">
           <div className="section-row">
