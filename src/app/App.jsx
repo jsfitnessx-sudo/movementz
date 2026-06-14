@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "../layouts/AppLayout.jsx";
 import { AdminRequestsScreen } from "../features/admin/AdminRequestsScreen.jsx";
 import { AdminCoachesScreen } from "../features/admin/AdminCoachesScreen.jsx";
+import { GrowthStudioScreen } from "../features/admin/GrowthStudioScreen.jsx";
 import { AdminSettingsScreen } from "../features/admin/AdminSettingsScreen.jsx";
 import { AdminUsersScreen } from "../features/admin/AdminUsersScreen.jsx";
 import { AppointmentsScreen } from "../features/appointments/AppointmentsScreen.jsx";
@@ -1060,6 +1061,8 @@ export function App() {
         <AppointmentsScreen user={user} />
       ) : activeTab === "users" && effectiveRole === "admin" ? (
         <AdminUsersScreen onPreviewAccount={handlePreviewAccount} />
+      ) : activeTab === "growth" && effectiveRole === "admin" ? (
+        <GrowthStudioScreen sessionAccessToken={sessionAccessToken} user={accountUser} />
       ) : activeTab === "coaches" && effectiveRole === "admin" ? (
         <AdminCoachesScreen />
       ) : activeTab === "requests" && effectiveRole === "admin" ? (

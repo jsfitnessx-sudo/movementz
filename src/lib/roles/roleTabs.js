@@ -36,6 +36,7 @@ export const roleTabs = {
   admin: [
     { id: "home", label: "Home", icon: "\u{1F3E0}" },
     { id: "workouts", label: "Workouts", icon: "\u{1F4DA}" },
+    { id: "growth", label: "Growth", icon: "\u{1F4A1}" },
     { id: "users", label: "Users", icon: "\u{1F464}" },
     { id: "coaches", label: "Coaches", icon: "\u{1F393}" },
     { id: "requests", label: "Requests", icon: "\u{1F4E9}" },
