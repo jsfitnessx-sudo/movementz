@@ -2257,15 +2257,6 @@ export function WorkoutLibraryScreen({
     if (!cleanExerciseName) return;
 
     const selectedExercises = getSelectedExercisesForMuscle(muscle);
-    const existingSelection = selectedExercises.find(
-      (exercise) => toExerciseKey(exercise.exercise_name) === toExerciseKey(cleanExerciseName)
-    );
-
-    if (existingSelection) {
-      clearBuilderExercise(existingSelection.index);
-      return;
-    }
-
     const targetCount = getTargetCountForMuscle(muscle);
     if (selectedExercises.length >= targetCount) {
       setMessage(`${muscle} already has ${targetCount} selected exercises. Remove one to choose another.`);
@@ -4415,13 +4406,13 @@ export function WorkoutLibraryScreen({
                   return (
                     <button
                       className={isSelected ? "builder-option selected" : "builder-option"}
-                      disabled={!isSelected && hasReachedTarget}
+                      disabled={hasReachedTarget}
                       key={option}
                       onClick={() => toggleGroupExercise(muscle, option)}
                       type="button"
                     >
                       <span>{option}</span>
-                      <strong>{isSelected ? "x" : "+"}</strong>
+                      <strong>+</strong>
                     </button>
                   );
                 })}
@@ -4442,12 +4433,12 @@ export function WorkoutLibraryScreen({
                     const isSelected = selectedNames.has(toExerciseKey(result));
                     return (
                       <button
-                        disabled={!isSelected && hasReachedTarget}
+                        disabled={hasReachedTarget}
                         key={result}
                         onClick={() => toggleGroupExercise(muscle, result)}
                         type="button"
                       >
-                        {isSelected ? "Remove " : "Add "}
+                        {isSelected ? "Add again " : "Add "}
                         {result}
                       </button>
                     );
