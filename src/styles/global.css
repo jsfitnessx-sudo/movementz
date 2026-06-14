@@ -910,19 +910,24 @@ button {
 
 .workout-heading-actions {
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) minmax(120px, auto);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: center;
 }
 
 .build-workout-action {
-  min-width: 180px;
+  min-width: 0;
+}
+
+.workout-heading-actions .build-workout-action:nth-child(2):last-child {
+  grid-column: 1 / -1;
 }
 
 .quick-workout-action {
-  min-height: 38px;
+  grid-column: 1 / -1;
+  min-height: 46px;
   padding: 0 14px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .workout-heading-actions .quick-workout-action.filled {
@@ -7636,7 +7641,15 @@ button {
 }
 
 .library-view-tabs {
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.library-view-tabs button:first-child {
+  grid-column: 1 / -1;
+}
+
+.library-view-tabs button:nth-child(2):last-child {
+  grid-column: 1 / -1;
 }
 
 .schedule-day-tabs {
@@ -7929,7 +7942,7 @@ button {
   }
 
   .workout-heading-actions {
-    grid-template-columns: minmax(0, 1fr) minmax(112px, 0.42fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
@@ -7940,9 +7953,10 @@ button {
   }
 
   .quick-workout-action {
+    grid-column: 1 / -1;
     min-height: 52px;
     padding: 0 10px;
-    font-size: 11px;
+    font-size: 14px;
   }
 
   .home-build-actions,

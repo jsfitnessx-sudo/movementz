@@ -197,7 +197,12 @@ async function generateWorkoutWithOpenAI({ prompt, filters, model }) {
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error?.message || "AI workout generation failed.");
+    const code = data?.error?.code || "";
+    const message = data?.error?.message || "";
+    if (code === "insufficient_quota" || message.toLowerCase().includes("quota")) {
+      throw new Error("AI Builder is connected, but the OpenAI API key has no available billing or credits. Add billing/credits in OpenAI Platform, then try again. This did not use the member's monthly AI workout.");
+    }
+    throw new Error(message || "AI workout generation failed.");
   }
 
   const outputText = extractOutputText(data);

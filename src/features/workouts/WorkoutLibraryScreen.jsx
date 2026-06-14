@@ -674,12 +674,12 @@ function createEmptyForm() {
 
 function createAiBuilderForm() {
   return {
-    prompt: "Build me a 45-minute dumbbell upper body session for beginner/intermediate.",
-    duration: "45",
-    level: "Beginner/intermediate",
-    equipment: "Dumbbells",
-    goal: "Strength",
-    focus: "Upper body"
+    prompt: "",
+    duration: "",
+    level: "",
+    equipment: "",
+    goal: "",
+    focus: ""
   };
 }
 
@@ -5619,6 +5619,7 @@ export function WorkoutLibraryScreen({
                 onChange={(event) => updateAiBuilderField("duration", event.target.value)}
                 value={aiBuilderForm.duration}
               >
+                <option value="">Example: 45 min</option>
                 <option value="30">30 min</option>
                 <option value="45">45 min</option>
                 <option value="60">60 min</option>
@@ -5631,6 +5632,7 @@ export function WorkoutLibraryScreen({
                 onChange={(event) => updateAiBuilderField("level", event.target.value)}
                 value={aiBuilderForm.level}
               >
+                <option value="">Example: Beginner/intermediate</option>
                 <option>Beginner</option>
                 <option>Beginner/intermediate</option>
                 <option>Intermediate</option>
@@ -5643,6 +5645,7 @@ export function WorkoutLibraryScreen({
                 onChange={(event) => updateAiBuilderField("goal", event.target.value)}
                 value={aiBuilderForm.goal}
               >
+                <option value="">Example: Strength</option>
                 <option>Strength</option>
                 <option>Hypertrophy</option>
                 <option>Conditioning</option>
@@ -5657,7 +5660,7 @@ export function WorkoutLibraryScreen({
               Equipment
               <input
                 onChange={(event) => updateAiBuilderField("equipment", event.target.value)}
-                placeholder="Dumbbells, barbell, cables..."
+                placeholder="e.g. Dumbbells, barbell, cables..."
                 value={aiBuilderForm.equipment}
               />
             </label>
@@ -5665,7 +5668,7 @@ export function WorkoutLibraryScreen({
               Focus
               <input
                 onChange={(event) => updateAiBuilderField("focus", event.target.value)}
-                placeholder="Upper body, legs, full body..."
+                placeholder="e.g. Upper body, legs, full body..."
                 value={aiBuilderForm.focus}
               />
             </label>
@@ -6440,6 +6443,9 @@ export function WorkoutLibraryScreen({
           <p>Create workouts once, start them later, or use them inside plans.</p>
         </div>
         <div className="workout-heading-actions">
+          <button className="primary-action filled quick-workout-action" onClick={startQuickLog} type="button">
+            Quick Workout
+          </button>
           {canUseAiBuilder ? (
             <button className="primary-action filled ai-workout-action" onClick={startAiBuilder} type="button">
               AI Builder
@@ -6447,9 +6453,6 @@ export function WorkoutLibraryScreen({
           ) : null}
           <button className="primary-action filled build-workout-action" onClick={startNewWorkout} type="button">
             Build Workout
-          </button>
-          <button className="primary-action filled quick-workout-action" onClick={startQuickLog} type="button">
-            Quick Workout
           </button>
         </div>
       </div>

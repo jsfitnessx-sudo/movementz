@@ -194,6 +194,12 @@ function hasCoachAccess(profile) {
   );
 }
 
+function clearRestoreSessionMessage(setAppMessage) {
+  setAppMessage((current) =>
+    current === "We could not restore your session. Please log in again." ? "" : current
+  );
+}
+
 function CoachCheckoutGate({ appMessage, onContinue, onSignOut }) {
   return (
     <main className="auth-screen">
@@ -550,6 +556,7 @@ export function App() {
             setSession(nextSession);
             setProfile(nextProfile);
             setRole(roleForProfile(nextProfile, nextSession.user));
+            clearRestoreSessionMessage(setAppMessage);
             return;
           }
 
@@ -565,6 +572,7 @@ export function App() {
           setSession(nextSession);
           setProfile(nextProfile);
           setRole(roleForProfile(nextProfile, nextSession.user));
+          clearRestoreSessionMessage(setAppMessage);
           return;
         }
 
@@ -605,6 +613,7 @@ export function App() {
           }
           setProfile(nextProfile);
           setRole(roleForProfile(nextProfile, nextSession.user));
+          clearRestoreSessionMessage(setAppMessage);
         } else {
           setProfile(null);
           setRole("normal_user");
