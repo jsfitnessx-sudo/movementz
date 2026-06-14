@@ -611,7 +611,7 @@ export function PlansScreen({ role = "normal_user", user }) {
           plan_type: builder.planType,
           block_weeks: builder.planType === "block" ? builder.blockWeeks : null,
           training_plan_workouts: builder.workouts,
-          training_plan_assignments: builder.selectedClientIds
+          training_plan_assignments: role === "coach" ? builder.selectedClientIds : []
         };
 
         if (editingPlanId) {
@@ -633,7 +633,7 @@ export function PlansScreen({ role = "normal_user", user }) {
       name: builder.name.trim(),
       plan_type: builder.planType,
       block_weeks: builder.planType === "block" ? builder.blockWeeks : null,
-      instructions: builder.instructions || null
+      instructions: role === "coach" ? builder.instructions || null : null
     };
     let planId = editingPlanId;
 
@@ -702,7 +702,7 @@ export function PlansScreen({ role = "normal_user", user }) {
       }
     }
 
-    if (builder.selectedClientIds.length && planId) {
+    if (role === "coach" && builder.selectedClientIds.length && planId) {
       const { error: assignmentError } = await supabase.from("training_plan_assignments").insert(
         builder.selectedClientIds.map((clientId) => ({
           plan_id: planId,
@@ -918,46 +918,48 @@ export function PlansScreen({ role = "normal_user", user }) {
               )}
             </div>
 
-            <div className="coach-assignment-panel">
-              <div className="section-row">
-                <div>
-                  <p className="eyebrow">Coach assignment</p>
-                  <p className="compact-help">
-                    {builder.selectedClientIds.length
-                      ? `${builder.selectedClientIds.length} client${builder.selectedClientIds.length === 1 ? "" : "s"} will receive this plan when saved.`
-                      : "Choose linked clients to assign this plan as soon as it is saved."}
-                  </p>
+            {role === "coach" ? (
+              <div className="coach-assignment-panel">
+                <div className="section-row">
+                  <div>
+                    <p className="eyebrow">Coach assignment</p>
+                    <p className="compact-help">
+                      {builder.selectedClientIds.length
+                        ? `${builder.selectedClientIds.length} client${builder.selectedClientIds.length === 1 ? "" : "s"} will receive this plan when saved.`
+                        : "Choose linked clients to assign this plan as soon as it is saved."}
+                    </p>
+                  </div>
+                  <span className="status-pill">{builder.selectedClientIds.length} selected</span>
                 </div>
-                <span className="status-pill">{builder.selectedClientIds.length} selected</span>
+                {clients.length ? (
+                  clients.map((client) => (
+                    <button
+                      className={builder.selectedClientIds.includes(client.id) ? "client-assignment active" : "client-assignment"}
+                      key={client.id}
+                      onClick={() => toggleClient(client.id)}
+                      type="button"
+                    >
+                      <span>{client.name}</span>
+                      <strong>{builder.selectedClientIds.includes(client.id) ? "Added" : "Add"}</strong>
+                    </button>
+                  ))
+                ) : (
+                  <p className="compact-help">Linked clients will appear here.</p>
+                )}
+                <textarea
+                  onChange={(event) => setBuilder((current) => ({ ...current, instructions: event.target.value }))}
+                  placeholder="Plan instructions for selected clients..."
+                  value={builder.instructions}
+                />
               </div>
-              {clients.length ? (
-                clients.map((client) => (
-                  <button
-                    className={builder.selectedClientIds.includes(client.id) ? "client-assignment active" : "client-assignment"}
-                    key={client.id}
-                    onClick={() => toggleClient(client.id)}
-                    type="button"
-                  >
-                    <span>{client.name}</span>
-                    <strong>{builder.selectedClientIds.includes(client.id) ? "Added" : "Add"}</strong>
-                  </button>
-                ))
-              ) : (
-                <p className="compact-help">Linked clients will appear here.</p>
-              )}
-              <textarea
-                onChange={(event) => setBuilder((current) => ({ ...current, instructions: event.target.value }))}
-                placeholder="Plan instructions for selected clients..."
-                value={builder.instructions}
-              />
-            </div>
+            ) : null}
 
             <div className="form-footer-actions">
               <button className="primary-action" onClick={closeBuilder} type="button">
                 Cancel
               </button>
               <button className="primary-action filled" disabled={saving} onClick={savePlan} type="button">
-                {saving ? "Saving..." : editingPlanId ? "Update Plan" : builder.selectedClientIds.length ? "Save & assign plan" : "Save Plan"}
+                {saving ? "Saving..." : editingPlanId ? "Update Plan" : role === "coach" && builder.selectedClientIds.length ? "Save & assign plan" : "Save Plan"}
               </button>
             </div>
           </div>

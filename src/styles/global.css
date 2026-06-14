@@ -4945,7 +4945,8 @@ button {
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--line));
   border-radius: 10px;
-  background: color-mix(in srgb, var(--gold) 5%, #0d1720);
+  background: #ffffff;
+  color: var(--text);
 }
 
 .plan-workout-card div:first-child {
@@ -4954,8 +4955,12 @@ button {
 }
 
 .plan-workout-card span {
-  color: var(--muted);
+  color: #5f6770;
   font-size: 12px;
+}
+
+.plan-workout-card strong {
+  color: var(--text);
 }
 
 .plan-workout-actions {
@@ -5114,6 +5119,39 @@ button {
 .schedule-session-main span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.schedule-exercise-preview {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  padding: 10px 0 2px;
+}
+
+.schedule-exercise-preview div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 8px;
+}
+
+.schedule-exercise-preview strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.schedule-exercise-preview span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  text-align: right;
+}
+
+.schedule-exercise-preview .text-link {
+  justify-self: start;
 }
 
 .schedule-start {

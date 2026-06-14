@@ -79,6 +79,7 @@ export function TodayScreen({ role, user }) {
   const [checkinDrafts, setCheckinDrafts] = useState({});
   const [editingCheckins, setEditingCheckins] = useState(() => new Set());
   const [activeScheduleWorkout, setActiveScheduleWorkout] = useState(null);
+  const [expandedWorkoutKeys, setExpandedWorkoutKeys] = useState(() => new Set());
   const [selectedDay, setSelectedDay] = useState(
     new Date().toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3)
   );
@@ -172,10 +173,41 @@ export function TodayScreen({ role, user }) {
       setMessage(`${ownPlanResult.error.message}. Run supabase/phase-6-training-plans.sql in Supabase.`);
       setOwnPlans([]);
     } else {
+      const ownPlanData = ownPlanResult.data || [];
+      const templateIds = [
+        ...new Set(
+          ownPlanData.flatMap((plan) =>
+            (plan.training_plan_workouts || []).map((workout) => workout.workout_template_id).filter(Boolean)
+          )
+        )
+      ];
+      let exercisesByTemplateId = new Map();
+
+      if (templateIds.length) {
+        const { data: templateRows, error: templateError } = await supabase
+          .from("workout_templates")
+          .select("id,workout_template_exercises(id,position,exercise_name,muscle_group,sets,rep_min,rep_max,target_type,target_value)")
+          .in("id", templateIds);
+
+        if (!templateError) {
+          exercisesByTemplateId = new Map(
+            (templateRows || []).map((template) => [
+              template.id,
+              (template.workout_template_exercises || []).sort((a, b) => (a.position || 0) - (b.position || 0))
+            ])
+          );
+        }
+      }
+
       setOwnPlans(
-        (ownPlanResult.data || []).map((plan) => ({
+        ownPlanData.map((plan) => ({
           ...plan,
-          training_plan_workouts: (plan.training_plan_workouts || []).sort((a, b) => a.position - b.position)
+          training_plan_workouts: (plan.training_plan_workouts || [])
+            .map((workout) => ({
+              ...workout,
+              exercises: exercisesByTemplateId.get(workout.workout_template_id) || []
+            }))
+            .sort((a, b) => a.position - b.position)
         }))
       );
     }
@@ -248,6 +280,36 @@ export function TodayScreen({ role, user }) {
       workout_type: workout.workout_type,
       isAssignedPlanWorkout: workout.assigned,
       autoStartKey: `${workout.sourceKey}-${workout.id || workout.workout_template_id}-${startCounterRef.current}`
+    });
+  }
+
+  function getScheduledWorkoutExercises(workout) {
+    const directExercises = Array.isArray(workout.exercises) ? workout.exercises : [];
+    if (directExercises.length) return directExercises;
+    return [];
+  }
+
+  function formatScheduledExerciseTarget(exercise, workoutType = "strength") {
+    if (workoutType === "hiit") {
+      const target = exercise.target_value ? `${exercise.target_value} ${exercise.target_type || "reps"}` : "HIIT station";
+      return target;
+    }
+    const sets = Number(exercise.sets) || 1;
+    const repMin = exercise.rep_min || "";
+    const repMax = exercise.rep_max || "";
+    const reps = repMin && repMax ? `${repMin}-${repMax}` : repMin || repMax || "reps";
+    return `${sets} sets x ${reps} reps`;
+  }
+
+  function toggleWorkoutDetails(workoutKey) {
+    setExpandedWorkoutKeys((current) => {
+      const next = new Set(current);
+      if (next.has(workoutKey)) {
+        next.delete(workoutKey);
+      } else {
+        next.add(workoutKey);
+      }
+      return next;
     });
   }
 
@@ -421,8 +483,14 @@ export function TodayScreen({ role, user }) {
         </div>
         {scheduledWorkouts.length ? (
           <div className="assignment-card-list">
-            {scheduledWorkouts.map((workout) => (
-              <article className="schedule-session-card" key={`${workout.sourceKey}-${workout.id}`}>
+            {scheduledWorkouts.map((workout) => {
+              const workoutKey = `${workout.sourceKey}-${workout.id}`;
+              const exercises = getScheduledWorkoutExercises(workout).sort((a, b) => (a.position || 0) - (b.position || 0));
+              const detailsOpen = expandedWorkoutKeys.has(workoutKey);
+              const visibleExercises = detailsOpen ? exercises : exercises.slice(0, 4);
+
+              return (
+              <article className="schedule-session-card" key={workoutKey}>
                 <div className="schedule-card-top">
                   <p className="schedule-plan-name">{workout.planName}</p>
                   <span className={workout.planSource === "assigned" ? "status-pill gold-pill" : "status-pill"}>
@@ -438,11 +506,27 @@ export function TodayScreen({ role, user }) {
                     {workout.summary || workout.workout_type || "Scheduled workout"}
                   </span>
                 </div>
+                {exercises.length ? (
+                  <div className="schedule-exercise-preview">
+                    {visibleExercises.map((exercise) => (
+                      <div key={exercise.id || `${workoutKey}-${exercise.position}`}>
+                        <strong>{exercise.exercise_name}</strong>
+                        <span>{formatScheduledExerciseTarget(exercise, workout.workout_type)}</span>
+                      </div>
+                    ))}
+                    {exercises.length > 4 ? (
+                      <button className="text-link" onClick={() => toggleWorkoutDetails(workoutKey)} type="button">
+                        {detailsOpen ? "Hide details" : `Details +${exercises.length - 4}`}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <button className="primary-action filled schedule-start" onClick={() => startScheduledWorkout(workout)} type="button">
                   Start Session
                 </button>
               </article>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="panel empty-state compact-empty schedule-session-card">
