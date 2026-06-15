@@ -72,6 +72,22 @@ function runningWorkoutWeek(workout) {
   return match ? Number(match[1]) : null;
 }
 
+function formatRunTimer(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const secs = safeSeconds % 60;
+  if (hours) return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
+
+function getRunSplitUnit(workout) {
+  const label = `${workout?.summary || ""} ${workout?.name || ""}`.toLowerCase();
+  if (label.includes("/mi") || label.includes(" mi") || label.includes("mile")) return "mi";
+  if (label.includes(" x ") || label.includes("interval")) return "rep";
+  return "km";
+}
+
 function isWorkoutScheduledForDay(workout, entry, day, dateKey) {
   const days = Array.isArray(workout.scheduled_days) ? workout.scheduled_days : [];
   if (!days.includes(day)) return false;
@@ -104,6 +120,8 @@ export function TodayScreen({ role, user }) {
   const [checkinDrafts, setCheckinDrafts] = useState({});
   const [editingCheckins, setEditingCheckins] = useState(() => new Set());
   const [activeScheduleWorkout, setActiveScheduleWorkout] = useState(null);
+  const [activeRunWorkout, setActiveRunWorkout] = useState(null);
+  const [runTimer, setRunTimer] = useState({ elapsed: 0, running: false, splits: [] });
   const [expandedWorkoutKeys, setExpandedWorkoutKeys] = useState(() => new Set());
   const [selectedDay, setSelectedDay] = useState(
     new Date().toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3)
@@ -289,12 +307,22 @@ export function TodayScreen({ role, user }) {
     };
   }, [loadSchedule]);
 
+  useEffect(() => {
+    if (!activeRunWorkout || !runTimer.running) return undefined;
+    const timer = window.setInterval(() => {
+      setRunTimer((current) => ({ ...current, elapsed: current.elapsed + 1 }));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [activeRunWorkout, runTimer.running]);
+
   function startScheduledWorkout(workout) {
     if (!workout.workout_template_id) {
+      if (workout.workout_type === "running") {
+        startRunWorkout(workout);
+        return;
+      }
       setMessage(
-        workout.workout_type === "running"
-          ? "Running plan timers are coming next. Use this run target with your watch, phone timer, or treadmill for now."
-          : "This scheduled workout is missing its source workout. Re-import it into the plan."
+        "This scheduled workout is missing its source workout. Re-import it into the plan."
       );
       return;
     }
@@ -307,6 +335,38 @@ export function TodayScreen({ role, user }) {
       isAssignedPlanWorkout: workout.assigned,
       autoStartKey: `${workout.sourceKey}-${workout.id || workout.workout_template_id}-${startCounterRef.current}`
     });
+  }
+
+  function startRunWorkout(workout) {
+    setMessage("");
+    setActiveRunWorkout(workout);
+    setRunTimer({ elapsed: 0, running: false, splits: [] });
+  }
+
+  function toggleRunTimer() {
+    setRunTimer((current) => ({ ...current, running: !current.running }));
+  }
+
+  function recordRunSplit() {
+    setRunTimer((current) => {
+      const previousElapsed = current.splits.length ? current.splits[current.splits.length - 1].elapsed : 0;
+      const split = {
+        id: `split-${current.splits.length + 1}-${current.elapsed}`,
+        label: `${getRunSplitUnit(activeRunWorkout).toUpperCase()} ${current.splits.length + 1}`,
+        elapsed: current.elapsed,
+        duration: Math.max(0, current.elapsed - previousElapsed)
+      };
+      return { ...current, splits: [...current.splits, split] };
+    });
+  }
+
+  function resetRunTimer() {
+    setRunTimer({ elapsed: 0, running: false, splits: [] });
+  }
+
+  function closeRunTimer() {
+    setActiveRunWorkout(null);
+    setRunTimer({ elapsed: 0, running: false, splits: [] });
   }
 
   function getScheduledWorkoutExercises(workout) {
@@ -393,6 +453,75 @@ export function TodayScreen({ role, user }) {
         role={role}
         user={user}
       />
+    );
+  }
+
+  if (activeRunWorkout) {
+    const splitUnit = getRunSplitUnit(activeRunWorkout);
+
+    return (
+      <section className="screen-stack today-screen run-timer-screen">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">Run timer</p>
+            <h1>{activeRunWorkout.name}</h1>
+            <p>{activeRunWorkout.planName} - {activeRunWorkout.planLabel}</p>
+          </div>
+          <button className="primary-action compact" onClick={closeRunTimer} type="button">
+            Close
+          </button>
+        </div>
+
+        <div className="run-target-panel">
+          <div>
+            <p className="eyebrow">Target</p>
+            <h2>{activeRunWorkout.summary || "Scheduled run"}</h2>
+          </div>
+          <span className="status-pill">{splitUnit === "rep" ? "Rep splits" : `${splitUnit.toUpperCase()} splits`}</span>
+        </div>
+
+        <div className="run-timer-panel">
+          <span>{runTimer.running ? "Running" : runTimer.elapsed ? "Paused" : "Ready"}</span>
+          <strong>{formatRunTimer(runTimer.elapsed)}</strong>
+          <div className="run-timer-actions">
+            <button className="primary-action filled" onClick={toggleRunTimer} type="button">
+              {runTimer.running ? "Pause" : runTimer.elapsed ? "Resume" : "Start"}
+            </button>
+            <button className="primary-action" disabled={!runTimer.elapsed} onClick={recordRunSplit} type="button">
+              Record {splitUnit === "rep" ? "Rep" : splitUnit.toUpperCase()} Split
+            </button>
+            <button className="primary-action" disabled={!runTimer.elapsed && !runTimer.splits.length} onClick={resetRunTimer} type="button">
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div className="run-split-panel">
+          <div className="section-row">
+            <h2>Splits</h2>
+            <span className="status-pill">{runTimer.splits.length}</span>
+          </div>
+          {runTimer.splits.length ? (
+            <div className="run-split-list">
+              {runTimer.splits.map((split) => (
+                <div key={split.id}>
+                  <span>{split.label}</span>
+                  <strong>{formatRunTimer(split.duration)}</strong>
+                  <em>Total {formatRunTimer(split.elapsed)}</em>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="compact-help">Tap Record Split at each {splitUnit === "rep" ? "rep" : splitUnit} marker.</p>
+          )}
+        </div>
+
+        <div className="form-footer-actions">
+          <button className="primary-action" onClick={closeRunTimer} type="button">
+            Finish Run
+          </button>
+        </div>
+      </section>
     );
   }
 
@@ -552,7 +681,9 @@ export function TodayScreen({ role, user }) {
                     Start Session
                   </button>
                 ) : workout.workout_type === "running" ? (
-                  <span className="status-pill schedule-start">Run target</span>
+                  <button className="primary-action filled schedule-start" onClick={() => startRunWorkout(workout)} type="button">
+                    Start Run
+                  </button>
                 ) : (
                   <button className="primary-action filled schedule-start" onClick={() => startScheduledWorkout(workout)} type="button">
                     Start Session
