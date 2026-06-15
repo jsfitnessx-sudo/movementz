@@ -10,7 +10,6 @@ const mealTypes = [
 
 const units = ["g", "kg", "ml", "l", "serving"];
 const foodSelect = "id,name,brand,serving_quantity,serving_unit,calories,protein_g,carbs_g,fat_g,is_verified";
-const foodLookupUrl = "https://fdc.nal.usda.gov/food-search/";
 const macroSplits = [
   { id: "balanced", label: "Balanced", protein: 30, carbs: 40, fat: 30 },
   { id: "high-protein", label: "High protein", protein: 40, carbs: 35, fat: 25 },
@@ -132,6 +131,16 @@ function foodResultKey(food) {
   return food.id || food.external_id || `${food.source || "food"}:${food.name}:${food.brand}`;
 }
 
+function buildFoodLookupUrl(searchValue) {
+  const term = sanitizeSearchTerm(searchValue || "lactose free milk") || "lactose free milk";
+  const query = new URLSearchParams({
+    search_terms: term,
+    search_simple: "1",
+    action: "process"
+  });
+  return `https://world.openfoodfacts.org/cgi/search.pl?${query.toString()}`;
+}
+
 function isExternalFood(food) {
   return Boolean(food?.external_id || food?.source);
 }
@@ -204,6 +213,7 @@ export function FoodLogScreen({ role, user }) {
   const activeMacroSplit = macroSplits.find((split) => split.id === macroSplitId) || macroSplits[1];
   const macroTargets = getMacroTargets(targetCalories, activeMacroSplit);
   const isClient = role === "client" || role === "normal_user";
+  const lookupSearchTerm = searchText || form.food_name;
 
   const combinedFoodResults = useMemo(() => {
     const seen = new Set();
@@ -862,8 +872,10 @@ export function FoodLogScreen({ role, user }) {
               </div>
               <button className="icon-button" onClick={() => setLookupOpen(false)} type="button" aria-label="Close food lookup">x</button>
             </div>
-            <p className="compact-help">Use FoodData Central if the app search misses a food. Copy the calories/macros back into your manual log.</p>
-            <a className="primary-action filled" href={foodLookupUrl} target="_blank" rel="noreferrer">Open FoodData Central</a>
+            <p className="compact-help">Use Open Food Facts for international packaged foods and products like lactose-free milk. Copy the calories/macros back into your manual log.</p>
+            <a className="primary-action filled" href={buildFoodLookupUrl(lookupSearchTerm)} target="_blank" rel="noreferrer">
+              Search Open Food Facts
+            </a>
           </div>
         </div>
       ) : null}
