@@ -291,7 +291,11 @@ export function TodayScreen({ role, user }) {
 
   function startScheduledWorkout(workout) {
     if (!workout.workout_template_id) {
-      setMessage("This scheduled workout is missing its source workout. Re-import it into the plan.");
+      setMessage(
+        workout.workout_type === "running"
+          ? "Running plan timers are coming next. Use this run target with your watch, phone timer, or treadmill for now."
+          : "This scheduled workout is missing its source workout. Re-import it into the plan."
+      );
       return;
     }
 
@@ -543,9 +547,17 @@ export function TodayScreen({ role, user }) {
                     ) : null}
                   </div>
                 ) : null}
-                <button className="primary-action filled schedule-start" onClick={() => startScheduledWorkout(workout)} type="button">
-                  Start Session
-                </button>
+                {workout.workout_template_id ? (
+                  <button className="primary-action filled schedule-start" onClick={() => startScheduledWorkout(workout)} type="button">
+                    Start Session
+                  </button>
+                ) : workout.workout_type === "running" ? (
+                  <span className="status-pill schedule-start">Run target</span>
+                ) : (
+                  <button className="primary-action filled schedule-start" onClick={() => startScheduledWorkout(workout)} type="button">
+                    Start Session
+                  </button>
+                )}
               </article>
               );
             })}
