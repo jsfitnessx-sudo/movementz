@@ -20,6 +20,44 @@ function formatExerciseLine(exercise, workoutType) {
   return `${exercise.sets || 1} sets - ${exercise.rep_min || 8}-${exercise.rep_max || 12} reps`;
 }
 
+function formatDuration(seconds) {
+  const totalSeconds = Math.max(0, Number(seconds) || 0);
+  if (!totalSeconds) return "Not set";
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  if (!minutes) return `${remainder} sec`;
+  return remainder ? `${minutes} min ${remainder} sec` : `${minutes} min`;
+}
+
+function cleanTemplateNotes(notes) {
+  return (notes || "").replace(/^(library:[^;]+;\s*)?(category:[a-z_]+;\s*)?/i, "").trim();
+}
+
+function getHiitTotalSeconds(template, exerciseCount) {
+  const rounds = Math.max(1, Number(template.hiit_rounds) || 1);
+  if (template.hiit_timer_type === "for_time") return Number(template.hiit_goal_seconds) || 0;
+  const workSeconds = Math.max(0, Number(template.hiit_work_seconds) || 0);
+  const restSeconds = Math.max(0, Number(template.hiit_rest_seconds) || 0);
+  const stations = Math.max(1, exerciseCount);
+  return rounds * stations * (workSeconds + restSeconds);
+}
+
+function getHiitSummaryItems(template, exercises) {
+  const rounds = Math.max(1, Number(template.hiit_rounds) || 1);
+  const workSeconds = Number(template.hiit_work_seconds) || 0;
+  const restSeconds = Number(template.hiit_rest_seconds) || 0;
+  const totalSeconds = getHiitTotalSeconds(template, exercises.length);
+  const timerLabel = template.hiit_timer_type === "for_time" ? "For Time" : formatTemplateType(template).replace("HIIT - ", "");
+
+  return [
+    { label: "Timer", value: timerLabel },
+    { label: "Total time", value: totalSeconds ? formatDuration(totalSeconds) : "Aim for best time" },
+    { label: "Work", value: workSeconds ? formatDuration(workSeconds) : "Target reps/meters" },
+    { label: "Rest", value: restSeconds ? formatDuration(restSeconds) : template.hiit_timer_type === "for_time" ? "As needed" : "None" },
+    { label: "Rounds", value: `${rounds} through` }
+  ];
+}
+
 const templateCategories = [
   { id: "all", label: "All ideas", icon: "All", help: "Every template", keywords: [] },
   { id: "beginner_gym", label: "Beginner Gym", icon: "BG", help: "New to training", keywords: [] },
@@ -152,6 +190,7 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
         <div className="workout-card-list">
           {filteredTemplates.map((template) => {
             const exercises = Array.isArray(template.workout_template_exercises) ? template.workout_template_exercises : [];
+            const isHiit = template.workout_type === "hiit";
             return (
               <article className="workout-card prototype-workout-card public-template-card" key={template.id}>
                 <div className="workout-card-head prototype-workout-head">
@@ -162,16 +201,40 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
                   </div>
                   <span className="status-pill active">Public</span>
                 </div>
-                {template.notes ? <p className="workout-notes">{template.notes}</p> : null}
-                <div className="workout-exercise-summary prototype-exercise-preview">
-                  {exercises.slice(0, 5).map((exercise) => (
-                    <div key={exercise.id || `${template.id}-${exercise.position}`}>
-                      <strong>{exercise.exercise_name}</strong>
-                      <span>{formatExerciseLine(exercise, template.workout_type)}</span>
+                {cleanTemplateNotes(template.notes) ? <p className="workout-notes">{cleanTemplateNotes(template.notes)}</p> : null}
+                {isHiit ? (
+                  <>
+                    <div className="public-hiit-summary">
+                      {getHiitSummaryItems(template, exercises).map((item) => (
+                        <span key={item.label}>
+                          <em>{item.label}</em>
+                          <strong>{item.value}</strong>
+                        </span>
+                      ))}
                     </div>
-                  ))}
-                  {exercises.length > 5 ? <p className="compact-help">+ {exercises.length - 5} more exercises</p> : null}
-                </div>
+                    <details className="public-template-details">
+                      <summary>View exercises</summary>
+                      <div className="workout-exercise-summary prototype-exercise-preview">
+                        {exercises.slice(0, 5).map((exercise) => (
+                          <div key={exercise.id || `${template.id}-${exercise.position}`}>
+                            <strong>{exercise.exercise_name}</strong>
+                            <span>{formatExerciseLine(exercise, template.workout_type)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </>
+                ) : (
+                  <div className="workout-exercise-summary prototype-exercise-preview">
+                    {exercises.slice(0, 5).map((exercise) => (
+                      <div key={exercise.id || `${template.id}-${exercise.position}`}>
+                        <strong>{exercise.exercise_name}</strong>
+                        <span>{formatExerciseLine(exercise, template.workout_type)}</span>
+                      </div>
+                    ))}
+                    {exercises.length > 5 ? <p className="compact-help">+ {exercises.length - 5} more exercises</p> : null}
+                  </div>
+                )}
                 <button
                   className="primary-action filled"
                   disabled={copyingId === template.id}

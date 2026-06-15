@@ -280,7 +280,7 @@ begin
     owner_id, created_by, source_type, workout_type, hiit_timer_type, hiit_rounds, hiit_work_seconds, hiit_rest_seconds, hiit_countdown_seconds, hiit_focus_area, name, notes, visibility, is_template, is_public_template, status
   )
   values (
-    template_owner, template_owner, 'personal', 'hiit', 'interval', 3, 45, 15, 10, 'Full Body',
+    template_owner, template_owner, 'personal', 'hiit', 'interval', 3, 40, 15, 10, 'Full Body',
     'HIIT 5 - Full Body Burner',
     'library:phase1; category:hiit; A full-body HIIT workout for a stronger conditioning push. Copy this into your library before editing.',
     'private', true, true, 'active'

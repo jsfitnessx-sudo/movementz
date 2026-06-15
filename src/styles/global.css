@@ -1069,6 +1069,76 @@ button {
   margin-top: -4px;
 }
 
+.public-hiit-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.public-hiit-summary span {
+  display: grid;
+  gap: 3px;
+  min-height: 62px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--teal) 34%, var(--line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 7%, #fff);
+}
+
+.public-hiit-summary em {
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.public-hiit-summary strong {
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.public-template-details {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.public-template-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 900;
+  list-style: none;
+}
+
+.public-template-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.public-template-details summary::after {
+  content: "+";
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.public-template-details[open] summary::after {
+  content: "-";
+}
+
+.public-template-details .workout-exercise-summary {
+  padding: 0 12px 12px;
+}
+
 .ai-builder-panel {
   border-color: color-mix(in srgb, var(--teal) 38%, var(--line));
 }
