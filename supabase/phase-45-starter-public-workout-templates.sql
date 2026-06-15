@@ -1,6 +1,6 @@
 -- Movementz Phase 45: public workout ideas seed.
 -- Run after phase-26-public-template-library.sql.
--- Current release seeds Beginner Gym, Strength, HIIT and Upper Body x 5 each.
+-- Current release seeds Beginner Gym, Strength, HIIT, Upper Body, Lower Body and Full Body x 5 each.
 
 do $$
 declare
@@ -383,6 +383,186 @@ begin
     (template_id, 3, 'DB Shoulder Press', 'Shoulders', 3, 8, 12, 75, 'Press without leaning back.'),
     (template_id, 4, 'DB Lateral Raise', 'Shoulders', 3, 10, 15, 60, 'Use light control.'),
     (template_id, 5, 'DB Curl', 'Biceps', 3, 10, 12, 60, 'Control the lowering phase.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Lower Body 1 - Quad Builder',
+    'library:phase1; category:lower_body; A lower-body workout focused on quads with supporting hamstring and calf work. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Leg Press', 'Legs', 3, 8, 12, 90, 'Use a stance that lets knees track cleanly.'),
+    (template_id, 2, 'DB Goblet Squat', 'Legs', 3, 8, 12, 75, 'Keep chest tall and depth comfortable.'),
+    (template_id, 3, 'Leg Extension', 'Legs', 3, 10, 15, 60, 'Squeeze the quads at the top.'),
+    (template_id, 4, 'Seated Leg Curl', 'Legs', 3, 10, 15, 60, 'Control the return.'),
+    (template_id, 5, 'Standing Calf Raise', 'Calves', 3, 10, 15, 60, 'Pause at the top and bottom.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Lower Body 2 - Glute and Hamstring Base',
+    'library:phase1; category:lower_body; A lower-body session built around glutes, hamstrings and strong hip hinges. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Hip Thrust', 'Glutes', 3, 8, 12, 90, 'Pause briefly at full hip extension.'),
+    (template_id, 2, 'Romanian Deadlift', 'Legs', 3, 8, 12, 90, 'Push hips back and keep lats tight.'),
+    (template_id, 3, 'Lying Leg Curl', 'Legs', 3, 10, 15, 60, 'Keep hips down on the pad.'),
+    (template_id, 4, 'Cable Pull Through', 'Glutes', 3, 10, 15, 75, 'Hinge through the hips.'),
+    (template_id, 5, 'Glute Bridge Abduction', 'Glutes', 3, 12, 15, 60, 'Keep tension on the band.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Lower Body 3 - Dumbbell Legs',
+    'library:phase1; category:lower_body; A dumbbell lower-body workout for legs and glutes without machines. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Romanian Deadlift', 'Legs', 3, 8, 12, 75, 'Keep dumbbells close to your legs.'),
+    (template_id, 2, 'DB Reverse Lunge', 'Legs', 3, 8, 10, 75, 'Count reps per leg.'),
+    (template_id, 3, 'DB Step Up', 'Legs', 3, 8, 10, 75, 'Drive through the whole foot.'),
+    (template_id, 4, 'DB Sumo Squat', 'Glutes', 3, 10, 12, 75, 'Sit down between the hips.'),
+    (template_id, 5, 'DB Calf Raise', 'Calves', 3, 12, 15, 60, 'Move through a full range.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Lower Body 4 - Unilateral Control',
+    'library:phase1; category:lower_body; A single-leg focused lower-body workout for balance, control and strength. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Bulgarian Split Squat', 'Legs', 3, 8, 10, 90, 'Use a shorter range if hips feel tight.'),
+    (template_id, 2, 'Single Leg Leg Press', 'Legs', 3, 8, 12, 75, 'Keep knee tracking over toes.'),
+    (template_id, 3, 'Single Leg Romanian Deadlift', 'Legs', 3, 8, 10, 75, 'Reach hips back before lowering.'),
+    (template_id, 4, 'Walking Lunge', 'Legs', 3, 10, 12, 75, 'Count reps per leg.'),
+    (template_id, 5, 'Single Leg Calf Raise', 'Calves', 3, 10, 15, 60, 'Use support for balance.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Lower Body 5 - Machine Leg Day',
+    'library:phase1; category:lower_body; A machine-based lower-body workout for a simple gym leg day. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Hack Squat', 'Legs', 3, 8, 12, 90, 'Keep your back against the pad.'),
+    (template_id, 2, 'Seated Leg Curl', 'Legs', 3, 10, 15, 60, 'Pause briefly at the squeeze.'),
+    (template_id, 3, 'Leg Extension', 'Legs', 3, 10, 15, 60, 'Control the lowering phase.'),
+    (template_id, 4, 'Cable Glute Kickback', 'Glutes', 3, 10, 15, 60, 'Move from the hip, not the lower back.'),
+    (template_id, 5, 'Seated Calf Raise', 'Calves', 3, 12, 15, 60, 'Use a steady tempo.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Full Body 1 - Balanced Gym Session',
+    'library:phase1; category:full_body; A balanced full-body workout with legs, push, pull and core. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Leg Press', 'Legs', 3, 8, 12, 90, 'Control the bottom position.'),
+    (template_id, 2, 'DB Flat Press', 'Chest', 3, 8, 12, 75, 'Keep wrists stacked.'),
+    (template_id, 3, 'Lat Pulldown', 'Back', 3, 8, 12, 75, 'Pull elbows toward ribs.'),
+    (template_id, 4, 'DB Romanian Deadlift', 'Legs', 3, 8, 12, 75, 'Hinge with soft knees.'),
+    (template_id, 5, 'Cable Crunch', 'Core', 3, 10, 15, 60, 'Round through the ribs.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Full Body 2 - Dumbbell Full Body',
+    'library:phase1; category:full_body; A dumbbell full-body workout for a simple gym or home setup. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Goblet Squat', 'Legs', 3, 8, 12, 75, 'Hold the dumbbell close.'),
+    (template_id, 2, 'DB Romanian Deadlift', 'Legs', 3, 8, 12, 75, 'Push hips back.'),
+    (template_id, 3, 'DB Floor Press', 'Chest', 3, 8, 12, 75, 'Pause elbows lightly on the floor.'),
+    (template_id, 4, 'One Arm DB Row', 'Back', 3, 8, 12, 75, 'Count reps per side.'),
+    (template_id, 5, 'DB Dead Bug Pullover', 'Core', 3, 8, 12, 60, 'Keep ribs down.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Full Body 3 - Machine Full Body',
+    'library:phase1; category:full_body; A machine-based full-body workout for an easy-to-follow gym session. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Hack Squat', 'Legs', 3, 8, 12, 90, 'Use a controlled range.'),
+    (template_id, 2, 'Machine Chest Press', 'Chest', 3, 8, 12, 75, 'Keep shoulders pinned.'),
+    (template_id, 3, 'Seated Row', 'Back', 3, 8, 12, 75, 'Pause at the squeeze.'),
+    (template_id, 4, 'Seated Leg Curl', 'Legs', 3, 10, 15, 60, 'Control every rep.'),
+    (template_id, 5, 'Machine Shoulder Press', 'Shoulders', 3, 8, 12, 75, 'Press without shrugging.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Full Body 4 - Strength Foundation',
+    'library:phase1; category:full_body; A full-body strength foundation session using squat, hinge, push and pull patterns. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Back Squat', 'Legs', 3, 5, 8, 120, 'Brace before each rep.'),
+    (template_id, 2, 'Romanian Deadlift', 'Legs', 3, 6, 10, 120, 'Keep lats tight.'),
+    (template_id, 3, 'Incline DB Press', 'Chest', 3, 8, 10, 90, 'Press smoothly.'),
+    (template_id, 4, 'Chest Supported Row', 'Back', 3, 8, 10, 90, 'Pull elbows behind you.'),
+    (template_id, 5, 'Pallof Press', 'Core', 3, 10, 12, 60, 'Resist rotation.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Full Body 5 - Athletic Mix',
+    'library:phase1; category:full_body; A full-body gym mix with legs, upper body and trunk stability. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Trap Bar Deadlift', 'Legs', 3, 5, 8, 120, 'Push the floor away.'),
+    (template_id, 2, 'Push Up', 'Chest', 3, 8, 15, 75, 'Use a clean plank position.'),
+    (template_id, 3, 'Assisted Pull Up', 'Back', 3, 6, 10, 90, 'Use assistance that keeps reps clean.'),
+    (template_id, 4, 'DB Walking Lunge', 'Legs', 3, 8, 10, 75, 'Count reps per leg.'),
+    (template_id, 5, 'Farmer Carry', 'Core', 3, 30, 45, 60, 'Walk tall with ribs stacked.');
 end $$;
 
 notify pgrst, 'reload schema';
