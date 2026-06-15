@@ -534,6 +534,9 @@ button {
   gap: 12px;
   align-items: center;
   width: 100%;
+  border-color: color-mix(in srgb, var(--teal) 56%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--teal) 12%, #fff), #fff 52%, color-mix(in srgb, var(--gold) 10%, #fff));
   text-align: left;
 }
 
@@ -576,7 +579,7 @@ button {
   padding: 7px 9px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(18, 35, 48, 0.46);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .home-template-preview-list b {
@@ -939,6 +942,48 @@ button {
   color: #ffffff;
 }
 
+.workout-ideas-cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  border-color: color-mix(in srgb, var(--gold) 58%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--teal) 13%, #fff), #fff 48%, color-mix(in srgb, var(--gold) 14%, #fff));
+  text-align: left;
+}
+
+.workout-ideas-cta strong {
+  display: block;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.workout-ideas-cta span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.workout-ideas-cta em {
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--teal) 65%, var(--line));
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--teal);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .ai-workout-action {
   display: grid;
   place-items: center;
@@ -956,6 +1001,72 @@ button {
 
 .ai-builder-screen {
   max-width: 760px;
+}
+
+.public-template-screen {
+  max-width: 900px;
+}
+
+.template-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 10px;
+}
+
+.template-category-tile {
+  display: grid;
+  gap: 5px;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  box-shadow: var(--shadow-soft);
+}
+
+.template-category-tile span {
+  display: grid;
+  width: 38px;
+  height: 32px;
+  place-items: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--teal) 12%, var(--field));
+  color: var(--teal);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+}
+
+.template-category-tile strong {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.12;
+}
+
+.template-category-tile small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.template-category-tile em {
+  color: var(--teal);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.template-category-tile.active {
+  border-color: var(--teal);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--teal) 16%, #fff), #fff 60%, color-mix(in srgb, var(--gold) 12%, #fff));
+}
+
+.template-kind-tabs {
+  margin-top: -4px;
 }
 
 .ai-builder-panel {
@@ -8036,6 +8147,16 @@ button {
   .coach-home-actions .quick-home-action {
     min-height: 42px;
     font-size: 10px;
+  }
+
+  .workout-ideas-cta,
+  .home-template-cta {
+    grid-template-columns: 1fr;
+  }
+
+  .workout-ideas-cta em,
+  .home-template-cta em {
+    justify-self: stretch;
   }
 
   .home-upgrade-preview {

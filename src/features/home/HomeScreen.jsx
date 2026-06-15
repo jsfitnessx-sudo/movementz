@@ -602,6 +602,27 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
         </button>
       </div>
 
+      <button className="panel home-template-cta" onClick={() => onNavigate("templates")} type="button">
+        <div>
+          <p className="eyebrow">Workout ideas</p>
+          <strong>Browse ready-made workouts</strong>
+          <span>Beginner, strength and HIIT templates you can copy into your library.</span>
+          {templatePreview.length ? (
+            <div className="home-template-preview-list">
+              {templatePreview.map((template) => (
+                <span key={template.id}>
+                  <b>{template.name}</b>
+                  <small>
+                    {template.workout_type === "hiit" ? "HIIT" : "Strength"} - {template.exercise_count || 0} exercises
+                  </small>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <em>Open</em>
+      </button>
+
       {hasPaidAccess && isClientLike ? (
         <section className="panel today-checklist-card">
           <div className="section-row">
@@ -630,27 +651,6 @@ export function HomeScreen({ onNavigate, profile, role, user }) {
           </div>
         </section>
       ) : null}
-
-      <button className="panel home-template-cta" onClick={() => onNavigate("templates")} type="button">
-        <div>
-          <p className="eyebrow">Public templates</p>
-          <strong>Browse Movementz workouts</strong>
-          <span>Strength and HIIT templates you can copy into your library.</span>
-          {templatePreview.length ? (
-            <div className="home-template-preview-list">
-              {templatePreview.map((template) => (
-                <span key={template.id}>
-                  <b>{template.name}</b>
-                  <small>
-                    {template.workout_type === "hiit" ? "HIIT" : "Strength"} - {template.exercise_count || 0} exercises
-                  </small>
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        <em>Open</em>
-      </button>
 
       <div className="home-quick-grid">
         <button className="home-checkin-card" onClick={() => onNavigate("mindset")} type="button">

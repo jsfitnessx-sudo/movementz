@@ -20,14 +20,56 @@ function formatExerciseLine(exercise, workoutType) {
   return `${exercise.sets || 1} sets - ${exercise.rep_min || 8}-${exercise.rep_max || 12} reps`;
 }
 
+const templateCategories = [
+  { id: "all", label: "All ideas", icon: "All", help: "Every template", keywords: [] },
+  { id: "beginner", label: "Beginner", icon: "1", help: "Simple gym starts", keywords: ["beginner", "starter", "entry"] },
+  { id: "strength", label: "Strength", icon: "STR", help: "Sets and reps", keywords: ["strength", "machine", "dumbbell", "upper", "lower"] },
+  { id: "hiit", label: "HIIT", icon: "HIIT", help: "Intervals", keywords: ["hiit", "interval", "for time", "conditioning"] },
+  { id: "upper", label: "Upper body", icon: "UP", help: "Chest, back, arms", keywords: ["upper", "chest", "back", "shoulder", "arms"] },
+  { id: "lower", label: "Lower body", icon: "LOW", help: "Legs and glutes", keywords: ["lower", "legs", "glutes", "booty"] },
+  { id: "core", label: "Core", icon: "CORE", help: "Abs and trunk", keywords: ["core", "abs"] }
+];
+
+function templateSearchText(template) {
+  const exercises = Array.isArray(template.workout_template_exercises) ? template.workout_template_exercises : [];
+  return [
+    template.name,
+    template.notes,
+    formatTemplateType(template),
+    ...exercises.flatMap((exercise) => [exercise.exercise_name, exercise.muscle_group])
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function matchesTemplateCategory(template, categoryId) {
+  if (categoryId === "all") return true;
+  const category = templateCategories.find((item) => item.id === categoryId);
+  if (!category) return true;
+  const text = templateSearchText(template);
+  if (categoryId === "hiit") return template.workout_type === "hiit" || category.keywords.some((keyword) => text.includes(keyword));
+  if (categoryId === "strength") return template.workout_type !== "hiit" && category.keywords.some((keyword) => text.includes(keyword));
+  return category.keywords.some((keyword) => text.includes(keyword));
+}
+
 export function PublicTemplateLibraryScreen({ onBack, user }) {
   const [templateType, setTemplateType] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [copyingId, setCopyingId] = useState("");
   const [message, setMessage] = useState("");
 
-  const filteredTemplates = useMemo(() => templates, [templates]);
+  const filteredTemplates = useMemo(
+    () => templates.filter((template) => matchesTemplateCategory(template, selectedCategory)),
+    [selectedCategory, templates]
+  );
+
+  const categoryCounts = useMemo(
+    () => Object.fromEntries(templateCategories.map((category) => [
+      category.id,
+      templates.filter((template) => matchesTemplateCategory(template, category.id)).length
+    ])),
+    [templates]
+  );
 
   useEffect(() => {
     let alive = true;
@@ -82,8 +124,8 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
       <div className="screen-heading library-heading">
         <div>
           <p className="eyebrow">Template library</p>
-          <h1>Public templates</h1>
-          <p>Use Movementz templates, then edit them in your own workout library.</p>
+          <h1>Workout ideas</h1>
+          <p>Pick a category, copy a template, then edit your saved version in Workout Library.</p>
         </div>
         <button className="primary-action compact" onClick={onBack} type="button">
           Back
@@ -92,7 +134,23 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
 
       {message ? <p className={message.includes("Run supabase") ? "form-message error" : "form-message success"}>{message}</p> : null}
 
-      <div className="library-tabs">
+      <div className="template-category-grid" aria-label="Workout idea categories">
+        {templateCategories.map((category) => (
+          <button
+            className={selectedCategory === category.id ? "template-category-tile active" : "template-category-tile"}
+            key={category.id}
+            onClick={() => setSelectedCategory(category.id)}
+            type="button"
+          >
+            <span>{category.icon}</span>
+            <strong>{category.label}</strong>
+            <small>{category.help}</small>
+            <em>{categoryCounts[category.id] || 0} workouts</em>
+          </button>
+        ))}
+      </div>
+
+      <div className="library-tabs template-kind-tabs">
         {[
           ["all", "All"],
           ["strength", "Strength"],
@@ -114,7 +172,7 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
       {!loading && !filteredTemplates.length ? (
         <div className="panel empty-state">
           <h2>No public templates yet</h2>
-          <p>Admin can publish workouts from the Workout Library menu.</p>
+          <p>Run the starter public template SQL, or publish workouts from the Workout Library menu.</p>
         </div>
       ) : (
         <div className="workout-card-list">

@@ -277,6 +277,7 @@ export function App() {
     [effectiveProfile, effectiveRole]
   );
   const [activeTab, setActiveTab] = useState(tabs[0].id);
+  const [templateReturnTab, setTemplateReturnTab] = useState("home");
   const accountUser = useMemo(() => buildUser(session, profile), [session, profile]);
   const user = useMemo(() => previewAccount ? {
     id: previewAccount.id,
@@ -922,6 +923,7 @@ export function App() {
 
   function handleNavigate(tabId, intent = "") {
     if (tabId === "workouts") setWorkoutIntent(intent);
+    if (tabId === "templates") setTemplateReturnTab(activeTab);
     setActiveTab(tabId);
   }
 
@@ -1021,7 +1023,7 @@ export function App() {
       {activeTab === "home" ? (
         <HomeScreen onNavigate={handleNavigate} profile={effectiveProfile} role={effectiveRole} user={user} />
       ) : activeTab === "templates" ? (
-        <PublicTemplateLibraryScreen onBack={() => setActiveTab("home")} user={user} />
+        <PublicTemplateLibraryScreen onBack={() => setActiveTab(templateReturnTab)} user={user} />
       ) : activeTab === "today" ? (
         <TodayScreen onNavigate={handleNavigate} role={effectiveRole} user={user} />
       ) : activeTab === "profile" ? (
@@ -1035,6 +1037,7 @@ export function App() {
         <WorkoutLibraryScreen
           initialMode={workoutIntent === "quick" ? "quick-log" : workoutIntent === "build" ? "setup" : "list"}
           initialLibraryView={workoutIntent === "shared" ? "shared" : "library"}
+          onNavigate={handleNavigate}
           profile={effectiveProfile}
           role={effectiveRole}
           user={user}

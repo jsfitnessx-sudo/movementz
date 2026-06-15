@@ -743,6 +743,7 @@ export function WorkoutLibraryScreen({
   initialLibraryView = "library",
   initialMode = "list",
   onClose,
+  onNavigate,
   onWorkoutSaved,
   profile = null,
   role = "normal_user",
@@ -6454,6 +6455,17 @@ export function WorkoutLibraryScreen({
           </button>
         </div>
       </div>
+
+      {onNavigate ? (
+        <button className="panel workout-ideas-cta" onClick={() => onNavigate("templates")} type="button">
+          <div>
+            <p className="eyebrow">Workout ideas</p>
+            <strong>Browse ready-made templates</strong>
+            <span>Pick beginner, strength, HIIT, upper, lower or core workouts, then copy one into your own library.</span>
+          </div>
+          <em>Open ideas</em>
+        </button>
+      ) : null}
 
       {message ? (
         <p className={message.includes("coming soon") ? "form-message success" : "form-message error"}>{message}</p>
