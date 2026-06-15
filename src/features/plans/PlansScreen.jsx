@@ -4,7 +4,9 @@ import { WorkoutLibraryScreen } from "../workouts/WorkoutLibraryScreen.jsx";
 
 const blockPeriods = [4, 6, 8, 10, 12, 16];
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const recoverablePlanModes = new Set(["builder", "workout-builder", "plan-workout-session"]);
+const runningPlanWeeks = [4, 6, 8, 10, 12];
+const runningTrainingDays = [2, 3, 4, 5];
+const recoverablePlanModes = new Set(["builder", "running-builder", "workout-builder", "plan-workout-session"]);
 
 function readPlanRecoveryState(key) {
   if (!key || typeof window === "undefined") return null;
@@ -49,13 +51,259 @@ function createBuilder() {
   };
 }
 
+function createRunningBuilder() {
+  return {
+    goal: "further_faster",
+    weeks: 8,
+    daysPerWeek: 3,
+    unit: "km",
+    measure: "mixed",
+    currentRunMinutes: 25,
+    currentWeeklyDistance: 12,
+    longestRunDistance: 5,
+    currentEasyPace: "",
+    recentDistance: "5",
+    recentTime: "",
+    preferredDays: ["Tue", "Thu", "Sat"],
+    includeRunWalk: false
+  };
+}
+
 function workoutSummary(workout) {
+  if (workout.workout_type === "running") {
+    return workout.summary || "Running session";
+  }
+
   const count = workout.workout_template_exercises?.length || workout.exercise_count || 0;
   if (workout.workout_type === "hiit") {
     const timer = workout.hiit_timer_type === "for_time" ? "For Time" : workout.hiit_timer_type === "tabata" ? "Tabata" : "Interval";
     return `${count} stations - ${timer}`;
   }
   return `${count} exercises`;
+}
+
+function parseNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function parsePaceToSeconds(value) {
+  if (!value) return null;
+  const cleanValue = String(value).trim().toLowerCase().replace(/\s+/g, "");
+  const match = cleanValue.match(/^(\d{1,2})(?::|\.)(\d{1,2})/);
+  if (!match) return null;
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds >= 60) return null;
+  return minutes * 60 + seconds;
+}
+
+function parseDurationToSeconds(value) {
+  if (!value) return null;
+  const parts = String(value).trim().split(":").map((part) => Number(part));
+  if (parts.some((part) => !Number.isFinite(part))) return null;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return null;
+}
+
+function formatPace(seconds, unit) {
+  if (!seconds) return "";
+  const rounded = Math.max(180, Math.round(seconds / 5) * 5);
+  const minutes = Math.floor(rounded / 60);
+  const secs = String(rounded % 60).padStart(2, "0");
+  return `${minutes}:${secs} /${unit}`;
+}
+
+function formatPaceRange(baseSeconds, fastOffset, slowOffset, unit) {
+  if (!baseSeconds) return "";
+  return `${formatPace(baseSeconds + fastOffset, unit)}-${formatPace(baseSeconds + slowOffset, unit)}`;
+}
+
+function deriveRunningTargets(builder) {
+  const enteredEasySeconds = parsePaceToSeconds(builder.currentEasyPace);
+  const recentSeconds = parseDurationToSeconds(builder.recentTime);
+  const recentDistance = parseNumber(builder.recentDistance, 0);
+  const estimatedEasySeconds = recentSeconds && recentDistance ? recentSeconds / recentDistance + 75 : null;
+  const easySeconds = enteredEasySeconds || estimatedEasySeconds;
+
+  if (!easySeconds) {
+    return {
+      easy: "Zone 2 or RPE 3-4",
+      long: "Zone 2 or RPE 3-4",
+      tempo: "Zone 3-4 or RPE 6-7",
+      interval: "RPE 8-9 with full control",
+      strides: "Fast relaxed, RPE 7-8",
+      source: "Zone/RPE estimate"
+    };
+  }
+
+  return {
+    easy: `${formatPaceRange(easySeconds, -5, 35, builder.unit)} or Zone 2`,
+    long: `${formatPaceRange(easySeconds, 15, 60, builder.unit)} or Zone 2`,
+    tempo: `${formatPaceRange(easySeconds, -75, -35, builder.unit)} or RPE 6-7`,
+    interval: `${formatPaceRange(easySeconds, -105, -65, builder.unit)} or RPE 8-9`,
+    strides: "Fast relaxed for 20 sec, full easy recovery",
+    easySeconds,
+    source: enteredEasySeconds ? "Entered easy pace" : "Estimated from recent run"
+  };
+}
+
+function buildPaceZoneProgression(builder, targets) {
+  const easySeconds = targets.easySeconds;
+  const checkpoints = [
+    { label: "Start", effort: "Settle", paceShift: 0, zone: "Zone 2", rpe: "RPE 3-4" },
+    { label: "Mid block", effort: "Build", paceShift: -10, zone: "Zone 2-3", rpe: "RPE 4-6" },
+    { label: "Final weeks", effort: "Sharpen", paceShift: -20, zone: "Zone 3-4 on quality", rpe: "RPE 6-9" }
+  ];
+
+  return checkpoints.map((checkpoint) => {
+    if (!easySeconds) {
+      return {
+        ...checkpoint,
+        easy: checkpoint.label === "Start" ? "Zone 2 / RPE 3-4" : "Same easy effort, slightly longer runs",
+        tempo: checkpoint.label === "Start" ? "Short tempo blocks at RPE 6" : "Longer tempo blocks at RPE 6-7",
+        interval: checkpoint.label === "Start" ? "Short hard reps at RPE 8" : "Longer hard reps at RPE 8-9"
+      };
+    }
+
+    const adjustedEasy = easySeconds + checkpoint.paceShift;
+    return {
+      ...checkpoint,
+      easy: formatPaceRange(adjustedEasy, -5, 35, builder.unit),
+      tempo: formatPaceRange(adjustedEasy, -75, -35, builder.unit),
+      interval: formatPaceRange(adjustedEasy, -105, -65, builder.unit)
+    };
+  });
+}
+
+function selectRunningDays(builder) {
+  const days = builder.preferredDays?.length ? builder.preferredDays : createRunningBuilder().preferredDays;
+  const uniqueDays = weekdays.filter((day) => days.includes(day));
+  if (uniqueDays.length >= builder.daysPerWeek) return uniqueDays.slice(0, builder.daysPerWeek);
+
+  const fallback = weekdays.filter((day) => !uniqueDays.includes(day));
+  return [...uniqueDays, ...fallback].slice(0, builder.daysPerWeek);
+}
+
+function buildRunningSession({ builder, day, distance, index, targets, week, weekFactor }) {
+  const roundedDistance = Math.max(1, Math.round(distance * 10) / 10);
+  const easyMinutes = Math.max(16, Math.round(parseNumber(builder.currentRunMinutes, 25) * weekFactor));
+  const distanceLabel = `${roundedDistance}${builder.unit}`;
+  const runWalkNote = builder.includeRunWalk ? "Use run/walk intervals as needed to keep the effort controlled." : "Keep the effort smooth enough to finish strong.";
+
+  if (index === 0 && builder.daysPerWeek >= 3) {
+    const intervalOptions = [
+      "6 x 1 min hard, 90 sec easy",
+      "5 x 2 min hard, 2 min easy",
+      "4 x 3 min hard, 2 min easy",
+      "8 x 1 min hard, 75 sec easy"
+    ];
+    const tempoMinutes = Math.min(28, 10 + week * 2);
+    const isTempo = week % 2 === 0;
+
+    return {
+      day,
+      target: isTempo ? targets.tempo : targets.interval,
+      title: isTempo ? `Week ${week} Tempo Run` : `Week ${week} Interval Run`,
+      summary: isTempo
+        ? `${distanceLabel} total - 10 min easy, ${tempoMinutes} min tempo, easy cool down`
+        : `${distanceLabel} total - ${intervalOptions[(week - 1) % intervalOptions.length]}`,
+      note: isTempo ? "Tempo should feel strong but repeatable, not a race." : "Recover easy enough that the last rep still has good form.",
+      type: isTempo ? "Tempo" : "Intervals"
+    };
+  }
+
+  if (index === builder.daysPerWeek - 1) {
+    return {
+      day,
+      target: targets.long,
+      title: `Week ${week} Long Easy Run`,
+      summary: `${distanceLabel} easy continuous run`,
+      note: runWalkNote,
+      type: "Long run"
+    };
+  }
+
+  if (builder.daysPerWeek >= 4 && index === 2) {
+    return {
+      day,
+      target: week % 3 === 0 ? targets.tempo : targets.strides,
+      title: week % 3 === 0 ? `Week ${week} Steady Tempo` : `Week ${week} Easy Run + Strides`,
+      summary: week % 3 === 0 ? `${distanceLabel} steady progression` : `${easyMinutes} min easy + 4-6 x 20 sec strides`,
+      note: week % 3 === 0 ? "Finish slightly quicker than you start without forcing pace." : "Strides are quick and relaxed, not sprints.",
+      type: week % 3 === 0 ? "Tempo" : "Easy"
+    };
+  }
+
+  return {
+    day,
+    target: targets.easy,
+    title: `Week ${week} Easy Run`,
+    summary: `${distanceLabel} easy run`,
+    note: runWalkNote,
+    type: "Easy"
+  };
+}
+
+function buildRunningPlan(builder) {
+  const weeks = parseNumber(builder.weeks, 8);
+  const daysPerWeek = parseNumber(builder.daysPerWeek, 3);
+  const baseWeeklyDistance = Math.max(
+    daysPerWeek * 2,
+    parseNumber(builder.currentWeeklyDistance, 0) || parseNumber(builder.longestRunDistance, 5) * 2.2 || daysPerWeek * 4
+  );
+  const longestRun = Math.max(2, parseNumber(builder.longestRunDistance, 5));
+  const days = selectRunningDays(builder);
+  const targets = deriveRunningTargets(builder);
+  const progression = buildPaceZoneProgression(builder, targets);
+
+  const weeklyPlans = Array.from({ length: weeks }, (_, weekIndex) => {
+    const week = weekIndex + 1;
+    const deloadWeek = week % 4 === 0 && week !== weeks;
+    const weekMultiplier = deloadWeek ? 0.86 : 1 + weekIndex * 0.075;
+    const weekFactor = Math.min(1.55, weekMultiplier);
+    const totalDistance = Math.round(baseWeeklyDistance * weekFactor * 10) / 10;
+    const longRunDistance = Math.round(Math.max(longestRun, totalDistance * 0.36) * 10) / 10;
+    const remainingDistance = Math.max(daysPerWeek - 1, totalDistance - longRunDistance);
+    const normalRunDistance = remainingDistance / Math.max(1, daysPerWeek - 1);
+
+    const sessions = days.map((day, index) => {
+      const distance = index === daysPerWeek - 1 ? longRunDistance : normalRunDistance * (index === 0 && daysPerWeek >= 3 ? 1.08 : 0.96);
+      return buildRunningSession({ builder, day, distance, index, targets, week, weekFactor });
+    });
+
+    return {
+      week,
+      deloadWeek,
+      totalDistance,
+      longRunDistance,
+      sessions
+    };
+  });
+
+  const workouts = weeklyPlans.flatMap((weekPlan) =>
+    weekPlan.sessions.map((session, sessionIndex) => ({
+      ...session,
+      id: `running-${weekPlan.week}-${sessionIndex}`,
+      week: weekPlan.week,
+      weekLabel: `Week ${weekPlan.week}`,
+      planSummary: `${session.day} - ${session.type}: ${session.summary} - ${session.target}`
+    }))
+  );
+
+  return {
+    weeks: weeklyPlans,
+    workouts,
+    progression,
+    targetSource: targets.source,
+    stats: {
+      firstWeek: weeklyPlans[0]?.totalDistance || 0,
+      finalWeek: weeklyPlans[weeklyPlans.length - 1]?.totalDistance || 0,
+      longestRun: Math.max(...weeklyPlans.map((week) => week.longRunDistance)),
+      sessions: workouts.length
+    }
+  };
 }
 
 function formatPlanType(plan) {
@@ -116,6 +364,7 @@ export function PlansScreen({ role = "normal_user", user }) {
   const [workoutLibrary, setWorkoutLibrary] = useState([]);
   const [clients, setClients] = useState([]);
   const [builder, setBuilder] = useState(createBuilder);
+  const [runningBuilder, setRunningBuilder] = useState(createRunningBuilder);
   const [mode, setMode] = useState("list");
   const [showImport, setShowImport] = useState(false);
   const [openPlanMenu, setOpenPlanMenu] = useState(null);
@@ -132,6 +381,7 @@ export function PlansScreen({ role = "normal_user", user }) {
     () => user?.id ? `movementz:plan-recovery:${user.id}` : "",
     [user?.id]
   );
+  const runningPlan = useMemo(() => buildRunningPlan(runningBuilder), [runningBuilder]);
 
   const importedWorkoutIds = useMemo(
     () => new Set(builder.workouts.map((workout) => workout.workout_template_id).filter(Boolean)),
@@ -240,6 +490,7 @@ export function PlansScreen({ role = "normal_user", user }) {
     if (recovered?.mode && recoverablePlanModes.has(recovered.mode)) {
       Promise.resolve().then(() => {
         setBuilder(recovered.builder || createBuilder());
+        setRunningBuilder(recovered.runningBuilder || createRunningBuilder());
         setEditingPlanId(recovered.editingPlanId || null);
         setShowImport(Boolean(recovered.showImport));
         setActivePlanWorkout(recovered.activePlanWorkout || null);
@@ -264,12 +515,13 @@ export function PlansScreen({ role = "normal_user", user }) {
       updatedAt: new Date().toISOString(),
       mode,
       builder,
+      runningBuilder,
       editingPlanId,
       showImport,
       activePlanWorkout,
       selectedPlan
     });
-  }, [activePlanWorkout, builder, editingPlanId, mode, recoveryKey, selectedPlan, showImport]);
+  }, [activePlanWorkout, builder, editingPlanId, mode, recoveryKey, runningBuilder, selectedPlan, showImport]);
 
   useEffect(() => {
     let alive = true;
@@ -293,6 +545,62 @@ export function PlansScreen({ role = "normal_user", user }) {
     setEditingPlanId(null);
     setShowImport(false);
     setMessage("");
+    setMode("builder");
+  }
+
+  function startRunningBuilder() {
+    setRunningBuilder(createRunningBuilder());
+    setEditingPlanId(null);
+    setShowImport(false);
+    setMessage("");
+    setMode("running-builder");
+  }
+
+  function updateRunningBuilder(updates) {
+    setRunningBuilder((current) => {
+      const next = { ...current, ...updates };
+      if (updates.daysPerWeek) {
+        next.preferredDays = selectRunningDays(next);
+      }
+      return next;
+    });
+  }
+
+  function toggleRunningDay(day) {
+    setRunningBuilder((current) => {
+      const selected = new Set(current.preferredDays || []);
+      if (selected.has(day)) selected.delete(day);
+      else selected.add(day);
+      const preferredDays = weekdays.filter((weekday) => selected.has(weekday)).slice(0, current.daysPerWeek);
+      return { ...current, preferredDays };
+    });
+  }
+
+  function useRunningPlanInBuilder() {
+    const planWorkouts = runningPlan.workouts.map((run, index) => ({
+      id: `running-plan-${run.week}-${index}`,
+      workout_template_id: null,
+      name: run.title,
+      workout_type: "running",
+      source_type: "new",
+      summary: `${run.weekLabel} ${run.planSummary}`,
+      scheduled_days: [run.day]
+    }));
+
+    setBuilder({
+      ...createBuilder(),
+      name: `${runningBuilder.weeks} Week Running Plan`,
+      planType: "block",
+      blockWeeks: runningBuilder.weeks,
+      step: 2,
+      scheduleEnabled: true,
+      workouts: planWorkouts,
+      instructions:
+        `Running targets are generated from ${runningPlan.targetSource.toLowerCase()}. Use pace when known, otherwise use zone or RPE. Keep easy and long runs controlled, and only push the quality run.`
+    });
+    setEditingPlanId(null);
+    setShowImport(false);
+    setMessage("Running plan added. Review the sessions, then save the plan.");
     setMode("builder");
   }
 
@@ -581,7 +889,11 @@ export function PlansScreen({ role = "normal_user", user }) {
 
   function startPlanWorkout(workout, options = {}) {
     if (!workout.workout_template_id) {
-      setMessage("This plan workout is missing its source workout. Re-import it from the workout library.");
+      setMessage(
+        workout.workout_type === "running"
+          ? "Running plan timers are coming next. Use this session card as the run target for now."
+          : "This plan workout is missing its source workout. Re-import it from the workout library."
+      );
       return;
     }
 
@@ -756,6 +1068,276 @@ export function PlansScreen({ role = "normal_user", user }) {
         role={role}
         user={user}
       />
+    );
+  }
+
+  if (mode === "running-builder") {
+    return (
+      <section className="screen-stack plans-screen running-builder-screen">
+        <div className="screen-heading library-heading">
+          <div>
+            <p className="eyebrow">Running builder</p>
+            <h1>Build running plan</h1>
+            <p>Create a progressive run block from easy runs, quality work, and long runs.</p>
+          </div>
+          <button className="primary-action compact" onClick={() => setMode("list")} type="button">
+            Back
+          </button>
+        </div>
+
+        {message ? <p className="form-message error">{message}</p> : null}
+
+        <div className="running-builder-layout">
+          <div className="panel plan-builder-panel running-builder-controls">
+            <label>
+              Goal
+              <select onChange={(event) => updateRunningBuilder({ goal: event.target.value })} value={runningBuilder.goal}>
+                <option value="further_faster">Run further and improve pace</option>
+                <option value="distance_base">Build distance base</option>
+                <option value="pace_focus">Improve speed and efficiency</option>
+                <option value="return_to_running">Return to running</option>
+              </select>
+            </label>
+
+            <div className="running-field-grid">
+              <label>
+                Unit
+                <select onChange={(event) => updateRunningBuilder({ unit: event.target.value })} value={runningBuilder.unit}>
+                  <option value="km">Kilometres</option>
+                  <option value="mi">Miles</option>
+                </select>
+              </label>
+              <label>
+                Target measure
+                <select onChange={(event) => updateRunningBuilder({ measure: event.target.value })} value={runningBuilder.measure}>
+                  <option value="mixed">Pace + zone/RPE</option>
+                  <option value="pace">Pace focused</option>
+                  <option value="zone">Heart-rate zone</option>
+                  <option value="rpe">RPE only</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="running-picker-group">
+              <p className="eyebrow">Plan length</p>
+              <div className="running-chip-row">
+                {runningPlanWeeks.map((weeks) => (
+                  <button
+                    className={runningBuilder.weeks === weeks ? "chip active hiit" : "chip"}
+                    key={weeks}
+                    onClick={() => updateRunningBuilder({ weeks })}
+                    type="button"
+                  >
+                    {weeks}w
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="running-picker-group">
+              <p className="eyebrow">Runs per week</p>
+              <div className="running-chip-row">
+                {runningTrainingDays.map((daysPerWeek) => (
+                  <button
+                    className={runningBuilder.daysPerWeek === daysPerWeek ? "chip active hiit" : "chip"}
+                    key={daysPerWeek}
+                    onClick={() => updateRunningBuilder({ daysPerWeek })}
+                    type="button"
+                  >
+                    {daysPerWeek}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="running-field-grid">
+              <label>
+                Easy pace optional
+                <input
+                  inputMode="text"
+                  onChange={(event) => updateRunningBuilder({ currentEasyPace: event.target.value })}
+                  placeholder={`e.g. 6:10 /${runningBuilder.unit}`}
+                  value={runningBuilder.currentEasyPace}
+                />
+              </label>
+              <label>
+                Current weekly distance
+                <input
+                  min="0"
+                  onChange={(event) => updateRunningBuilder({ currentWeeklyDistance: event.target.value })}
+                  type="number"
+                  value={runningBuilder.currentWeeklyDistance}
+                />
+              </label>
+              <label>
+                Longest run now
+                <input
+                  min="0"
+                  onChange={(event) => updateRunningBuilder({ longestRunDistance: event.target.value })}
+                  type="number"
+                  value={runningBuilder.longestRunDistance}
+                />
+              </label>
+              <label>
+                Easy run minutes
+                <input
+                  min="10"
+                  onChange={(event) => updateRunningBuilder({ currentRunMinutes: event.target.value })}
+                  type="number"
+                  value={runningBuilder.currentRunMinutes}
+                />
+              </label>
+            </div>
+
+            <div className="running-field-grid">
+              <label>
+                Recent run distance
+                <input
+                  min="0"
+                  onChange={(event) => updateRunningBuilder({ recentDistance: event.target.value })}
+                  type="number"
+                  value={runningBuilder.recentDistance}
+                />
+              </label>
+              <label>
+                Recent run time optional
+                <input
+                  onChange={(event) => updateRunningBuilder({ recentTime: event.target.value })}
+                  placeholder="e.g. 28:30"
+                  value={runningBuilder.recentTime}
+                />
+              </label>
+            </div>
+
+            <div className="running-picker-group">
+              <p className="eyebrow">Preferred days</p>
+              <div className="weekday-picker running-day-picker">
+                {weekdays.map((day) => (
+                  <button
+                    className={(runningBuilder.preferredDays || []).includes(day) ? "active" : ""}
+                    disabled={(runningBuilder.preferredDays || []).length >= runningBuilder.daysPerWeek && !(runningBuilder.preferredDays || []).includes(day)}
+                    key={day}
+                    onClick={() => toggleRunningDay(day)}
+                    type="button"
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="running-toggle">
+              <input
+                checked={runningBuilder.includeRunWalk}
+                onChange={(event) => updateRunningBuilder({ includeRunWalk: event.target.checked })}
+                type="checkbox"
+              />
+              Allow run/walk guidance
+            </label>
+          </div>
+
+          <div className="running-plan-preview">
+            <div className="running-summary-grid">
+              <div>
+                <span>Week 1</span>
+                <strong>{runningPlan.stats.firstWeek}{runningBuilder.unit}</strong>
+              </div>
+              <div>
+                <span>Final week</span>
+                <strong>{runningPlan.stats.finalWeek}{runningBuilder.unit}</strong>
+              </div>
+              <div>
+                <span>Longest run</span>
+                <strong>{runningPlan.stats.longestRun}{runningBuilder.unit}</strong>
+              </div>
+              <div>
+                <span>Sessions</span>
+                <strong>{runningPlan.stats.sessions}</strong>
+              </div>
+            </div>
+
+            <div className="panel running-method-panel">
+              <p className="eyebrow">Run mix</p>
+              <h2>{runningBuilder.daysPerWeek} runs per week</h2>
+              <p>
+                {runningBuilder.daysPerWeek === 2
+                  ? "One controlled quality or easy run plus one long easy run."
+                  : "One quality run, easy support runs, and one long easy run each week."}
+              </p>
+            </div>
+
+            <div className="panel running-progression-panel">
+              <div className="section-row">
+                <div>
+                  <p className="eyebrow">Pace and zone progression</p>
+                  <h2>{runningPlan.targetSource}</h2>
+                </div>
+                <span className="status-pill">{runningBuilder.measure}</span>
+              </div>
+              <div className="running-progression-list">
+                {runningPlan.progression.map((step) => (
+                  <article className="running-progression-card" key={step.label}>
+                    <div>
+                      <span>{step.effort}</span>
+                      <strong>{step.label}</strong>
+                      <em>{step.zone} - {step.rpe}</em>
+                    </div>
+                    <dl>
+                      <div>
+                        <dt>Easy</dt>
+                        <dd>{step.easy}</dd>
+                      </div>
+                      <div>
+                        <dt>Tempo</dt>
+                        <dd>{step.tempo}</dd>
+                      </div>
+                      <div>
+                        <dt>Intervals</dt>
+                        <dd>{step.interval}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                ))}
+              </div>
+            </div>
+
+            <div className="running-week-list">
+              {runningPlan.weeks.map((weekPlan) => (
+                <article className="running-week-card" key={weekPlan.week}>
+                  <div className="running-week-head">
+                    <div>
+                      <span>{weekPlan.deloadWeek ? "Recovery week" : "Training week"}</span>
+                      <strong>Week {weekPlan.week}</strong>
+                    </div>
+                    <em>{weekPlan.totalDistance}{runningBuilder.unit}</em>
+                  </div>
+                  <div className="running-run-list">
+                    {weekPlan.sessions.map((run) => (
+                      <div className="running-run-card" key={`${weekPlan.week}-${run.day}-${run.title}`}>
+                        <div>
+                          <span>{run.day} - {run.type}</span>
+                          <strong>{run.summary}</strong>
+                          <em>{run.target}</em>
+                        </div>
+                        <p>{run.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="form-footer-actions">
+          <button className="primary-action" onClick={() => setMode("list")} type="button">
+            Cancel
+          </button>
+          <button className="primary-action filled" onClick={useRunningPlanInBuilder} type="button">
+            Use in Plan Builder
+          </button>
+        </div>
+      </section>
     );
   }
 
@@ -1048,9 +1630,13 @@ export function PlansScreen({ role = "normal_user", user }) {
                   </div>
                   <div className="plan-workout-actions">
                     <span className="status-pill">{workout.source_type}</span>
-                    <button className="primary-action compact filled" onClick={() => startPlanWorkout(workout, { planId: selectedPlan.id })} type="button">
-                      Start
-                    </button>
+                    {workout.workout_template_id ? (
+                      <button className="primary-action compact filled" onClick={() => startPlanWorkout(workout, { planId: selectedPlan.id })} type="button">
+                        Start
+                      </button>
+                    ) : (
+                      <span className="status-pill">Run target</span>
+                    )}
                   </div>
                 </article>
               ))}
@@ -1087,14 +1673,32 @@ export function PlansScreen({ role = "normal_user", user }) {
           <h1>Plans</h1>
           <p>Build blocks from workouts, schedule sessions, and assign them to clients.</p>
         </div>
-        <button className="primary-action compact filled" onClick={startBuilder} type="button">
-          + New Plan
-        </button>
+        <div className="inline-actions">
+          <button className="primary-action compact filled" onClick={startBuilder} type="button">
+            + New Plan
+          </button>
+          <button className="primary-action compact" onClick={startRunningBuilder} type="button">
+            Running Builder
+          </button>
+        </div>
       </div>
 
       {message ? <p className="form-message error">{message}</p> : null}
       {loading ? <p className="form-message success">Loading plans...</p> : null}
       {loadingDetail ? <p className="form-message success">Loading plan...</p> : null}
+
+      {role !== "client" || planLibraryView === "library" ? (
+        <section className="running-builder-cta">
+          <div>
+            <p className="eyebrow">Running plans</p>
+            <h2>Build a run block</h2>
+            <p>Generate easy runs, intervals, tempo work, and long runs from current ability, pace or zone targets, and available training days.</p>
+          </div>
+          <button className="primary-action compact filled" onClick={startRunningBuilder} type="button">
+            Open
+          </button>
+        </section>
+      ) : null}
 
       {role === "client" ? (
         <div className="library-view-tabs" role="tablist" aria-label="Plan library view">
