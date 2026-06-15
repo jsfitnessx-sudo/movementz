@@ -15,7 +15,7 @@ function formatTemplateType(template) {
 
 function formatExerciseLine(exercise, workoutType) {
   if (workoutType === "hiit") {
-    return `Target: ${exercise.target_value || 10} ${exercise.target_type || "reps"}`;
+    return `${exercise.sets || 3} rounds - target ${exercise.target_value || 10} ${exercise.target_type || "reps"}`;
   }
   return `${exercise.sets || 1} sets - ${exercise.rep_min || 8}-${exercise.rep_max || 12} reps`;
 }

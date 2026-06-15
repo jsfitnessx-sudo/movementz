@@ -1,6 +1,6 @@
 -- Movementz Phase 45: public workout ideas seed.
 -- Run after phase-26-public-template-library.sql.
--- Current release seeds Beginner Gym x 5 and Strength x 5.
+-- Current release seeds Beginner Gym, Strength, HIIT and Upper Body x 5 each.
 
 do $$
 declare
@@ -203,6 +203,186 @@ begin
     (template_id, 3, 'Seated Leg Curl', 'Legs', 3, 8, 12, 75, 'Control every rep.'),
     (template_id, 4, 'Back Extension', 'Back', 3, 10, 12, 75, 'Move through the hips.'),
     (template_id, 5, 'Cable Pull Through', 'Glutes', 3, 10, 15, 75, 'Hinge through the hips and squeeze glutes.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, hiit_timer_type, hiit_rounds, hiit_work_seconds, hiit_rest_seconds, hiit_countdown_seconds, hiit_focus_area, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'hiit', 'interval', 3, 40, 20, 10, 'Full Body',
+    'HIIT 1 - Low Impact Sweat',
+    'library:phase1; category:hiit; A low-impact HIIT workout for conditioning without jumping. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, target_type, target_value, rest_seconds, tip)
+  values
+    (template_id, 1, 'Step Up', 'Legs', 3, null, null, 'reps', 10, 20, 'Alternate legs each rep.'),
+    (template_id, 2, 'Incline Push Up', 'Chest', 3, null, null, 'reps', 10, 20, 'Use a height that keeps reps clean.'),
+    (template_id, 3, 'Banded Row', 'Back', 3, null, null, 'reps', 12, 20, 'Squeeze shoulder blades.'),
+    (template_id, 4, 'Bodyweight Squat', 'Legs', 3, null, null, 'reps', 12, 20, 'Keep the pace smooth.'),
+    (template_id, 5, 'Dead Bug', 'Core', 3, null, null, 'reps', 10, 20, 'Count reps per side.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, hiit_timer_type, hiit_rounds, hiit_work_seconds, hiit_rest_seconds, hiit_countdown_seconds, hiit_focus_area, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'hiit', 'interval', 3, 40, 20, 10, 'Lower',
+    'HIIT 2 - Legs and Lungs',
+    'library:phase1; category:hiit; A lower-body HIIT workout for legs, glutes and conditioning. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, target_type, target_value, rest_seconds, tip)
+  values
+    (template_id, 1, 'Goblet Squat', 'Legs', 3, null, null, 'reps', 12, 20, 'Use a steady full range.'),
+    (template_id, 2, 'Reverse Lunge', 'Legs', 3, null, null, 'reps', 10, 20, 'Count reps per leg.'),
+    (template_id, 3, 'Hip Thrust', 'Glutes', 3, null, null, 'reps', 12, 20, 'Pause at the top.'),
+    (template_id, 4, 'DB Romanian Deadlift', 'Legs', 3, null, null, 'reps', 10, 20, 'Hinge with control.'),
+    (template_id, 5, 'Mountain Climber', 'Core', 3, null, null, 'reps', 20, 20, 'Keep hips steady.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, hiit_timer_type, hiit_rounds, hiit_work_seconds, hiit_rest_seconds, hiit_countdown_seconds, hiit_focus_area, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'hiit', 'interval', 3, 35, 25, 10, 'Upper',
+    'HIIT 3 - Upper Pump Conditioning',
+    'library:phase1; category:hiit; An upper-body HIIT workout mixing push, pull and core work. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, target_type, target_value, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Push Press', 'Shoulders', 3, null, null, 'reps', 10, 25, 'Drive with legs then press.'),
+    (template_id, 2, 'Renegade Row', 'Back', 3, null, null, 'reps', 8, 25, 'Count reps per side.'),
+    (template_id, 3, 'Push Up', 'Chest', 3, null, null, 'reps', 10, 25, 'Use knees if needed.'),
+    (template_id, 4, 'DB Curl to Press', 'Shoulders', 3, null, null, 'reps', 10, 25, 'Move smoothly.'),
+    (template_id, 5, 'Plank Shoulder Tap', 'Core', 3, null, null, 'reps', 12, 25, 'Keep hips quiet.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, hiit_timer_type, hiit_rounds, hiit_work_seconds, hiit_rest_seconds, hiit_countdown_seconds, hiit_focus_area, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'hiit', 'for_time', 3, null, null, 10, 'Cardio',
+    'HIIT 4 - Gym Floor For Time',
+    'library:phase1; category:hiit; A simple for-time gym floor workout using cardio and bodyweight stations. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, target_type, target_value, rest_seconds, tip)
+  values
+    (template_id, 1, 'Treadmill Run', 'Cardio', 3, null, null, 'meters', 300, 30, 'Run or walk fast.'),
+    (template_id, 2, 'Kettlebell Swing', 'Glutes', 3, null, null, 'reps', 15, 30, 'Snap hips, not arms.'),
+    (template_id, 3, 'Box Step Over', 'Legs', 3, null, null, 'reps', 12, 30, 'Move with control.'),
+    (template_id, 4, 'Ski Erg', 'Cardio', 3, null, null, 'meters', 200, 30, 'Strong pulls, steady rhythm.'),
+    (template_id, 5, 'Sit Up', 'Core', 3, null, null, 'reps', 15, 30, 'Use a smooth pace.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, hiit_timer_type, hiit_rounds, hiit_work_seconds, hiit_rest_seconds, hiit_countdown_seconds, hiit_focus_area, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'hiit', 'interval', 3, 45, 15, 10, 'Full Body',
+    'HIIT 5 - Full Body Burner',
+    'library:phase1; category:hiit; A full-body HIIT workout for a stronger conditioning push. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, target_type, target_value, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Thruster', 'Full Body', 3, null, null, 'reps', 10, 15, 'Squat then press overhead.'),
+    (template_id, 2, 'Burpee', 'Full Body', 3, null, null, 'reps', 8, 15, 'Step back instead of jumping if needed.'),
+    (template_id, 3, 'Alternating DB Snatch', 'Full Body', 3, null, null, 'reps', 10, 15, 'Count total reps.'),
+    (template_id, 4, 'Shuttle Run', 'Cardio', 3, null, null, 'meters', 100, 15, 'Turn under control.'),
+    (template_id, 5, 'Russian Twist', 'Core', 3, null, null, 'reps', 20, 15, 'Rotate through the torso.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Upper Body 1 - Chest and Back Starter',
+    'library:phase1; category:upper_body; An upper-body workout balancing chest and back. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Flat Press', 'Chest', 3, 8, 12, 75, 'Control the bottom.'),
+    (template_id, 2, 'Lat Pulldown', 'Back', 3, 8, 12, 75, 'Pull elbows down.'),
+    (template_id, 3, 'Incline DB Press', 'Chest', 3, 8, 12, 75, 'Keep elbows tucked.'),
+    (template_id, 4, 'Seated Row', 'Back', 3, 8, 12, 75, 'Pause at the squeeze.'),
+    (template_id, 5, 'Cable Face Pull', 'Shoulders', 3, 10, 15, 60, 'Pull toward eye level.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Upper Body 2 - Shoulders and Arms',
+    'library:phase1; category:upper_body; A shoulder and arm focused upper-body workout. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Shoulder Press', 'Shoulders', 3, 8, 12, 75, 'Brace before pressing.'),
+    (template_id, 2, 'DB Lateral Raise', 'Shoulders', 3, 10, 15, 60, 'Lift to shoulder height.'),
+    (template_id, 3, 'Rear Delt Fly', 'Shoulders', 3, 10, 15, 60, 'Keep arms wide.'),
+    (template_id, 4, 'DB Curl', 'Biceps', 3, 10, 12, 60, 'Keep elbows still.'),
+    (template_id, 5, 'Overhead DB Triceps Extension', 'Triceps', 3, 10, 12, 60, 'Move slowly behind the head.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Upper Body 3 - Push Focus',
+    'library:phase1; category:upper_body; An upper-body push workout for chest, shoulders and triceps. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Machine Chest Press', 'Chest', 3, 8, 12, 75, 'Keep shoulders pinned.'),
+    (template_id, 2, 'Incline DB Press', 'Chest', 3, 8, 12, 75, 'Press smoothly.'),
+    (template_id, 3, 'Machine Shoulder Press', 'Shoulders', 3, 8, 12, 75, 'Avoid shrugging.'),
+    (template_id, 4, 'Cable Fly', 'Chest', 3, 10, 15, 60, 'Squeeze at the front.'),
+    (template_id, 5, 'Rope Triceps Pushdown', 'Triceps', 3, 10, 15, 60, 'Lock out with control.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Upper Body 4 - Pull Focus',
+    'library:phase1; category:upper_body; An upper-body pull workout for back, rear delts and biceps. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Assisted Pull Up', 'Back', 3, 6, 10, 90, 'Use clean reps.'),
+    (template_id, 2, 'Chest Supported Row', 'Back', 3, 8, 12, 75, 'Pull elbows behind you.'),
+    (template_id, 3, 'Straight Arm Pulldown', 'Back', 3, 10, 15, 60, 'Keep arms nearly straight.'),
+    (template_id, 4, 'Cable Face Pull', 'Shoulders', 3, 10, 15, 60, 'Pull toward eyes.'),
+    (template_id, 5, 'Hammer Curl', 'Biceps', 3, 10, 12, 60, 'Keep wrists neutral.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Upper Body 5 - Dumbbell Only',
+    'library:phase1; category:upper_body; A dumbbell-only upper-body workout for simple gym or home setup. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Flat Press', 'Chest', 3, 8, 12, 75, 'Keep wrists stacked.'),
+    (template_id, 2, 'One Arm DB Row', 'Back', 3, 8, 12, 75, 'Count reps per side.'),
+    (template_id, 3, 'DB Shoulder Press', 'Shoulders', 3, 8, 12, 75, 'Press without leaning back.'),
+    (template_id, 4, 'DB Lateral Raise', 'Shoulders', 3, 10, 15, 60, 'Use light control.'),
+    (template_id, 5, 'DB Curl', 'Biceps', 3, 10, 12, 60, 'Control the lowering phase.');
 end $$;
 
 notify pgrst, 'reload schema';
