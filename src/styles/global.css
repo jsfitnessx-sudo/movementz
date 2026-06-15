@@ -529,57 +529,74 @@ button {
 }
 
 .home-template-cta {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   width: 100%;
-  border-color: color-mix(in srgb, var(--teal) 56%, var(--line));
+  overflow: hidden;
+  padding: 18px;
+  border: 2px solid color-mix(in srgb, var(--teal) 68%, var(--line));
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--teal) 12%, #fff), #fff 52%, color-mix(in srgb, var(--gold) 10%, #fff));
+    linear-gradient(135deg, color-mix(in srgb, var(--teal) 18%, #fff), #fff 48%, color-mix(in srgb, var(--gold) 16%, #fff));
+  box-shadow: 0 14px 34px rgba(15, 118, 125, 0.16);
   text-align: left;
+}
+
+.home-template-cta::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, var(--teal), var(--gold));
+  content: "";
 }
 
 .home-template-cta strong {
   display: block;
   color: var(--text);
-  font-size: 18px;
+  font-size: 20px;
+  line-height: 1.1;
 }
 
 .home-template-cta span {
   display: block;
-  margin-top: 4px;
+  margin-top: 6px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.35;
 }
 
 .home-template-cta em {
   display: grid;
   place-items: center;
-  min-height: 36px;
-  padding: 0 16px;
-  border: 1px solid color-mix(in srgb, var(--teal) 65%, var(--line));
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid var(--teal);
   border-radius: 999px;
-  color: var(--teal);
+  background: var(--teal);
+  color: #fff;
   font-size: 12px;
   font-style: normal;
   font-weight: 900;
+  box-shadow: 0 8px 20px rgba(18, 178, 185, 0.24);
 }
 
 .home-template-preview-list {
   display: grid;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .home-template-preview-list span {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--teal) 22%, var(--border));
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .home-template-preview-list b {
@@ -1063,6 +1080,10 @@ button {
   border-color: var(--teal);
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--teal) 16%, #fff), #fff 60%, color-mix(in srgb, var(--gold) 12%, #fff));
+}
+
+.template-results-anchor {
+  scroll-margin-top: 18px;
 }
 
 .template-kind-tabs {

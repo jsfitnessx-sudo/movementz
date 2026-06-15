@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase/client.js";
 
 function formatTemplateType(template) {
@@ -81,6 +81,7 @@ function matchesTemplateCategory(template, categoryId) {
 }
 
 export function PublicTemplateLibraryScreen({ onBack, user }) {
+  const resultsRef = useRef(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -148,6 +149,13 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
     setMessage(`${template.name} added to your Workout Library.`);
   }
 
+  function selectCategory(categoryId) {
+    setSelectedCategory(categoryId);
+    window.setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
+
   return (
     <section className="screen-stack public-template-screen">
       <div className="screen-heading library-heading">
@@ -168,7 +176,7 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
           <button
             className={selectedCategory === category.id ? "template-category-tile active" : "template-category-tile"}
             key={category.id}
-            onClick={() => setSelectedCategory(category.id)}
+            onClick={() => selectCategory(category.id)}
             type="button"
           >
             <span>{category.icon}</span>
@@ -180,6 +188,8 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
       </div>
 
       {loading ? <p className="form-message success">Loading templates...</p> : null}
+
+      <div className="template-results-anchor" ref={resultsRef} />
 
       {!loading && !filteredTemplates.length ? (
         <div className="panel empty-state">
