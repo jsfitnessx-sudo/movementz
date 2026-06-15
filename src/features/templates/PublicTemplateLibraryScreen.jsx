@@ -67,7 +67,7 @@ const templateCategories = [
   { id: "lower_body", label: "Lower Body", icon: "LOW", help: "Legs and glutes", keywords: [] },
   { id: "full_body", label: "Full Body", icon: "FULL", help: "Everything covered", keywords: [] },
   { id: "glutes", label: "Glutes", icon: "GLU", help: "Glute focused", keywords: [] },
-  { id: "core", label: "Core", icon: "CORE", help: "Abs and trunk", keywords: [] }
+  { id: "core", label: "Core & Home Workout", icon: "HOME", help: "Core and bodyweight", keywords: [] }
 ];
 
 function templateCategoryId(template) {

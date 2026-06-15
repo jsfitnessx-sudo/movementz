@@ -1,6 +1,6 @@
 -- Movementz Phase 45: public workout ideas seed.
 -- Run after phase-26-public-template-library.sql.
--- Current release seeds Beginner Gym, Strength, HIIT, Upper Body, Lower Body and Full Body x 5 each.
+-- Current release seeds Beginner Gym, Strength, HIIT, Upper Body, Lower Body, Full Body, Glutes and Core & Home Workout x 5 each.
 
 do $$
 declare
@@ -563,6 +563,186 @@ begin
     (template_id, 3, 'Assisted Pull Up', 'Back', 3, 6, 10, 90, 'Use assistance that keeps reps clean.'),
     (template_id, 4, 'DB Walking Lunge', 'Legs', 3, 8, 10, 75, 'Count reps per leg.'),
     (template_id, 5, 'Farmer Carry', 'Core', 3, 30, 45, 60, 'Walk tall with ribs stacked.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Glutes 1 - Hip Thrust Builder',
+    'library:phase1; category:glutes; A glute-focused gym workout built around hip thrust strength. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Barbell Hip Thrust', 'Glutes', 3, 8, 12, 90, 'Pause hard at full lockout.'),
+    (template_id, 2, 'Romanian Deadlift', 'Legs', 3, 8, 12, 90, 'Push hips back with soft knees.'),
+    (template_id, 3, 'Cable Glute Kickback', 'Glutes', 3, 10, 15, 60, 'Move from the hip.'),
+    (template_id, 4, 'Seated Hip Abduction', 'Glutes', 3, 12, 20, 60, 'Hold the outside squeeze.'),
+    (template_id, 5, 'Back Extension', 'Glutes', 3, 10, 15, 75, 'Round slightly and drive hips into the pad.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Glutes 2 - Dumbbell Glute Day',
+    'library:phase1; category:glutes; A dumbbell glute workout for simple gym or home setup. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'DB Hip Thrust', 'Glutes', 3, 10, 12, 75, 'Keep chin tucked and ribs down.'),
+    (template_id, 2, 'DB Romanian Deadlift', 'Legs', 3, 8, 12, 75, 'Keep dumbbells close.'),
+    (template_id, 3, 'DB Sumo Squat', 'Glutes', 3, 10, 12, 75, 'Sit down between the hips.'),
+    (template_id, 4, 'DB Reverse Lunge', 'Glutes', 3, 8, 10, 75, 'Count reps per leg.'),
+    (template_id, 5, 'Banded Glute Bridge', 'Glutes', 3, 12, 20, 60, 'Keep knees pressing out.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Glutes 3 - Cable and Machine Glutes',
+    'library:phase1; category:glutes; A cable and machine glute workout for focused isolation. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Smith Machine Hip Thrust', 'Glutes', 3, 8, 12, 90, 'Set feet so shins are vertical at the top.'),
+    (template_id, 2, 'Cable Pull Through', 'Glutes', 3, 10, 15, 75, 'Hinge and squeeze through the glutes.'),
+    (template_id, 3, 'Cable Glute Kickback', 'Glutes', 3, 10, 15, 60, 'Control the return.'),
+    (template_id, 4, 'Seated Hip Abduction', 'Glutes', 3, 15, 20, 60, 'Lean slightly forward.'),
+    (template_id, 5, 'Single Leg Leg Press', 'Glutes', 3, 8, 12, 75, 'Place foot higher on the platform.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Glutes 4 - Glute and Hamstring Strength',
+    'library:phase1; category:glutes; A stronger glute and hamstring workout using hinge and bridge patterns. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Deadlift', 'Back', 3, 4, 6, 150, 'Brace before each pull.'),
+    (template_id, 2, 'Hip Thrust', 'Glutes', 3, 8, 10, 120, 'Pause at the top.'),
+    (template_id, 3, 'Lying Leg Curl', 'Legs', 3, 8, 12, 75, 'Keep hips down.'),
+    (template_id, 4, 'DB Walking Lunge', 'Glutes', 3, 8, 10, 75, 'Use a slightly longer stride.'),
+    (template_id, 5, 'Frog Pump', 'Glutes', 3, 15, 25, 60, 'Keep soles together and squeeze.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Glutes 5 - Glute Burnout',
+    'library:phase1; category:glutes; A higher-rep glute workout for pump, control and stability. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Banded Hip Thrust', 'Glutes', 3, 12, 15, 75, 'Keep band tension throughout.'),
+    (template_id, 2, 'DB Curtsy Lunge', 'Glutes', 3, 8, 12, 75, 'Step back and across under control.'),
+    (template_id, 3, 'Cable Kickback', 'Glutes', 3, 12, 15, 60, 'Avoid arching the lower back.'),
+    (template_id, 4, 'Banded Lateral Walk', 'Glutes', 3, 12, 20, 60, 'Count steps each direction.'),
+    (template_id, 5, 'Glute Bridge Pulse', 'Glutes', 3, 20, 30, 60, 'Keep hips high and pulse with control.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Core & Home 1 - Core Foundations',
+    'library:phase1; category:core; A core-focused workout using simple trunk control exercises. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Dead Bug', 'Core', 3, 8, 12, 45, 'Count reps per side.'),
+    (template_id, 2, 'Plank Shoulder Tap', 'Core', 3, 10, 16, 45, 'Keep hips steady.'),
+    (template_id, 3, 'Reverse Crunch', 'Core', 3, 10, 15, 45, 'Curl hips off the floor.'),
+    (template_id, 4, 'Side Plank Hip Dip', 'Core', 3, 8, 12, 45, 'Count reps per side.'),
+    (template_id, 5, 'Bird Dog', 'Core', 3, 8, 12, 45, 'Reach long and stay controlled.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Core & Home 2 - Abs and Obliques',
+    'library:phase1; category:core; A core workout for abs, obliques and rotation control. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Cable Crunch', 'Core', 3, 10, 15, 60, 'Round through the ribs.'),
+    (template_id, 2, 'Pallof Press', 'Core', 3, 10, 12, 45, 'Count reps per side.'),
+    (template_id, 3, 'Hanging Knee Raise', 'Core', 3, 8, 12, 60, 'Lift knees without swinging.'),
+    (template_id, 4, 'Russian Twist', 'Core', 3, 16, 24, 45, 'Count total reps.'),
+    (template_id, 5, 'Plank Reach', 'Core', 3, 8, 12, 45, 'Reach slowly without shifting hips.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Core & Home 3 - Strong Trunk',
+    'library:phase1; category:core; A stronger trunk session for bracing, control and lower-back support. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Ab Wheel Rollout', 'Core', 3, 6, 10, 60, 'Only roll as far as you can control.'),
+    (template_id, 2, 'Cable Wood Chop', 'Core', 3, 10, 12, 60, 'Count reps per side.'),
+    (template_id, 3, 'Weighted Dead Bug', 'Core', 3, 8, 12, 45, 'Keep ribs down.'),
+    (template_id, 4, 'Back Extension', 'Back', 3, 10, 15, 60, 'Move slowly through the hips.'),
+    (template_id, 5, 'Suitcase March', 'Core', 3, 20, 30, 60, 'Count total marching reps without leaning.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Core & Home 4 - Bodyweight Home Full Body',
+    'library:phase1; category:core; A home bodyweight workout using reps only, no equipment needed. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Bodyweight Squat', 'Legs', 3, 12, 20, 45, 'Keep heels down.'),
+    (template_id, 2, 'Push Up', 'Chest', 3, 8, 15, 45, 'Use knees if needed.'),
+    (template_id, 3, 'Reverse Lunge', 'Legs', 3, 8, 12, 45, 'Count reps per leg.'),
+    (template_id, 4, 'Mountain Climber', 'Core', 3, 20, 30, 45, 'Count total reps.'),
+    (template_id, 5, 'Glute Bridge', 'Glutes', 3, 12, 20, 45, 'Squeeze at the top.');
+
+  insert into public.workout_templates (
+    owner_id, created_by, source_type, workout_type, name, notes, visibility, is_template, is_public_template, status
+  )
+  values (
+    template_owner, template_owner, 'personal', 'strength',
+    'Core & Home 5 - Bodyweight Home Core',
+    'library:phase1; category:core; A home bodyweight workout combining core and simple conditioning with reps. Copy this into your library before editing.',
+    'private', true, true, 'active'
+  )
+  returning id into template_id;
+  insert into public.workout_template_exercises (template_id, position, exercise_name, muscle_group, sets, rep_min, rep_max, rest_seconds, tip)
+  values
+    (template_id, 1, 'Sit Up', 'Core', 3, 10, 20, 45, 'Use a smooth pace.'),
+    (template_id, 2, 'Plank Shoulder Tap', 'Core', 3, 12, 20, 45, 'Count total taps.'),
+    (template_id, 3, 'Bodyweight Good Morning', 'Legs', 3, 12, 20, 45, 'Hinge hips back.'),
+    (template_id, 4, 'Squat to Calf Raise', 'Legs', 3, 12, 20, 45, 'Stand tall at the top.'),
+    (template_id, 5, 'Bicycle Crunch', 'Core', 3, 16, 30, 45, 'Count total reps.');
 end $$;
 
 notify pgrst, 'reload schema';
