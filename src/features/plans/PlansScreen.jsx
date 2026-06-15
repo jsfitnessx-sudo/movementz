@@ -4,8 +4,8 @@ import { WorkoutLibraryScreen } from "../workouts/WorkoutLibraryScreen.jsx";
 
 const blockPeriods = [4, 6, 8, 10, 12, 16];
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const runningPlanWeeks = [4, 6, 8, 10, 12];
-const runningTrainingDays = [2, 3, 4, 5];
+const runningPlanWeeks = [4, 6, 8, 10, 12, 16];
+const runningTrainingDays = [2, 3, 4, 5, 6];
 const recoverablePlanModes = new Set(["builder", "running-builder", "workout-builder", "plan-workout-session"]);
 
 function readPlanRecoveryState(key) {
@@ -54,17 +54,18 @@ function createBuilder() {
 function createRunningBuilder() {
   return {
     goal: "further_faster",
-    weeks: 8,
-    daysPerWeek: 3,
+    weeks: 16,
+    daysPerWeek: 6,
     unit: "km",
     measure: "mixed",
     currentRunMinutes: 25,
     currentWeeklyDistance: 12,
     longestRunDistance: 5,
     currentEasyPace: "",
+    targetSustainablePace: "5:30",
     recentDistance: "5",
     recentTime: "",
-    preferredDays: ["Tue", "Thu", "Sat"],
+    preferredDays: ["Mon", "Tue", "Wed", "Thu", "Sat", "Sun"],
     includeRunWalk: false
   };
 }
@@ -120,11 +121,20 @@ function formatPaceRange(baseSeconds, fastOffset, slowOffset, unit) {
   return `${formatPace(baseSeconds + fastOffset, unit)}-${formatPace(baseSeconds + slowOffset, unit)}`;
 }
 
+function interpolate(start, end, ratio) {
+  return start + (end - start) * Math.min(1, Math.max(0, ratio));
+}
+
+function paceRangeFromSeconds(fastSeconds, slowSeconds, unit) {
+  return `${formatPace(fastSeconds, unit)}-${formatPace(slowSeconds, unit)}`;
+}
+
 function deriveRunningTargets(builder) {
   const enteredEasySeconds = parsePaceToSeconds(builder.currentEasyPace);
   const recentSeconds = parseDurationToSeconds(builder.recentTime);
   const recentDistance = parseNumber(builder.recentDistance, 0);
-  const estimatedEasySeconds = recentSeconds && recentDistance ? recentSeconds / recentDistance + 75 : null;
+  const fallbackEasySeconds = builder.unit === "mi" ? 720 : 450;
+  const estimatedEasySeconds = recentSeconds && recentDistance ? recentSeconds / recentDistance + 45 : fallbackEasySeconds;
   const easySeconds = enteredEasySeconds || estimatedEasySeconds;
 
   if (!easySeconds) {
@@ -145,34 +155,31 @@ function deriveRunningTargets(builder) {
     interval: `${formatPaceRange(easySeconds, -105, -65, builder.unit)} or RPE 8-9`,
     strides: "Fast relaxed for 20 sec, full easy recovery",
     easySeconds,
-    source: enteredEasySeconds ? "Entered easy pace" : "Estimated from recent run"
+    source: enteredEasySeconds ? "Entered easy pace" : recentSeconds && recentDistance ? "Estimated from recent run" : "Estimated from defaults"
   };
 }
 
 function buildPaceZoneProgression(builder, targets) {
   const easySeconds = targets.easySeconds;
+  const goalSeconds = parsePaceToSeconds(builder.targetSustainablePace);
   const checkpoints = [
-    { label: "Start", effort: "Settle", paceShift: 0, zone: "Zone 2", rpe: "RPE 3-4" },
-    { label: "Mid block", effort: "Build", paceShift: -10, zone: "Zone 2-3", rpe: "RPE 4-6" },
-    { label: "Final weeks", effort: "Sharpen", paceShift: -20, zone: "Zone 3-4 on quality", rpe: "RPE 6-9" }
+    { label: "Week 1", effort: "Base", ratio: 0, zone: "Z1-Z2 mostly", rpe: "RPE 2-6" },
+    { label: "Week 8", effort: "Threshold", ratio: 0.48, zone: "Z2-Z4", rpe: "RPE 3-8" },
+    { label: "Week 16", effort: "Peak", ratio: 1, zone: "Z2 easy, Z4-Z5 hard", rpe: "RPE 3-9" }
   ];
 
   return checkpoints.map((checkpoint) => {
-    if (!easySeconds) {
-      return {
-        ...checkpoint,
-        easy: checkpoint.label === "Start" ? "Zone 2 / RPE 3-4" : "Same easy effort, slightly longer runs",
-        tempo: checkpoint.label === "Start" ? "Short tempo blocks at RPE 6" : "Longer tempo blocks at RPE 6-7",
-        interval: checkpoint.label === "Start" ? "Short hard reps at RPE 8" : "Longer hard reps at RPE 8-9"
-      };
-    }
-
-    const adjustedEasy = easySeconds + checkpoint.paceShift;
+    const targetEasy = goalSeconds ? goalSeconds + 45 : easySeconds - 90;
+    const adjustedEasy = interpolate(easySeconds, targetEasy, checkpoint.ratio);
+    const tempoBase = goalSeconds ? interpolate(easySeconds - 45, goalSeconds, checkpoint.ratio) : adjustedEasy - 60;
+    const intervalBase = goalSeconds ? interpolate(easySeconds - 90, goalSeconds - 30, checkpoint.ratio) : adjustedEasy - 95;
     return {
       ...checkpoint,
       easy: formatPaceRange(adjustedEasy, -5, 35, builder.unit),
-      tempo: formatPaceRange(adjustedEasy, -75, -35, builder.unit),
-      interval: formatPaceRange(adjustedEasy, -105, -65, builder.unit)
+      recovery: formatPaceRange(adjustedEasy, 30, 60, builder.unit),
+      long: formatPaceRange(adjustedEasy, 15, 45, builder.unit),
+      tempo: formatPaceRange(tempoBase, -5, 10, builder.unit),
+      interval: formatPaceRange(intervalBase, -10, 10, builder.unit)
     };
   });
 }
@@ -246,6 +253,172 @@ function buildRunningSession({ builder, day, distance, index, targets, week, wee
   };
 }
 
+function getRunningBlockMeta(week, totalWeeks) {
+  if (week > totalWeeks - 1) {
+    return { block: "Peak/Test Week", goal: "Prove sustainable pace", deloadWeek: false };
+  }
+  if (week <= 4) return { block: "Block 1", goal: "Build aerobic base", deloadWeek: week === 4 };
+  if (week <= 8) return { block: "Block 2", goal: "Improve threshold", deloadWeek: week === 8 };
+  if (week <= 12) return { block: "Block 3", goal: "Develop speed", deloadWeek: week === 12 };
+  return { block: "Block 4", goal: "Reach sustainable goal pace", deloadWeek: week % 4 === 0 && week !== totalWeeks };
+}
+
+function buildStructuredPaces(builder, targets, week, totalWeeks) {
+  const ratio = totalWeeks <= 1 ? 1 : (week - 1) / (totalWeeks - 1);
+  const easyStart = targets.easySeconds;
+  const goalSeconds = parsePaceToSeconds(builder.targetSustainablePace);
+  const easyEnd = goalSeconds ? goalSeconds + 45 : easyStart - 90;
+  const easyBase = interpolate(easyStart, easyEnd, ratio);
+  const tempoBase = goalSeconds ? interpolate(easyStart - 45, goalSeconds, ratio) : easyBase - 60;
+  const intervalBase = goalSeconds ? interpolate(easyStart - 90, goalSeconds - 30, ratio) : easyBase - 100;
+
+  return {
+    recovery: paceRangeFromSeconds(easyBase + 30, easyBase + 60, builder.unit),
+    easy: paceRangeFromSeconds(easyBase, easyBase + 30, builder.unit),
+    long: paceRangeFromSeconds(easyBase + 15, easyBase + 45, builder.unit),
+    tempo: week === totalWeeks && goalSeconds ? formatPace(goalSeconds, builder.unit) : paceRangeFromSeconds(tempoBase - 5, tempoBase + 10, builder.unit),
+    interval: paceRangeFromSeconds(intervalBase - 10, intervalBase + 10, builder.unit),
+    finalTest: goalSeconds ? formatPace(goalSeconds, builder.unit) : paceRangeFromSeconds(tempoBase - 5, tempoBase + 10, builder.unit),
+    stretch: goalSeconds ? paceRangeFromSeconds(goalSeconds - 15, goalSeconds - 10, builder.unit) : paceRangeFromSeconds(tempoBase - 20, tempoBase - 10, builder.unit)
+  };
+}
+
+function buildIntervalPrescription(week, paces, deloadWeek, totalWeeks) {
+  if (week === totalWeeks) return `4 x 800m @ ${paces.interval}`;
+  if (deloadWeek) return week <= 4 ? `5 x 400m @ ${paces.interval}` : `5 x 600m @ ${paces.interval}`;
+
+  const options = [
+    `6 x 400m @ ${paces.interval}`,
+    `7 x 400m @ ${paces.interval}`,
+    `5 x 600m @ ${paces.interval}`,
+    `6 x 600m @ ${paces.interval}`,
+    `8 x 400m @ ${paces.interval}`,
+    `5 x 800m @ ${paces.interval}`,
+    `6 x 800m @ ${paces.interval}`,
+    `5 x 1km @ ${paces.interval}`,
+    `6 x 1km @ ${paces.interval}`,
+    `5 x 1200m @ ${paces.interval}`,
+    `8 x 800m @ ${paces.interval}`
+  ];
+  return options[Math.min(options.length - 1, week - 1)];
+}
+
+function buildStructuredRunningPlan(builder, targets) {
+  const totalWeeks = parseNumber(builder.weeks, 16);
+  const days = ["Mon", "Tue", "Wed", "Thu", "Sat", "Sun"];
+  const baseEasy = Math.max(4, Math.round(parseNumber(builder.longestRunDistance, 5) * 0.8));
+  const baseLong = Math.max(6, Math.round(parseNumber(builder.longestRunDistance, 6)));
+  const peakLong = Math.max(baseLong + 10, Math.round(baseLong * 3.2));
+
+  const weeklyPlans = Array.from({ length: totalWeeks }, (_, weekIndex) => {
+    const week = weekIndex + 1;
+    const meta = getRunningBlockMeta(week, totalWeeks);
+    const ratio = totalWeeks <= 1 ? 1 : weekIndex / (totalWeeks - 1);
+    const buildStep = meta.deloadWeek ? Math.max(0, ratio - 0.16) : ratio;
+    const paces = buildStructuredPaces(builder, targets, week, totalWeeks);
+    const easyDistance = Math.round(interpolate(baseEasy, baseEasy + 4, buildStep));
+    const recoveryDistance = Math.max(3, Math.round(interpolate(3, 5, buildStep)));
+    const tempoDistance = week === totalWeeks ? 5 : Math.max(3, Math.round(interpolate(3, 10, buildStep)));
+    const longDistance = week === totalWeeks ? Math.max(10, Math.round(peakLong * 0.75)) : Math.round(interpolate(baseLong, peakLong, buildStep));
+    const slowDistance = recoveryDistance;
+    const intervalSummary = buildIntervalPrescription(week, paces, meta.deloadWeek, totalWeeks);
+
+    const sessions = [
+      {
+        day: days[0],
+        type: "Easy",
+        title: `Week ${week} Easy Run`,
+        summary: `${easyDistance}${builder.unit} @ ${paces.easy}`,
+        target: "Z2. If pace and HR conflict, use HR.",
+        note: "Aerobic base work. Finish with control."
+      },
+      {
+        day: days[1],
+        type: "Intervals",
+        title: `Week ${week} Interval Run`,
+        summary: `${intervalSummary}. 90 sec walk or easy jog recovery.`,
+        target: "Z4-Z5 on reps. Use HR if it rises above the intended zone.",
+        note: "Fast, repeatable reps with full control."
+      },
+      {
+        day: days[2],
+        type: "Recovery",
+        title: `Week ${week} Recovery Run`,
+        summary: `${recoveryDistance}${builder.unit} @ ${paces.recovery}`,
+        target: "Z1. Keep this deliberately slow.",
+        note: "This should restore the legs, not test them."
+      },
+      {
+        day: days[3],
+        type: "Tempo",
+        title: `Week ${week} Tempo Run`,
+        summary: `${tempoDistance}${builder.unit} @ ${paces.tempo}`,
+        target: "Z3-Z4. Use HR if pace feels too aggressive.",
+        note: "Strong and sustainable, not all-out."
+      },
+      {
+        day: days[4],
+        type: "Long run",
+        title: `Week ${week} Long Run`,
+        summary: `${longDistance}${builder.unit} @ ${paces.long}`,
+        target: "Z2. Keep the long run aerobic.",
+        note: "Build endurance without racing the distance."
+      },
+      {
+        day: days[5],
+        type: "Recovery",
+        title: week === totalWeeks ? "Final 5km Time Trial" : `Week ${week} Slow Recovery Run`,
+        summary:
+          week === totalWeeks
+            ? `5${builder.unit} time trial. Goal ${paces.finalTest}; stretch ${paces.stretch}.`
+            : `${slowDistance}${builder.unit} easy @ ${paces.recovery}`,
+        target: week === totalWeeks ? "Build into Z4-Z5 only if controlled." : "Z1-Z2.",
+        note: week === totalWeeks ? "Use this to benchmark the next running goal." : "Slow enough to protect the next week."
+      }
+    ];
+
+    const totalDistance = sessions.reduce((total, session) => {
+      const distanceMatch = session.summary.match(/^(\d+(?:\.\d+)?)/);
+      return total + (distanceMatch ? Number(distanceMatch[1]) : 0);
+    }, 0);
+
+    return {
+      week,
+      ...meta,
+      totalDistance: Math.round(totalDistance * 10) / 10,
+      longRunDistance: longDistance,
+      paces,
+      sessions
+    };
+  });
+
+  const workouts = weeklyPlans.flatMap((weekPlan) =>
+    weekPlan.sessions.map((session, sessionIndex) => ({
+      ...session,
+      id: `running-${weekPlan.week}-${sessionIndex}`,
+      week: weekPlan.week,
+      weekLabel: `Week ${weekPlan.week}`,
+      block: weekPlan.block,
+      blockGoal: weekPlan.goal,
+      planSummary: `${session.day} - ${session.type}: ${session.summary} - ${session.target}`
+    }))
+  );
+
+  return {
+    weeks: weeklyPlans,
+    workouts,
+    progression: buildPaceZoneProgression(builder, targets),
+    targetSource: targets.source,
+    structure: "Six-day performance block",
+    stats: {
+      firstWeek: weeklyPlans[0]?.totalDistance || 0,
+      finalWeek: weeklyPlans[weeklyPlans.length - 1]?.totalDistance || 0,
+      longestRun: Math.max(...weeklyPlans.map((week) => week.longRunDistance)),
+      sessions: workouts.length
+    }
+  };
+}
+
 function buildRunningPlan(builder) {
   const weeks = parseNumber(builder.weeks, 8);
   const daysPerWeek = parseNumber(builder.daysPerWeek, 3);
@@ -257,6 +430,10 @@ function buildRunningPlan(builder) {
   const days = selectRunningDays(builder);
   const targets = deriveRunningTargets(builder);
   const progression = buildPaceZoneProgression(builder, targets);
+
+  if (daysPerWeek >= 6) {
+    return buildStructuredRunningPlan({ ...builder, daysPerWeek }, targets);
+  }
 
   const weeklyPlans = Array.from({ length: weeks }, (_, weekIndex) => {
     const week = weekIndex + 1;
@@ -596,7 +773,7 @@ export function PlansScreen({ role = "normal_user", user }) {
       scheduleEnabled: true,
       workouts: planWorkouts,
       instructions:
-        `Running targets are generated from ${runningPlan.targetSource.toLowerCase()}. Use pace when known, otherwise use zone or RPE. Keep easy and long runs controlled, and only push the quality run.`
+        `Running targets are generated from ${runningPlan.targetSource.toLowerCase()}. If pace and heart-rate zone conflict, use heart-rate zone. Keep easy, recovery, and long runs controlled, and only push the quality sessions.`
     });
     setEditingPlanId(null);
     setShowImport(false);
@@ -1161,6 +1338,18 @@ export function PlansScreen({ role = "normal_user", user }) {
                 />
               </label>
               <label>
+                Goal pace optional
+                <input
+                  inputMode="text"
+                  onChange={(event) => updateRunningBuilder({ targetSustainablePace: event.target.value })}
+                  placeholder={`e.g. 5:30 /${runningBuilder.unit}`}
+                  value={runningBuilder.targetSustainablePace}
+                />
+              </label>
+            </div>
+
+            <div className="running-field-grid">
+              <label>
                 Current weekly distance
                 <input
                   min="0"
@@ -1260,9 +1449,11 @@ export function PlansScreen({ role = "normal_user", user }) {
               <p className="eyebrow">Run mix</p>
               <h2>{runningBuilder.daysPerWeek} runs per week</h2>
               <p>
-                {runningBuilder.daysPerWeek === 2
-                  ? "One controlled quality or easy run plus one long easy run."
-                  : "One quality run, easy support runs, and one long easy run each week."}
+                {runningBuilder.daysPerWeek >= 6
+                  ? "Monday easy, Tuesday intervals, Wednesday recovery, Thursday tempo, Friday rest, Saturday long, Sunday slow recovery."
+                  : runningBuilder.daysPerWeek === 2
+                    ? "One controlled quality or easy run plus one long easy run."
+                    : "One quality run, easy support runs, and one long easy run each week."}
               </p>
             </div>
 
@@ -1284,8 +1475,16 @@ export function PlansScreen({ role = "normal_user", user }) {
                     </div>
                     <dl>
                       <div>
+                        <dt>Recovery</dt>
+                        <dd>{step.recovery || "Z1 / RPE 2-3"}</dd>
+                      </div>
+                      <div>
                         <dt>Easy</dt>
                         <dd>{step.easy}</dd>
+                      </div>
+                      <div>
+                        <dt>Long Run</dt>
+                        <dd>{step.long || step.easy}</dd>
                       </div>
                       <div>
                         <dt>Tempo</dt>
@@ -1306,8 +1505,9 @@ export function PlansScreen({ role = "normal_user", user }) {
                 <article className="running-week-card" key={weekPlan.week}>
                   <div className="running-week-head">
                     <div>
-                      <span>{weekPlan.deloadWeek ? "Recovery week" : "Training week"}</span>
+                      <span>{weekPlan.deloadWeek ? "Deload week" : weekPlan.block || "Training week"}</span>
                       <strong>Week {weekPlan.week}</strong>
+                      {weekPlan.goal ? <small>{weekPlan.goal}</small> : null}
                     </div>
                     <em>{weekPlan.totalDistance}{runningBuilder.unit}</em>
                   </div>

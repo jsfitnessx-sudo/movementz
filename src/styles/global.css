@@ -5145,7 +5145,7 @@ button {
 
 .running-chip-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -5238,6 +5238,12 @@ button {
   gap: 2px;
 }
 
+.running-week-head small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .running-week-head em {
   color: var(--teal);
   font-style: normal;
@@ -5283,7 +5289,7 @@ button {
 
 .running-progression-card dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
 }
