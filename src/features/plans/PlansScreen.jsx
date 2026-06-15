@@ -162,10 +162,12 @@ function deriveRunningTargets(builder) {
 function buildPaceZoneProgression(builder, targets) {
   const easySeconds = targets.easySeconds;
   const goalSeconds = parsePaceToSeconds(builder.targetSustainablePace);
+  const totalWeeks = parseNumber(builder.weeks, 16);
+  const middleWeek = Math.max(1, Math.ceil(totalWeeks / 2));
   const checkpoints = [
     { label: "Week 1", effort: "Base", ratio: 0, zone: "Z1-Z2 mostly", rpe: "RPE 2-6" },
-    { label: "Week 8", effort: "Threshold", ratio: 0.48, zone: "Z2-Z4", rpe: "RPE 3-8" },
-    { label: "Week 16", effort: "Peak", ratio: 1, zone: "Z2 easy, Z4-Z5 hard", rpe: "RPE 3-9" }
+    { label: `Week ${middleWeek}`, effort: totalWeeks <= 6 ? "Build" : "Threshold", ratio: totalWeeks <= 1 ? 1 : (middleWeek - 1) / (totalWeeks - 1), zone: "Z2-Z4", rpe: "RPE 3-8" },
+    { label: `Week ${totalWeeks}`, effort: totalWeeks <= 6 ? "Finish" : "Peak", ratio: 1, zone: "Z2 easy, Z4-Z5 hard", rpe: "RPE 3-9" }
   ];
 
   return checkpoints.map((checkpoint) => {
@@ -198,30 +200,69 @@ function buildRunningSession({ builder, day, distance, index, targets, week, wee
   const easyMinutes = Math.max(16, Math.round(parseNumber(builder.currentRunMinutes, 25) * weekFactor));
   const distanceLabel = `${roundedDistance}${builder.unit}`;
   const runWalkNote = builder.includeRunWalk ? "Use run/walk intervals as needed to keep the effort controlled." : "Keep the effort smooth enough to finish strong.";
+  const intervalOptions = [
+    `8 x 300m @ ${targets.interval}, 90 sec walk`,
+    `6 x 400m @ ${targets.interval}, 90 sec walk`,
+    `5 x 600m @ ${targets.interval}, 2 min easy`,
+    `4 x 800m @ ${targets.interval}, 2 min easy`
+  ];
+  const planTypes = {
+    2: ["Quality", "Long run"],
+    3: ["Intervals", "Easy", "Long run"],
+    4: ["Intervals", "Easy", "Tempo", "Long run"],
+    5: ["Intervals", "Easy", "Tempo", "Long run", "Recovery"]
+  };
+  const type = (planTypes[Math.min(builder.daysPerWeek, 5)] || planTypes[3])[index] || "Easy";
 
-  if (index === 0 && builder.daysPerWeek >= 3) {
-    const intervalOptions = [
-      "6 x 1 min hard, 90 sec easy",
-      "5 x 2 min hard, 2 min easy",
-      "4 x 3 min hard, 2 min easy",
-      "8 x 1 min hard, 75 sec easy"
-    ];
-    const tempoMinutes = Math.min(28, 10 + week * 2);
+  if (type === "Quality") {
     const isTempo = week % 2 === 0;
+    if (isTempo) {
+      const tempoMinutes = Math.min(28, 10 + week * 2);
+      return {
+        day,
+        target: targets.tempo,
+        title: `Week ${week} Tempo Run`,
+        summary: `${distanceLabel} total - 10 min easy, ${tempoMinutes} min tempo, easy cool down`,
+        note: "Tempo should feel strong but repeatable, not a race.",
+        type: "Tempo"
+      };
+    }
 
     return {
       day,
-      target: isTempo ? targets.tempo : targets.interval,
-      title: isTempo ? `Week ${week} Tempo Run` : `Week ${week} Interval Run`,
-      summary: isTempo
-        ? `${distanceLabel} total - 10 min easy, ${tempoMinutes} min tempo, easy cool down`
-        : `${distanceLabel} total - ${intervalOptions[(week - 1) % intervalOptions.length]}`,
-      note: isTempo ? "Tempo should feel strong but repeatable, not a race." : "Recover easy enough that the last rep still has good form.",
-      type: isTempo ? "Tempo" : "Intervals"
+      target: targets.interval,
+      title: `Week ${week} Interval Run`,
+      summary: `${distanceLabel} total - ${intervalOptions[(week - 1) % intervalOptions.length]}`,
+      note: "Run the reps fast but repeatable. Walk or jog until breathing is controlled.",
+      type: "Intervals"
     };
   }
 
-  if (index === builder.daysPerWeek - 1) {
+  if (type === "Intervals") {
+    return {
+      day,
+      target: targets.interval,
+      title: `Week ${week} Interval Run`,
+      summary: `${distanceLabel} total - ${intervalOptions[(week - 1) % intervalOptions.length]}`,
+      note: "Run the reps fast but repeatable. Walk or jog until breathing is controlled.",
+      type: "Intervals"
+    };
+  }
+
+  if (type === "Tempo") {
+    const tempoMinutes = Math.min(28, 10 + week * 2);
+
+    return {
+      day,
+      target: targets.tempo,
+      title: `Week ${week} Tempo Run`,
+      summary: `${distanceLabel} total - 10 min easy, ${tempoMinutes} min tempo, easy cool down`,
+      note: "Tempo should feel strong but repeatable, not a race.",
+      type: "Tempo"
+    };
+  }
+
+  if (type === "Long run") {
     return {
       day,
       target: targets.long,
@@ -232,14 +273,25 @@ function buildRunningSession({ builder, day, distance, index, targets, week, wee
     };
   }
 
-  if (builder.daysPerWeek >= 4 && index === 2) {
+  if (type === "Recovery") {
     return {
       day,
-      target: week % 3 === 0 ? targets.tempo : targets.strides,
-      title: week % 3 === 0 ? `Week ${week} Steady Tempo` : `Week ${week} Easy Run + Strides`,
-      summary: week % 3 === 0 ? `${distanceLabel} steady progression` : `${easyMinutes} min easy + 4-6 x 20 sec strides`,
-      note: week % 3 === 0 ? "Finish slightly quicker than you start without forcing pace." : "Strides are quick and relaxed, not sprints.",
-      type: week % 3 === 0 ? "Tempo" : "Easy"
+      target: targets.long.replace("Zone 2", "Zone 1-2"),
+      title: `Week ${week} Recovery Run`,
+      summary: `${distanceLabel} very easy run`,
+      note: "Keep this deliberately slow so it supports the harder runs.",
+      type: "Recovery"
+    };
+  }
+
+  if (builder.daysPerWeek >= 4 && type === "Easy" && week % 3 === 0) {
+    return {
+      day,
+      target: targets.strides,
+      title: `Week ${week} Easy Run + Strides`,
+      summary: `${easyMinutes} min easy + 4-6 x 20 sec strides`,
+      note: "Strides are quick and relaxed, not sprints.",
+      type: "Easy"
     };
   }
 
@@ -408,7 +460,7 @@ function buildStructuredRunningPlan(builder, targets) {
     weeks: weeklyPlans,
     workouts,
     progression: buildPaceZoneProgression(builder, targets),
-    targetSource: targets.source,
+    targetSource: `${targets.source} - ${totalWeeks}w / 6 runs`,
     structure: "Six-day performance block",
     stats: {
       firstWeek: weeklyPlans[0]?.totalDistance || 0,
@@ -473,7 +525,7 @@ function buildRunningPlan(builder) {
     weeks: weeklyPlans,
     workouts,
     progression,
-    targetSource: targets.source,
+    targetSource: `${targets.source} - ${weeks}w / ${daysPerWeek} runs`,
     stats: {
       firstWeek: weeklyPlans[0]?.totalDistance || 0,
       finalWeek: weeklyPlans[weeklyPlans.length - 1]?.totalDistance || 0,
@@ -1452,8 +1504,12 @@ export function PlansScreen({ role = "normal_user", user }) {
                 {runningBuilder.daysPerWeek >= 6
                   ? "Monday easy, Tuesday intervals, Wednesday recovery, Thursday tempo, Friday rest, Saturday long, Sunday slow recovery."
                   : runningBuilder.daysPerWeek === 2
-                    ? "One controlled quality or easy run plus one long easy run."
-                    : "One quality run, easy support runs, and one long easy run each week."}
+                    ? "One quality run alternating intervals and tempo, plus one long easy run."
+                    : runningBuilder.daysPerWeek === 3
+                      ? "Intervals, easy support, and one long run each week."
+                      : runningBuilder.daysPerWeek === 4
+                        ? "Intervals, easy support, tempo, and one long run each week."
+                        : "Intervals, easy support, tempo, long run, and recovery each week."}
               </p>
             </div>
 
