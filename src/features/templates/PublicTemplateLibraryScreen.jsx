@@ -22,36 +22,27 @@ function formatExerciseLine(exercise, workoutType) {
 
 const templateCategories = [
   { id: "all", label: "All ideas", icon: "All", help: "Every template", keywords: [] },
-  { id: "beginner", label: "Beginner", icon: "1", help: "Simple gym starts", keywords: ["beginner", "starter", "entry"] },
-  { id: "strength", label: "Strength", icon: "STR", help: "Sets and reps", keywords: ["strength", "machine", "dumbbell", "upper", "lower"] },
-  { id: "hiit", label: "HIIT", icon: "HIIT", help: "Intervals", keywords: ["hiit", "interval", "for time", "conditioning"] },
-  { id: "upper", label: "Upper body", icon: "UP", help: "Chest, back, arms", keywords: ["upper", "chest", "back", "shoulder", "arms"] },
-  { id: "lower", label: "Lower body", icon: "LOW", help: "Legs and glutes", keywords: ["lower", "legs", "glutes", "booty"] },
-  { id: "core", label: "Core", icon: "CORE", help: "Abs and trunk", keywords: ["core", "abs"] }
+  { id: "beginner_gym", label: "Beginner Gym", icon: "BG", help: "New to training", keywords: [] },
+  { id: "strength", label: "Strength", icon: "STR", help: "Sets and reps", keywords: [] },
+  { id: "hiit", label: "HIIT", icon: "HIIT", help: "Intervals", keywords: [] },
+  { id: "upper_body", label: "Upper Body", icon: "UP", help: "Chest, back, arms", keywords: [] },
+  { id: "lower_body", label: "Lower Body", icon: "LOW", help: "Legs and glutes", keywords: [] },
+  { id: "full_body", label: "Full Body", icon: "FULL", help: "Everything covered", keywords: [] },
+  { id: "glutes", label: "Glutes", icon: "GLU", help: "Glute focused", keywords: [] },
+  { id: "core", label: "Core", icon: "CORE", help: "Abs and trunk", keywords: [] }
 ];
 
-function templateSearchText(template) {
-  const exercises = Array.isArray(template.workout_template_exercises) ? template.workout_template_exercises : [];
-  return [
-    template.name,
-    template.notes,
-    formatTemplateType(template),
-    ...exercises.flatMap((exercise) => [exercise.exercise_name, exercise.muscle_group])
-  ].filter(Boolean).join(" ").toLowerCase();
+function templateCategoryId(template) {
+  const match = (template.notes || "").toLowerCase().match(/category:([a-z_]+)/);
+  return match?.[1] || "";
 }
 
 function matchesTemplateCategory(template, categoryId) {
   if (categoryId === "all") return true;
-  const category = templateCategories.find((item) => item.id === categoryId);
-  if (!category) return true;
-  const text = templateSearchText(template);
-  if (categoryId === "hiit") return template.workout_type === "hiit" || category.keywords.some((keyword) => text.includes(keyword));
-  if (categoryId === "strength") return template.workout_type !== "hiit" && category.keywords.some((keyword) => text.includes(keyword));
-  return category.keywords.some((keyword) => text.includes(keyword));
+  return templateCategoryId(template) === categoryId;
 }
 
 export function PublicTemplateLibraryScreen({ onBack, user }) {
-  const [templateType, setTemplateType] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(Boolean(supabase));
@@ -86,7 +77,7 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
       setLoading(true);
       setMessage("");
       const { data, error } = await supabase.rpc("get_public_workout_templates", {
-        template_kind: templateType
+        template_kind: "all"
       });
 
       if (!alive) return;
@@ -102,7 +93,7 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
     return () => {
       alive = false;
     };
-  }, [templateType, user.id]);
+  }, [user.id]);
 
   async function copyTemplate(template) {
     if (!supabase || user.id === "demo-user") return;
@@ -146,23 +137,6 @@ export function PublicTemplateLibraryScreen({ onBack, user }) {
             <strong>{category.label}</strong>
             <small>{category.help}</small>
             <em>{categoryCounts[category.id] || 0} workouts</em>
-          </button>
-        ))}
-      </div>
-
-      <div className="library-tabs template-kind-tabs">
-        {[
-          ["all", "All"],
-          ["strength", "Strength"],
-          ["hiit", "HIIT"]
-        ].map(([value, label]) => (
-          <button
-            className={templateType === value ? "active" : ""}
-            key={value}
-            onClick={() => setTemplateType(value)}
-            type="button"
-          >
-            {label}
           </button>
         ))}
       </div>
