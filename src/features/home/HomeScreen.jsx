@@ -97,6 +97,35 @@ function normalisePlan(assignment, source) {
   };
 }
 
+function localDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function planWeekNumberForDate(entry, dateKey) {
+  if (!entry?.window?.start || !dateKey) return 1;
+  const target = new Date(`${dateKey}T12:00:00`);
+  if (Number.isNaN(target.getTime())) return 1;
+  const weekNumber = Math.floor((target.getTime() - entry.window.start.getTime()) / 604800000) + 1;
+  return Math.min(Number(entry.plan?.block_weeks) || 4, Math.max(1, weekNumber));
+}
+
+function runningWorkoutWeek(workout) {
+  if (workout?.workout_type !== "running") return null;
+  const label = `${workout.name || ""} ${workout.summary || ""}`;
+  const match = label.match(/\bWeek\s+(\d{1,2})\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+function isWorkoutScheduledForDay(workout, entry, day, dateKey) {
+  const days = Array.isArray(workout.scheduled_days) ? workout.scheduled_days : [];
+  if (!days.includes(day)) return false;
+
+  const runWeek = runningWorkoutWeek(workout);
+  if (!runWeek) return true;
+
+  return runWeek === planWeekNumberForDate(entry, dateKey);
+}
+
 function formatTodayDate() {
   return new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -115,7 +144,9 @@ function countMoodStreak(logs) {
 }
 
 function buildScheduledSessions(ownPlans, assignedPlans) {
-  const selectedDay = new Date().toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3);
+  const today = new Date();
+  const selectedDay = today.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 3);
+  const selectedDate = localDateKey(today);
   const activePlans = [
     ...ownPlans.map((plan) => normalisePlan(plan, "own")),
     ...assignedPlans.map((assignment) => normalisePlan(assignment, "assigned"))
@@ -124,10 +155,7 @@ function buildScheduledSessions(ownPlans, assignedPlans) {
   const sessions = activePlans.flatMap((entry) => {
     const plan = entry.plan;
     return (plan.training_plan_workouts || [])
-      .filter((workout) => {
-        const days = Array.isArray(workout.scheduled_days) ? workout.scheduled_days : [];
-        return days.includes(selectedDay);
-      })
+      .filter((workout) => isWorkoutScheduledForDay(workout, entry, selectedDay, selectedDate))
       .map((workout) => ({
         id: workout.id || `${plan.id}-${workout.position}`,
         name: workout.name || "Scheduled workout",

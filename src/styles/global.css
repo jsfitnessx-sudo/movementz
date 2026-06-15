@@ -5094,28 +5094,6 @@ button {
   gap: 8px;
 }
 
-.running-builder-cta {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--teal) 42%, var(--line));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--teal) 10%, #ffffff);
-}
-
-.running-builder-cta h2 {
-  margin: 2px 0 4px;
-  color: var(--text);
-  font-size: 20px;
-}
-
-.running-builder-cta p {
-  margin: 0;
-  color: var(--muted);
-}
-
 .running-builder-layout {
   display: grid;
   grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.15fr);
@@ -9182,16 +9160,11 @@ button {
     padding: 14px;
   }
 
-  .running-builder-cta,
   .running-builder-layout,
   .running-field-grid,
   .running-summary-grid,
   .running-progression-card dl {
     grid-template-columns: 1fr;
-  }
-
-  .running-builder-cta {
-    align-items: stretch;
   }
 
   .running-chip-row {

@@ -1887,19 +1887,6 @@ export function PlansScreen({ role = "normal_user", user }) {
       {loading ? <p className="form-message success">Loading plans...</p> : null}
       {loadingDetail ? <p className="form-message success">Loading plan...</p> : null}
 
-      {role !== "client" || planLibraryView === "library" ? (
-        <section className="running-builder-cta">
-          <div>
-            <p className="eyebrow">Running plans</p>
-            <h2>Build a run block</h2>
-            <p>Generate easy runs, intervals, tempo work, and long runs from current ability, pace or zone targets, and available training days.</p>
-          </div>
-          <button className="primary-action compact filled" onClick={startRunningBuilder} type="button">
-            Open
-          </button>
-        </section>
-      ) : null}
-
       {role === "client" ? (
         <div className="library-view-tabs" role="tablist" aria-label="Plan library view">
           <button

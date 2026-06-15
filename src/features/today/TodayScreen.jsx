@@ -57,6 +57,31 @@ function dateForWeekday(dayLabel) {
   return localDateKey(target);
 }
 
+function planWeekNumberForDate(entry, dateKey) {
+  if (!entry?.window?.start || !dateKey) return 1;
+  const target = new Date(`${dateKey}T12:00:00`);
+  if (Number.isNaN(target.getTime())) return 1;
+  const weekNumber = Math.floor((target.getTime() - entry.window.start.getTime()) / 604800000) + 1;
+  return Math.min(Number(entry.plan?.block_weeks) || 4, Math.max(1, weekNumber));
+}
+
+function runningWorkoutWeek(workout) {
+  if (workout?.workout_type !== "running") return null;
+  const label = `${workout.name || ""} ${workout.summary || ""}`;
+  const match = label.match(/\bWeek\s+(\d{1,2})\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+function isWorkoutScheduledForDay(workout, entry, day, dateKey) {
+  const days = Array.isArray(workout.scheduled_days) ? workout.scheduled_days : [];
+  if (!days.includes(day)) return false;
+
+  const runWeek = runningWorkoutWeek(workout);
+  if (!runWeek) return true;
+
+  return runWeek === planWeekNumberForDate(entry, dateKey);
+}
+
 function normalisePlan(assignment, source) {
   const plan = source === "assigned" ? assignment.plan || {} : assignment;
   const window = getPlanWindow(plan, assignment.assigned_at);
@@ -104,10 +129,7 @@ export function TodayScreen({ role, user }) {
     return activePlans.flatMap((entry) => {
       const plan = entry.plan;
       return (plan.training_plan_workouts || [])
-        .filter((workout) => {
-          const days = Array.isArray(workout.scheduled_days) ? workout.scheduled_days : [];
-          return days.includes(selectedDay);
-        })
+        .filter((workout) => isWorkoutScheduledForDay(workout, entry, selectedDay, selectedDate))
         .map((workout) => ({
           ...workout,
           assigned: entry.source === "assigned",
@@ -120,7 +142,7 @@ export function TodayScreen({ role, user }) {
           sourceKey: `${entry.source}-${entry.assignmentId}`
         }));
     }).sort((a, b) => (a.position || 0) - (b.position || 0));
-  }, [activePlans, selectedDay]);
+  }, [activePlans, selectedDate, selectedDay]);
 
   const dayCounts = useMemo(() => {
     return Object.fromEntries(
@@ -128,7 +150,7 @@ export function TodayScreen({ role, user }) {
         day,
         activePlans.reduce((count, entry) => {
           const workouts = entry.plan.training_plan_workouts || [];
-          return count + workouts.filter((workout) => Array.isArray(workout.scheduled_days) && workout.scheduled_days.includes(day)).length;
+          return count + workouts.filter((workout) => isWorkoutScheduledForDay(workout, entry, day, dateForWeekday(day))).length;
         }, 0)
       ])
     );
