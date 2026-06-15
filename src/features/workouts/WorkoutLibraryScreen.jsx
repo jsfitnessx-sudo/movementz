@@ -386,6 +386,11 @@ function createSessionRows(exercise, previousRows = []) {
   }));
 }
 
+function uuidOrNull(value) {
+  const text = String(value || "");
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text) ? text : null;
+}
+
 function getPreviousSetChips(exercise) {
   return exercise.previousSets || [];
 }
@@ -3607,7 +3612,7 @@ export function WorkoutLibraryScreen({
           const exercise = workoutExercises[split.exerciseIndex] || {};
           return {
             session_id: sessionId,
-            workout_template_exercise_id: exercise.id || null,
+            workout_template_exercise_id: uuidOrNull(exercise.id),
             position: index + 1,
             exercise_name: split.exerciseName || exercise.exercise_name || `Station ${index + 1}`,
             muscle_group: exercise.muscle_group || activeWorkout.hiit_focus_area || null,
@@ -3955,7 +3960,7 @@ export function WorkoutLibraryScreen({
         .from("session_log_exercises")
         .insert({
           session_id: sessionLog.id,
-          workout_template_exercise_id: exercise.id || null,
+          workout_template_exercise_id: uuidOrNull(exercise.id),
           position: exerciseIndex + 1,
           exercise_name: exercise.exercise_name,
           original_exercise_name: exercise.original_exercise_name || exercise.exercise_name,
